@@ -1,0 +1,61 @@
+{
+  "siteName": "Jonathan's Photobooth",
+
+  "publicBaseUrl": "https://unnoticed-kiara-untired.ngrok-free.dev",
+  "saveApiUrl": "/api/save",
+
+  "templates": [
+    {
+      "name": "Template 1",
+      "file": "templates/template-1.png",
+      "preview": "templates/template-1.png",
+      "width": 1080,
+      "height": 1920,
+      "slots": [
+        { "x": 100, "y": 100 },
+        { "x": 100, "y": 639 },
+        { "x": 100, "y": 1178 }
+      ]
+    },
+    {
+      "name": "Template 2",
+      "file": "templates/template-2.png",
+      "preview": "templates/template-2.png",
+      "width": 1080,
+      "height": 1920,
+      "slots": [
+        { "x": 100, "y": 100 },
+        { "x": 100, "y": 639 },
+        { "x": 100, "y": 1178 }
+      ]
+    },
+    {
+      "name": "Template 3",
+      "file": "templates/template-3.png",
+      "preview": "templates/template-3.png",
+      "width": 1080,
+      "height": 1920,
+      "slots": [
+        { "x": 100, "y": 100 },
+        { "x": 100, "y": 639 },
+        { "x": 100, "y": 1178 }
+      ]
+    }
+  ],
+
+  "capture": {
+    "totalShots": 3,
+    "photoWidth": 880,
+    "photoHeight": 495
+  },
+
+  "countdown": {
+    "seconds": 3,
+    "stepMs": 500
+  },
+
+  "qr": {
+    "size": 300,
+    "margin": 1
+  }
+}

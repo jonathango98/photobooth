@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Photobooth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- CAMERA / IDLE SCREEN (single screen) -->
+  <div id="idle-screen" class="screen active">
+    <canvas id="camera-canvas"></canvas>
+    <!-- Static text so first load is not blank -->
+    <h1 id="idle-text">PRESS TO START</h1>
+    <!-- Hidden video source -->
+    <video id="video" autoplay playsinline style="display:none;"></video>
+  </div>
+
+  <!-- TEMPLATE SELECTION SCREEN -->
+  <div id="template-screen" class="screen">
+    <div class="template-layout">
+      <h2>CHOOSE A TEMPLATE</h2>
+      <div id="template-grid" class="template-grid">
+        <!-- Templates will be injected here by main.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="result-screen" class="screen">
+    <div class="result-layout">
+      <div class="result-photo-wrap">
+        <canvas id="photo-canvas"></canvas>
+      </div>
+      <div class="result-qr-wrap">
+        <canvas id="qr-canvas" width="300" height="300"></canvas>
+        <button id="back-btn">Start Over</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
