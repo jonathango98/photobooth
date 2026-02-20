@@ -25,6 +25,7 @@ let animationFrameId = null;
 let currentCountdownText = "";   // "", "3", "2", "1", "SMILE!"
 let currentShotIndex = 0;        // shots taken so far: 0..CONFIG.capture.totalShots
 const capturedCanvases = [];     // raw shot canvases
+let selectedTemplateIndex = null; // new state for template selection
 
 // Preview of captured frame
 let frozenFrame = null;          // canvas of last captured image (same size as cameraCanvas)
@@ -318,6 +319,7 @@ async function populateTemplateScreen() {
 
   console.log('[TEMPLATE] Populating template screen with', CONFIG.templates.length, 'templates');
   templateGrid.innerHTML = ""; // Clear existing templates
+  selectedTemplateIndex = null; // Reset selection
 
   const templatePromises = CONFIG.templates.map(async (template, index) => {
     console.log('[TEMPLATE] Processing template:', template.name);
@@ -363,9 +365,26 @@ async function populateTemplateScreen() {
     });
 
     item.addEventListener("click", () => {
-      console.log(`[TEMPLATE] selected index: ${index}`);
-      buildTemplateCollage(index);
-      showScreen(resultScreen);
+      if (selectedTemplateIndex === index) {
+        // This item is already selected, so this is a confirmation click
+        console.log(`[TEMPLATE] confirmed index: ${index}`);
+        buildTemplateCollage(index);
+        showScreen(resultScreen);
+        selectedTemplateIndex = null; // Reset for next time
+      } else {
+        // This is a new selection
+        console.log(`[TEMPLATE] selected index: ${index}`);
+        // Remove 'selected' from previously selected item
+        if (selectedTemplateIndex !== null) {
+          const prevSelected = templateGrid.querySelector(`[data-template-index="${selectedTemplateIndex}"]`);
+          if (prevSelected) {
+            prevSelected.classList.remove("selected");
+          }
+        }
+        // Add 'selected' to current item and update state
+        item.classList.add("selected");
+        selectedTemplateIndex = index;
+      }
     });
   });
 
@@ -595,6 +614,7 @@ function attachEventListeners() {
     capturedCanvases.length = 0;
     frozenFrame = null;
     freezeUntil = 0;
+    selectedTemplateIndex = null; // Reset template selection
 
     // Clear QR canvas
     if (qrCanvas) {
