@@ -544,7 +544,7 @@ function renderQr(url) {
   }
 
   const size   = CONFIG?.qr?.size   ?? 300;
-  const margin = CONFIG?.qr?.margin ?? 1;
+  const margin = CONFIG?.qr?.margin ?? 4;
 
   console.log("[QR] rendering for:", url);
 
@@ -554,6 +554,10 @@ function renderQr(url) {
     {
       width: size,
       margin: margin,
+      color: {
+        dark: '#FFFFFF', // White foreground
+        light: '#2c2c2c' // Grey background
+      }
     },
     (error) => {
       if (error) {
