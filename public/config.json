@@ -1,7 +1,7 @@
 {
   "siteName": "Jonathan's Photobooth",
 
-  "publicBaseUrl": "https://unnoticed-kiara-untired.ngrok-free.dev",
+  "publicBaseUrl": "",
   "saveApiUrl": "/api/save",
 
   "templates": [

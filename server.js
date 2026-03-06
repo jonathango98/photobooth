@@ -1,9 +1,19 @@
 // server.js (ES Module)
 import express from "express";
 import path from "path";
-import fs from "fs";
 import multer from "multer";
 import { fileURLToPath } from "url";
+import { v2 as cloudinary } from "cloudinary";
+import "dotenv/config";
+
+// --------------------------
+// Cloudinary configuration
+// --------------------------
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // --------------------------
 // __dirname replacement in ESM
@@ -20,9 +30,6 @@ const PORT = process.env.PORT || 3000;
 // Serve frontend files (index.html, main.js, etc.)
 app.use(express.static(path.join(__dirname, "public")));
 
-// Serve saved photos so QR code links work
-app.use("/photos", express.static(path.join(__dirname, "photos")));
-
 // --------------------------
 // Multer setup (in-memory)
 // --------------------------
@@ -33,17 +40,23 @@ const upload = multer({
   },
 });
 
-// Ensure folders exist
-function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
+// Helper for uploading buffer to Cloudinary
+function uploadFromBuffer(buffer, folder, filename) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: folder,
+        public_id: filename.replace(/\.[^/.]+$/, ""), // Remove extension
+        resource_type: "auto",
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
 }
-
-const RAW_DIR = path.join(__dirname, "photos", "raw");
-const COLLAGE_DIR = path.join(__dirname, "photos", "collage");
-ensureDir(RAW_DIR);
-ensureDir(COLLAGE_DIR);
 
 // --------------------------
 // /api/save endpoint
@@ -55,7 +68,7 @@ const cpUpload = upload.fields([
   { name: "collage", maxCount: 1 },
 ]);
 
-app.post("/api/save", cpUpload, (req, res) => {
+app.post("/api/save", cpUpload, async (req, res) => {
   try {
     const files = req.files || {};
     console.log("Received files:", Object.keys(files));
@@ -63,22 +76,20 @@ app.post("/api/save", cpUpload, (req, res) => {
     // Simple session id for grouping
     const sessionId = Date.now().toString();
 
-    // 1) Save raw photos
+    // 1) Save raw photos to Cloudinary
     const rawFields = ["raw1", "raw2", "raw3"];
+    const uploadPromises = [];
 
     rawFields.forEach((fieldName, index) => {
       const fileArr = files[fieldName];
       if (!fileArr || fileArr.length === 0) return;
 
       const file = fileArr[0];
-      const rawFilename = `session_${sessionId}_raw${index + 1}.jpg`;
-      const rawPath = path.join(RAW_DIR, rawFilename);
-
-      fs.writeFileSync(rawPath, file.buffer);
-      console.log("Saved raw:", rawPath);
+      const rawFilename = `session_${sessionId}_raw${index + 1}`;
+      uploadPromises.push(uploadFromBuffer(file.buffer, "raw", rawFilename));
     });
 
-    // 2) Save collage
+    // 2) Save collage to Cloudinary
     const collageArr = files["collage"];
     if (!collageArr || collageArr.length === 0) {
       console.error("No collage file received");
@@ -86,14 +97,19 @@ app.post("/api/save", cpUpload, (req, res) => {
     }
 
     const collageFile = collageArr[0];
-    const collageFilename = `session_${sessionId}_collage.jpg`;
-    const collagePath = path.join(COLLAGE_DIR, collageFilename);
+    const collageFilename = `session_${sessionId}_collage`;
+    const collageUploadPromise = uploadFromBuffer(collageFile.buffer, "collage", collageFilename);
 
-    fs.writeFileSync(collagePath, collageFile.buffer);
-    console.log("Saved collage:", collagePath);
+    // Wait for all uploads to complete
+    const [collageResult] = await Promise.all([
+      collageUploadPromise,
+      ...uploadPromises,
+    ]);
+
+    console.log("Uploaded collage:", collageResult.secure_url);
 
     // 3) Build web URL for collage (for QR code)
-    const collageUrl = `/photos/collage/${collageFilename}`;
+    const collageUrl = collageResult.secure_url;
 
     // 4) Respond JSON (frontend expects .json() with collageUrl)
     res.json({
