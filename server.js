@@ -27,8 +27,56 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
 // Serve frontend files (index.html, main.js, etc.)
 app.use(express.static(path.join(__dirname, "public")));
+
+// --------------------------
+// Admin Middleware
+// --------------------------
+const checkAdmin = (req, res, next) => {
+  const password = req.headers["x-admin-password"];
+  if (password === process.env.ADMIN_PASSWORD) {
+    next();
+  } else {
+    res.status(401).send("Unauthorized");
+  }
+};
+
+// --------------------------
+// Admin API endpoints
+// --------------------------
+app.get("/api/admin/photos", checkAdmin, async (req, res) => {
+  try {
+    // List both 'collage' and 'raw' folders
+    const [collageRes, rawRes] = await Promise.all([
+      cloudinary.api.resources({ type: 'upload', prefix: 'collage/', max_results: 500 }),
+      cloudinary.api.resources({ type: 'upload', prefix: 'raw/', max_results: 500 })
+    ]);
+
+    res.json({
+      collages: collageRes.resources,
+      raws: rawRes.resources
+    });
+  } catch (err) {
+    console.error("Error listing photos:", err);
+    res.status(500).send("Error listing photos");
+  }
+});
+
+app.get("/api/admin/download-zip", checkAdmin, (req, res) => {
+  try {
+    // Generate a zip URL for all uploaded files
+    const url = cloudinary.utils.download_zip_url({
+      prefixes: ["collage/", "raw/"],
+      resource_type: "image",
+    });
+    res.json({ url });
+  } catch (err) {
+    console.error("Error generating zip URL:", err);
+    res.status(500).send("Error generating zip URL");
+  }
+});
 
 // --------------------------
 // Multer setup (in-memory)
