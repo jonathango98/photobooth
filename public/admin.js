@@ -6,8 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     const sessionsList = document.getElementById('sessions-list');
     const downloadZipBtn = document.getElementById('download-zip-btn');
+    const tabBtns = document.querySelectorAll('.tab-btn');
 
     let adminPassword = localStorage.getItem('adminPassword');
+    let photoData = { collages: [], raws: [] };
+    let currentTab = 'collages';
 
     if (adminPassword) {
         showAdminContent();
@@ -22,6 +25,15 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', () => {
         localStorage.removeItem('adminPassword');
         location.reload();
+    });
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentTab = btn.getAttribute('data-tab');
+            renderPhotos();
+        });
     });
 
     downloadZipBtn.addEventListener('click', async () => {
@@ -61,66 +73,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Failed to fetch photos');
             }
 
-            const data = await response.json();
-            renderPhotos(data);
+            photoData = await response.json();
+            renderPhotos();
         } catch (err) {
             console.error(err);
             alert('Error loading photos');
         }
     }
 
-    function renderPhotos(data) {
+    function renderPhotos() {
         const sessions = {};
 
-        // Helper to extract session ID from public_id
-        // e.g., collage/session_1741270119330_collage -> 1741270119330
         function getSessionId(publicId) {
             const match = publicId.match(/session_(\d+)/);
             return match ? match[1] : 'unknown';
         }
 
-        data.collages.forEach(photo => {
-            const sessionId = getSessionId(photo.public_id);
-            if (!sessions[sessionId]) sessions[sessionId] = { collage: null, raws: [] };
-            sessions[sessionId].collage = photo;
-        });
+        if (currentTab === 'collages') {
+            photoData.collages.forEach(photo => {
+                const sessionId = getSessionId(photo.public_id);
+                if (!sessions[sessionId]) sessions[sessionId] = [];
+                sessions[sessionId].push(photo);
+            });
+        } else {
+            photoData.raws.forEach(photo => {
+                const sessionId = getSessionId(photo.public_id);
+                if (!sessions[sessionId]) sessions[sessionId] = [];
+                sessions[sessionId].push(photo);
+            });
+        }
 
-        data.raws.forEach(photo => {
-            const sessionId = getSessionId(photo.public_id);
-            if (!sessions[sessionId]) sessions[sessionId] = { collage: null, raws: [] };
-            sessions[sessionId].raws.push(photo);
-        });
-
-        const sortedSessionIds = Object.keys(sessions).sort((a, b) => b - a); // Descending order
+        const sortedSessionIds = Object.keys(sessions).sort((a, b) => b - a);
 
         sessionsList.innerHTML = '';
+        if (sortedSessionIds.length === 0) {
+            sessionsList.innerHTML = '<p>No photos found in this category.</p>';
+            return;
+        }
+
         sortedSessionIds.forEach(sessionId => {
-            const session = sessions[sessionId];
+            const items = sessions[sessionId];
             const sessionDiv = document.createElement('div');
             sessionDiv.className = 'session';
             
             const date = sessionId === 'unknown' ? 'Unknown Date' : new Date(parseInt(sessionId)).toLocaleString();
             
-            let html = `<h3>Session: ${date} (ID: ${sessionId})</h3>`;
+            let html = `<h3>Session: ${date}</h3>`;
             html += `<div class="photo-grid">`;
 
-            if (session.collage) {
+            items.sort((a, b) => a.public_id.localeCompare(b.public_id)).forEach(item => {
+                const label = item.public_id.split('_').pop();
                 html += `
                     <div class="photo-item">
-                        <a href="${session.collage.secure_url}" target="_blank">
-                            <img src="${session.collage.secure_url}" alt="Collage">
+                        <a href="${item.secure_url}" target="_blank">
+                            <img src="${item.secure_url}" alt="${label}">
                         </a>
-                        <span class="label">Collage</span>
-                    </div>`;
-            }
-
-            session.raws.sort((a, b) => a.public_id.localeCompare(b.public_id)).forEach(raw => {
-                html += `
-                    <div class="photo-item">
-                        <a href="${raw.secure_url}" target="_blank">
-                            <img src="${raw.secure_url}" alt="Raw">
-                        </a>
-                        <span class="label">${raw.public_id.split('_').pop()}</span>
+                        <span class="label">${label}</span>
                     </div>`;
             });
 
