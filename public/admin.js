@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPhotos() {
         const sessions = {};
+        // Add tab-specific class for aspect ratio styling
+        sessionsList.className = `tab-${currentTab}`;
 
         function getSessionId(publicId) {
             const match = publicId.match(/session_(\d+)/);
