@@ -64,6 +64,25 @@ app.get("/api/admin/photos", checkAdmin, async (req, res) => {
   }
 });
 
+app.post("/api/admin/download-selected", checkAdmin, (req, res) => {
+  try {
+    const { publicIds } = req.body;
+    if (!publicIds || !Array.isArray(publicIds) || publicIds.length === 0) {
+      return res.status(400).send("No photos selected");
+    }
+
+    // Generate a zip URL for the specific public IDs provided
+    const url = cloudinary.utils.download_zip_url({
+      public_ids: publicIds,
+      resource_type: "image",
+    });
+    res.json({ url });
+  } catch (err) {
+    console.error("Error generating selected zip URL:", err);
+    res.status(500).send("Error generating zip URL");
+  }
+});
+
 app.get("/api/admin/download-zip", checkAdmin, (req, res) => {
   try {
     // Generate a zip URL for all uploaded files
