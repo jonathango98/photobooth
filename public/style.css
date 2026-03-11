@@ -115,13 +115,6 @@ body {
   .template-layout h2 {
     margin-bottom: 10px;
   }
-  .carousel-track {
-    max-width: 300px;
-  }
-  #select-template-btn {
-    margin-top: 15px;
-    padding: 10px 25px;
-  }
 }
 
 

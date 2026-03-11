@@ -188,12 +188,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isSelected = selectedIds.has(item.public_id);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `photo-item ${isSelected ? 'selected' : ''}`;
-                
-                itemDiv.innerHTML = `
-                    <div class="checkbox-overlay"></div>
-                    <img src="${item.secure_url}" alt="Photo">
-                    <span class="label">${item.public_id.split('_').pop()}</span>
-                `;
+
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox-overlay';
+
+                const img = document.createElement('img');
+                img.src = item.secure_url;
+                img.alt = 'Photo';
+
+                const label = document.createElement('span');
+                label.className = 'label';
+                label.textContent = item.public_id.split('_').pop();
+
+                itemDiv.append(checkbox, img, label);
 
                 itemDiv.addEventListener('click', (e) => {
                     e.preventDefault();

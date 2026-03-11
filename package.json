@@ -1,20 +1,17 @@
 {
   "name": "booth",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "netlify dev"
   },
-  "keywords": [],
-  "author": "",
   "type": "module",
   "license": "ISC",
   "dependencies": {
+    "busboy": "^1.6.0",
     "cloudinary": "^2.9.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "multer": "^2.0.2"
-  },
-  "description": ""
+  }
 }

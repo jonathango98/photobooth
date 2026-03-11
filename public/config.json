@@ -1,7 +1,6 @@
 {
   "siteName": "IFGF NextGen Photo Booth",
 
-  "publicBaseUrl": "",
   "saveApiUrl": "/api/save",
 
   "templates": [

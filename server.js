@@ -128,33 +128,35 @@ function uploadFromBuffer(buffer, folder, filename) {
 // --------------------------
 // /api/save endpoint
 // --------------------------
+const MAX_RAW_PHOTOS = 10;
+const rawFields = Array.from({ length: MAX_RAW_PHOTOS }, (_, i) => ({
+  name: `raw${i + 1}`,
+  maxCount: 1,
+}));
+
 const cpUpload = upload.fields([
-  { name: "raw1", maxCount: 1 },
-  { name: "raw2", maxCount: 1 },
-  { name: "raw3", maxCount: 1 },
+  ...rawFields,
   { name: "collage", maxCount: 1 },
 ]);
 
 app.post("/api/save", cpUpload, async (req, res) => {
   try {
     const files = req.files || {};
-    console.log("Received files:", Object.keys(files));
 
-    // Simple session id for grouping
     const sessionId = Date.now().toString();
 
     // 1) Save raw photos to Cloudinary
-    const rawFields = ["raw1", "raw2", "raw3"];
     const uploadPromises = [];
 
-    rawFields.forEach((fieldName, index) => {
+    for (let i = 0; i < MAX_RAW_PHOTOS; i++) {
+      const fieldName = `raw${i + 1}`;
       const fileArr = files[fieldName];
-      if (!fileArr || fileArr.length === 0) return;
+      if (!fileArr || fileArr.length === 0) continue;
 
       const file = fileArr[0];
-      const rawFilename = `session_${sessionId}_raw${index + 1}`;
+      const rawFilename = `session_${sessionId}_raw${i + 1}`;
       uploadPromises.push(uploadFromBuffer(file.buffer, "raw", rawFilename));
-    });
+    }
 
     // 2) Save collage to Cloudinary
     const collageArr = files["collage"];

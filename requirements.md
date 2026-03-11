@@ -8,13 +8,13 @@ A web-based photo booth application for events (weddings, parties, conferences).
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express.js
 - **Frontend**: Vanilla HTML/CSS/JS, Canvas API
+- **Backend**: Netlify Functions (serverless)
 - **Storage**: Cloudinary (cloud image hosting)
-- **Upload Handling**: Multer (in-memory)
+- **Multipart Parsing**: Busboy (serverless-compatible)
 - **QR Generation**: qrcode.js (client-side, via CDN)
 - **Font**: IBM Plex Mono (Google Fonts)
-- **Deployment**: Render.com (stateless, no database)
+- **Deployment**: Netlify (static hosting + serverless functions)
 
 ---
 
@@ -90,17 +90,18 @@ A web-based photo booth application for events (weddings, parties, conferences).
 
 ---
 
-## API Endpoints
+## API Endpoints (Netlify Functions)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/` | No | Serves main photobooth page |
-| `GET` | `/admin.html` | No | Serves admin dashboard |
-| `POST` | `/api/save` | No | Uploads raw photos + collage to Cloudinary |
-| `GET` | `/api/admin/photos` | Yes | Lists all photos grouped by session |
-| `POST` | `/api/admin/download-selected` | Yes | Generates ZIP URL for selected photos |
-| `GET` | `/api/admin/download-zip` | Yes | Generates ZIP URL for all photos |
-| `GET` | `/static/*` | No | Serves static assets |
+All API endpoints are implemented as Netlify Functions under `netlify/functions/`. Netlify rewrites `/api/*` paths to the corresponding function.
+
+| Method | Path | Auth | Function File | Description |
+|--------|------|------|---------------|-------------|
+| `GET` | `/` | No | — (static) | Serves main photobooth page |
+| `GET` | `/admin.html` | No | — (static) | Serves admin dashboard |
+| `POST` | `/api/save` | No | `save.mjs` | Uploads raw photos + collage to Cloudinary |
+| `GET` | `/api/admin/photos` | Yes | `admin-photos.mjs` | Lists all photos grouped by session |
+| `POST` | `/api/admin/download-selected` | Yes | `admin-download-selected.mjs` | Generates ZIP URL for selected photos |
+| `GET` | `/api/admin/download-zip` | Yes | `admin-download-zip.mjs` | Generates ZIP URL for all photos |
 
 ---
 
@@ -110,8 +111,8 @@ A web-based photo booth application for events (weddings, parties, conferences).
 2. Builds final collage canvas from selected template
 3. Converts all canvases to JPEG blobs
 4. Sends via `FormData` POST to `/api/save`
-5. Server uploads to Cloudinary via streaming:
-   - Raw photos → `raw/session_[timestamp]_raw[1-3].jpg`
+5. Netlify Function parses multipart data with Busboy, then uploads to Cloudinary:
+   - Raw photos → `raw/session_[timestamp]_raw[1-N].jpg`
    - Collage → `collage/session_[timestamp]_collage.jpg`
 6. Returns collage URL for QR code generation
 
@@ -122,8 +123,7 @@ A web-based photo booth application for events (weddings, parties, conferences).
 ### `config.json` (Frontend)
 
 - `siteName` — Browser tab title
-- `publicBaseUrl` — Base URL for QR codes (defaults to `window.location.origin`)
-- `saveApiUrl` — Upload endpoint (default: `/api/save`)
+- `saveApiUrl` — Upload endpoint (default: `/.netlify/functions/save`)
 - `templates[]` — Array of template definitions (dimensions, photo slot positions, overlay PNG path)
 - `capture.totalShots` — Number of photos per session (default: 3)
 - `capture.photoWidth` / `capture.photoHeight` — Raw photo dimensions (default: 880×495)
@@ -131,13 +131,37 @@ A web-based photo booth application for events (weddings, parties, conferences).
 - `qr.size` — QR code canvas size (default: 300)
 - `qr.margin` — QR code margin (default: 1)
 
-### Environment Variables (`.env`)
+### Environment Variables (Netlify Dashboard → Site Settings → Environment Variables)
 
 - `CLOUDINARY_CLOUD_NAME` — Cloudinary account identifier
 - `CLOUDINARY_API_KEY` — Cloudinary API key
 - `CLOUDINARY_API_SECRET` — Cloudinary API secret
 - `ADMIN_PASSWORD` — Admin panel password
-- `PORT` — Server port (default: 3000)
+
+---
+
+## Netlify Configuration
+
+### `netlify.toml`
+
+```toml
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+```
+
+### Netlify Setup Steps
+
+1. Connect your Git repository to Netlify
+2. Set the publish directory to `public`
+3. Set the functions directory to `netlify/functions`
+4. Add environment variables in the Netlify dashboard (Cloudinary credentials + admin password)
+5. Deploy — static files are served from `public/`, API calls are routed to serverless functions
 
 ---
 
@@ -156,17 +180,22 @@ A web-based photo booth application for events (weddings, parties, conferences).
 
 ```
 booth/
-├── server.js
+├── netlify.toml                          # Netlify build & redirect config
 ├── package.json
 ├── .env / .env.example
-├── public/
-│   ├── index.html          # Main photobooth UI
-│   ├── admin.html          # Admin dashboard
-│   ├── main.js             # Photobooth logic
-│   ├── admin.js            # Admin logic
-│   ├── style.css           # Shared styles
-│   ├── config.json         # App configuration
-│   ├── templates/          # PNG template overlays
-│   └── assets/             # Background images
-└── photos/                 # Local storage (if used)
+├── public/                               # Static files (served directly)
+│   ├── index.html                        # Main photobooth UI
+│   ├── admin.html                        # Admin dashboard
+│   ├── main.js                           # Photobooth logic
+│   ├── admin.js                          # Admin logic
+│   ├── style.css                         # Shared styles
+│   ├── config.json                       # App configuration
+│   ├── templates/                        # PNG template overlays
+│   └── assets/                           # Background images
+└── netlify/
+    └── functions/                        # Serverless API functions
+        ├── save.mjs                      # POST /api/save
+        ├── admin-photos.mjs              # GET /api/admin/photos
+        ├── admin-download-selected.mjs   # POST /api/admin/download-selected
+        └── admin-download-zip.mjs        # GET /api/admin/download-zip
 ```
