@@ -77,12 +77,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (res.status === 401) { handle401(); return; }
             if (!res.ok) throw new Error('Failed to load tree');
-            treeData = await res.json();
+            const data = await res.json();
+            // Server returns { ok, tree: { name: "/", type: "folder", children: [...] } }
+            const rawChildren = (data.tree && data.tree.children) || [];
+            treeData = enrichTree(rawChildren, '');
             renderTree(treeData);
         } catch (err) {
             console.error(err);
             treeContainer.innerHTML = '<p style="padding:12px 16px;color:#ff6b6b;font-size:13px;">Failed to load folders.</p>';
         }
+    }
+
+    // Enrich raw tree nodes from server with prefix and fileCount
+    function enrichTree(nodes, parentPrefix) {
+        return nodes
+            .filter(n => n.type === 'folder')
+            .map(n => {
+                const prefix = parentPrefix ? `${parentPrefix}${n.name}/` : `${n.name}/`;
+                const fileCount = (n.children || []).filter(c => c.type === 'file').length;
+                const children = enrichTree(n.children || [], prefix);
+                return { name: n.name, prefix, fileCount, children };
+            });
     }
 
     function renderTree(nodes, container = treeContainer, depth = 0) {
