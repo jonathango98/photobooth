@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoGrid = document.getElementById('photo-grid');
     const emptyMsg = document.getElementById('empty-msg');
     const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+    const downloadSelectedBtn = document.getElementById('download-selected-btn');
+    const downloadAllBtn = document.getElementById('download-all-btn');
     const selectAllBtn = document.getElementById('select-all-btn');
     const clearSelectionBtn = document.getElementById('clear-selection-btn');
     const photoCountEl = document.getElementById('photo-count');
@@ -19,6 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalMessage = document.getElementById('modal-message');
     const modalConfirm = document.getElementById('modal-confirm');
     const modalCancel = document.getElementById('modal-cancel');
+    const moveModalOverlay = document.getElementById('move-modal-overlay');
+    const moveDestInput = document.getElementById('move-dest-input');
+    const moveMoveConfirm = document.getElementById('move-modal-confirm');
+    const moveMoveCancel = document.getElementById('move-modal-cancel');
 
     let password = localStorage.getItem('superadminPassword');
     let currentPrefix = null;
@@ -26,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedKeys = new Set();
     let treeData = null;
     let pendingConfirmCallback = null;
+    let pendingMoveSourceKey = null;
 
     // --- Auth ---
 
@@ -277,7 +284,34 @@ document.addEventListener('DOMContentLoaded', () => {
             label.className = 'label';
             label.textContent = filename;
 
-            item.append(checkbox, label);
+            // Per-file action buttons
+            const actions = document.createElement('div');
+            actions.className = 'item-actions';
+
+            const dlBtn = document.createElement('button');
+            dlBtn.className = 'item-action-btn';
+            dlBtn.textContent = '⬇';
+            dlBtn.title = 'Download';
+            dlBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (url) {
+                    downloadFileDirect(url, filename);
+                } else {
+                    downloadSelectedZipForKey(key);
+                }
+            });
+
+            const mvBtn = document.createElement('button');
+            mvBtn.className = 'item-action-btn';
+            mvBtn.textContent = '✏';
+            mvBtn.title = 'Move / Rename';
+            mvBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                openMoveModal(key);
+            });
+
+            actions.append(dlBtn, mvBtn);
+            item.append(checkbox, actions, label);
 
             item.addEventListener('click', () => toggleFileSelection(key));
 
@@ -298,6 +332,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDeleteBtn() {
         deleteSelectedBtn.disabled = selectedKeys.size === 0;
         deleteSelectedBtn.textContent = `Delete Selected (${selectedKeys.size})`;
+        downloadSelectedBtn.disabled = selectedKeys.size === 0;
+        downloadSelectedBtn.textContent = `Download Selected (${selectedKeys.size})`;
     }
 
     selectAllBtn.addEventListener('click', () => {
@@ -370,6 +406,138 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error(err);
             alert('Error deleting folder.');
+        }
+    }
+
+    // --- Download ---
+
+    downloadAllBtn.addEventListener('click', () => downloadZip(currentPrefix));
+
+    downloadSelectedBtn.addEventListener('click', () => {
+        if (selectedKeys.size === 0) return;
+        downloadSelectedZip();
+    });
+
+    async function downloadZip(prefix) {
+        const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/download-zip${qs}`, { headers: authHeaders() });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Download failed.'); return; }
+            const blob = await res.blob();
+            triggerBlobDownload(blob, prefix ? `${prefix.replace(/\//g, '_').replace(/_$/, '')}.zip` : 'all.zip');
+        } catch (err) {
+            console.error(err);
+            alert('Download error.');
+        }
+    }
+
+    async function downloadSelectedZip() {
+        const keys = Array.from(selectedKeys);
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ keys })
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Download failed.'); return; }
+            const blob = await res.blob();
+            triggerBlobDownload(blob, 'selected.zip');
+        } catch (err) {
+            console.error(err);
+            alert('Download error.');
+        }
+    }
+
+    async function downloadSelectedZipForKey(key) {
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ keys: [key] })
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Download failed.'); return; }
+            const blob = await res.blob();
+            triggerBlobDownload(blob, key.split('/').pop());
+        } catch (err) {
+            console.error(err);
+            alert('Download error.');
+        }
+    }
+
+    function downloadFileDirect(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function triggerBlobDownload(blob, filename) {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objUrl);
+    }
+
+    // --- Move / Rename ---
+
+    function openMoveModal(sourceKey) {
+        pendingMoveSourceKey = sourceKey;
+        moveDestInput.value = sourceKey;
+        moveModalOverlay.classList.add('active');
+        moveDestInput.focus();
+        moveDestInput.select();
+    }
+
+    moveMoveConfirm.addEventListener('click', async () => {
+        const destKey = moveDestInput.value.trim();
+        if (!destKey || !pendingMoveSourceKey) return;
+        if (destKey === pendingMoveSourceKey) { moveModalOverlay.classList.remove('active'); return; }
+        await doMoveFile(pendingMoveSourceKey, destKey);
+        pendingMoveSourceKey = null;
+        moveModalOverlay.classList.remove('active');
+    });
+
+    moveMoveCancel.addEventListener('click', () => {
+        pendingMoveSourceKey = null;
+        moveModalOverlay.classList.remove('active');
+    });
+
+    moveModalOverlay.addEventListener('click', e => {
+        if (e.target === moveModalOverlay) {
+            pendingMoveSourceKey = null;
+            moveModalOverlay.classList.remove('active');
+        }
+    });
+
+    moveDestInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') moveMoveConfirm.click();
+        if (e.key === 'Escape') moveMoveCancel.click();
+    });
+
+    async function doMoveFile(sourceKey, destKey) {
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/move`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ sourceKey, destKey })
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Move failed.'); return; }
+            await loadPhotos(currentPrefix);
+            await loadTree();
+        } catch (err) {
+            console.error(err);
+            alert('Move error.');
         }
     }
 

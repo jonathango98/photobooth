@@ -78,6 +78,27 @@
 
         /* Hidden */
         .hidden { display: none !important; }
+
+        /* Download / Move buttons */
+        #download-selected-btn { background: #28a745; }
+        #download-selected-btn:disabled { background: #aaa; cursor: default; }
+        #download-all-btn { background: #17a2b8; }
+
+        /* Per-file action buttons */
+        .item-actions { position: absolute; bottom: 24px; right: 4px; display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; z-index: 10; }
+        .photo-item:hover .item-actions { opacity: 1; }
+        .item-action-btn { background: rgba(0,0,0,0.65); color: #fff; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 11px; line-height: 1.6; }
+        .item-action-btn:hover { background: rgba(0,0,0,0.9); }
+
+        /* Move Modal */
+        #move-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        #move-modal-overlay.active { display: flex; }
+        #move-modal-box { background: #fff; border-radius: 8px; padding: 24px; max-width: 480px; width: 90%; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        #move-modal-box h3 { margin-top: 0; }
+        #move-dest-input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 13px; font-family: monospace; }
+        #move-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        #move-modal-cancel { padding: 8px 18px; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+        #move-modal-confirm { padding: 8px 18px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -108,6 +129,8 @@
             <div id="right-panel">
                 <div id="panel-controls">
                     <button class="btn" id="delete-selected-btn" disabled>Delete Selected (0)</button>
+                    <button class="btn" id="download-selected-btn" disabled>Download Selected (0)</button>
+                    <button class="btn" id="download-all-btn">Download All</button>
                     <button class="btn" id="select-all-btn">Select All</button>
                     <button class="btn" id="clear-selection-btn">Clear</button>
                     <span class="photo-count" id="photo-count"></span>
@@ -128,6 +151,19 @@
             <div id="modal-actions">
                 <button id="modal-cancel">Cancel</button>
                 <button id="modal-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move / Rename Modal -->
+    <div id="move-modal-overlay">
+        <div id="move-modal-box">
+            <h3>Move / Rename File</h3>
+            <p style="color:#555;font-size:13px;margin-bottom:8px;">Enter the new S3 path for the file:</p>
+            <input type="text" id="move-dest-input" placeholder="eventId/folder/filename.jpg">
+            <div id="move-modal-actions">
+                <button id="move-modal-cancel">Cancel</button>
+                <button id="move-modal-confirm">Move</button>
             </div>
         </div>
     </div>
