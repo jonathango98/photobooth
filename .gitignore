@@ -1,7 +1,4 @@
-node_modules/
-package-lock.json
 .DS_Store
-/photos/
 *.psd
-.env
 .netlify/
+.env
