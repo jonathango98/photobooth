@@ -121,6 +121,11 @@
         .btn-download-all { margin-bottom: 20px; }
         #logout-btn { float: right; margin-top: -46px; }
 
+        /* Event bar */
+        #event-bar { background: #0d0d0d; border: 1px solid rgba(247,242,213,0.1); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        #event-bar label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(247,242,213,0.4); white-space: nowrap; }
+        #event-id-display { font-size: 13px; color: #f7f2d5; }
+
         /* Tabs Styling */
         .tabs { border-bottom: 1px solid rgba(247,242,213,0.15); margin-bottom: 20px; display: flex; gap: 4px; }
         .tab-btn { padding: 8px 18px; border: none; background: transparent; color: rgba(247,242,213,0.5); border-top-left-radius: 4px; border-top-right-radius: 4px; cursor: pointer; transition: 0.2s; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.05em; }
@@ -140,6 +145,12 @@
 
         <div id="admin-content" class="admin-controls">
             <button id="logout-btn" class="btn">Logout</button>
+
+            <div id="event-bar">
+                <label>Active Event</label>
+                <span id="event-id-display">Loading...</span>
+            </div>
+
             <button id="download-zip-btn" class="btn btn-download-all">Download All as ZIP</button>
 
             <div class="selection-controls">

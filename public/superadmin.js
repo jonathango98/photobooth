@@ -33,6 +33,37 @@ document.addEventListener('DOMContentLoaded', () => {
     let treeData = null;
     let pendingConfirmCallback = null;
     let pendingMoveSourceKey = null;
+    let eventFormMode = null; // 'create' or 'edit'
+    let eventFormEditId = null;
+
+    // --- Tab Switching ---
+
+    const tabButtons = document.querySelectorAll('.sa-tab');
+    const filesView = document.getElementById('files-view');
+    const eventsView = document.getElementById('events-view');
+    const createEventBtn = document.getElementById('create-event-btn');
+    const eventFormOverlay = document.getElementById('event-form-overlay');
+    const eventFormEl = document.getElementById('event-form');
+    const eventFormTitle = document.getElementById('event-form-title');
+    const eventFormCancel = document.getElementById('event-form-cancel');
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabButtons.forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const tab = btn.dataset.tab;
+            if (tab === 'files') {
+                filesView.classList.remove('hidden');
+                eventsView.classList.add('hidden');
+            } else if (tab === 'events') {
+                filesView.classList.add('hidden');
+                eventsView.classList.remove('hidden');
+                loadEvents();
+            }
+        });
+    });
+
+    createEventBtn.addEventListener('click', () => openEventForm(null));
 
     // --- Auth ---
 
@@ -239,6 +270,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPhotos() {
         photoGrid.innerHTML = '';
+        currentFiles.sort((a, b) => {
+            const ta = a.lastModified || a.last_modified ? new Date(a.lastModified || a.last_modified).getTime() : 0;
+            const tb = b.lastModified || b.last_modified ? new Date(b.lastModified || b.last_modified).getTime() : 0;
+            if (ta !== tb) return tb - ta;
+            return (b.key || '').localeCompare(a.key || '');
+        });
         if (currentFiles.length === 0) {
             emptyMsg.textContent = 'No files in this folder.';
             emptyMsg.classList.remove('hidden');
@@ -567,6 +604,256 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === modalOverlay) {
             modalOverlay.classList.remove('active');
             pendingConfirmCallback = null;
+        }
+    });
+
+    // --- Events ---
+
+    async function loadEvents() {
+        const listEl = document.getElementById('events-list');
+        listEl.innerHTML = '<p style="color:#888;font-size:13px;">Loading...</p>';
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events`, { headers: authHeaders() });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) throw new Error('Failed to load events');
+            const data = await res.json();
+            renderEventsList(data.events || data);
+        } catch (err) {
+            console.error(err);
+            listEl.innerHTML = '<p style="color:#ff6b6b;font-size:13px;">Failed to load events.</p>';
+        }
+    }
+
+    function renderEventsList(events) {
+        const listEl = document.getElementById('events-list');
+        listEl.innerHTML = '';
+
+        if (!events || events.length === 0) {
+            listEl.innerHTML = '<div id="events-empty">No events found. Create one to get started.</div>';
+            return;
+        }
+
+        const sorted = [...events].sort((a, b) => {
+            const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return tb - ta;
+        });
+
+        sorted.forEach(event => {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+
+            const createdAt = event.created_at ? new Date(event.created_at).toLocaleString() : '—';
+            const updatedAt = event.updated_at ? new Date(event.updated_at).toLocaleString() : '—';
+            const templateCount = (event.templates || []).length;
+            const shots = event.capture?.totalShots ?? '?';
+            const w = event.capture?.photoWidth ?? '?';
+            const h = event.capture?.photoHeight ?? '?';
+
+            card.innerHTML = `
+                <div class="event-card-header">
+                    <span class="event-card-id">${event.event_id}</span>
+                    <span class="event-badge ${event.is_active ? 'active' : 'inactive'}">${event.is_active ? 'active' : 'inactive'}</span>
+                </div>
+                <div class="event-card-name">${event.event_name || '—'}</div>
+                <div class="event-card-meta">
+                    <span>${templateCount} template${templateCount !== 1 ? 's' : ''}</span>
+                    <span>${shots} shots, ${w}×${h}</span>
+                    <span>Created: ${createdAt}</span>
+                    <span>Updated: ${updatedAt}</span>
+                </div>
+                <div class="event-card-actions">
+                    ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-activate-btn" disabled>Active</button>`}
+                    <button class="event-edit-btn">Edit</button>
+                    <button class="event-duplicate-btn">Duplicate</button>
+                    <button class="event-delete-btn">Delete</button>
+                </div>
+            `;
+
+            const activateBtn = card.querySelector('.event-activate-btn');
+            if (!event.is_active) {
+                activateBtn.addEventListener('click', () => activateEvent(event));
+            }
+
+            card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
+            card.querySelector('.event-duplicate-btn').addEventListener('click', () => {
+                const copy = { ...event };
+                delete copy.event_id;
+                delete copy.created_at;
+                delete copy.updated_at;
+                openEventForm(null, copy);
+            });
+            card.querySelector('.event-delete-btn').addEventListener('click', () => {
+                confirmAction(
+                    'Delete Event',
+                    `Are you sure you want to delete event "${event.event_id}"? This only removes the config, not any photos.`,
+                    () => deleteEvent(event.event_id)
+                );
+            });
+
+            listEl.appendChild(card);
+        });
+    }
+
+    async function activateEvent(event) {
+        const { event_id, created_at, updated_at, ...rest } = event;
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify({ ...rest, is_active: true })
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Failed to activate event.'); return; }
+            loadEvents();
+        } catch (err) {
+            console.error(err);
+            alert('Error activating event.');
+        }
+    }
+
+    async function createEvent(eventData) {
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify(eventData)
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) {
+                const text = await res.text();
+                alert('Failed to create event: ' + text);
+                return;
+            }
+            closeEventForm();
+            loadEvents();
+        } catch (err) {
+            console.error(err);
+            alert('Error creating event.');
+        }
+    }
+
+    async function updateEvent(eventId, eventData) {
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}`, {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify(eventData)
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) {
+                const text = await res.text();
+                alert('Failed to update event: ' + text);
+                return;
+            }
+            closeEventForm();
+            loadEvents();
+        } catch (err) {
+            console.error(err);
+            alert('Error updating event.');
+        }
+    }
+
+    async function deleteEvent(eventId) {
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}`, {
+                method: 'DELETE',
+                headers: authHeaders()
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Failed to delete event.'); return; }
+            loadEvents();
+        } catch (err) {
+            console.error(err);
+            alert('Error deleting event.');
+        }
+    }
+
+    const DEFAULT_TEMPLATES = JSON.stringify([
+        {
+            "file": "template1.png",
+            "width": 880,
+            "height": 495,
+            "slots": [
+                { "x": 0, "y": 0 },
+                { "x": 0, "y": 0 },
+                { "x": 0, "y": 0 }
+            ]
+        }
+    ], null, 2);
+
+    function openEventForm(event, prefill = null) {
+        const src = event || prefill;
+        eventFormMode = event ? 'edit' : 'create';
+        eventFormEditId = event ? event.event_id : null;
+        eventFormTitle.textContent = event ? 'Edit Event' : (prefill ? 'Duplicate Event' : 'New Event');
+
+        const idInput = document.getElementById('ef-event-id');
+        idInput.value = event ? event.event_id : '';
+        idInput.disabled = !!event;
+
+        document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
+        document.getElementById('ef-background-url').value = src ? (src.background_url || '') : '';
+        document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
+        document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
+        document.getElementById('ef-photo-height').value = src ? (src.capture?.photoHeight ?? 495) : 495;
+        document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
+        document.getElementById('ef-countdown-step-ms').value = src ? (src.countdown?.stepMs ?? 500) : 500;
+        document.getElementById('ef-qr-size').value = src ? (src.qr?.size ?? 300) : 300;
+        document.getElementById('ef-qr-margin').value = src ? (src.qr?.margin ?? 4) : 4;
+        document.getElementById('ef-templates').value = src ? JSON.stringify(src.templates, null, 2) : DEFAULT_TEMPLATES;
+
+        eventFormOverlay.classList.add('active');
+    }
+
+    function closeEventForm() {
+        eventFormOverlay.classList.remove('active');
+        eventFormMode = null;
+        eventFormEditId = null;
+    }
+
+    eventFormCancel.addEventListener('click', closeEventForm);
+
+    eventFormOverlay.addEventListener('click', e => {
+        if (e.target === eventFormOverlay) closeEventForm();
+    });
+
+    eventFormEl.addEventListener('submit', async e => {
+        e.preventDefault();
+
+        let templates;
+        try {
+            templates = JSON.parse(document.getElementById('ef-templates').value);
+        } catch {
+            alert('Templates field is not valid JSON.');
+            return;
+        }
+
+        const eventData = {
+            event_id: document.getElementById('ef-event-id').value.trim(),
+            event_name: document.getElementById('ef-event-name').value.trim(),
+            is_active: false,
+            background_url: document.getElementById('ef-background-url').value.trim() || null,
+            capture: {
+                totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
+                photoWidth: parseInt(document.getElementById('ef-photo-width').value, 10),
+                photoHeight: parseInt(document.getElementById('ef-photo-height').value, 10),
+            },
+            countdown: {
+                seconds: parseInt(document.getElementById('ef-countdown-seconds').value, 10),
+                stepMs: parseInt(document.getElementById('ef-countdown-step-ms').value, 10),
+            },
+            qr: {
+                size: parseInt(document.getElementById('ef-qr-size').value, 10),
+                margin: parseInt(document.getElementById('ef-qr-margin').value, 10),
+            },
+            templates,
+        };
+
+        if (eventFormMode === 'create') {
+            await createEvent(eventData);
+        } else {
+            await updateEvent(eventFormEditId, eventData);
         }
     });
 });

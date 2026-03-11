@@ -28,7 +28,7 @@
         #logout-btn:hover { color: #f7f2d5; border-color: rgba(247,242,213,0.5); }
 
         /* Main Layout */
-        #main-layout { display: flex; flex: 1; overflow: hidden; }
+        #main-layout { display: flex; flex: 1; overflow: hidden; width: 100%; }
 
         /* Sidebar */
         #sidebar { width: 280px; background: #0a0a0a; border-right: 1px solid rgba(247,242,213,0.08); overflow-y: auto; flex-shrink: 0; padding: 10px 0; }
@@ -91,6 +91,51 @@
         /* Hidden */
         .hidden { display: none !important; }
 
+        /* Tab Bar */
+        #tab-bar { background: #0d0d0d; border-bottom: 1px solid rgba(247,242,213,0.1); padding: 0 20px; display: flex; gap: 4px; }
+        .sa-tab { padding: 10px 20px; border: none; background: transparent; color: rgba(247,242,213,0.5); cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px; border-bottom: 2px solid transparent; }
+        .sa-tab:hover { color: rgba(247,242,213,0.8); }
+        .sa-tab.active { color: #f7f2d5; border-bottom-color: #f7f2d5; }
+
+        /* Event Form Modal */
+        #event-form-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; }
+        #event-form-overlay.active { display: flex; }
+        #event-form-box { background: #111; border: 1px solid rgba(247,242,213,0.15); border-radius: 8px; padding: 24px; max-width: 600px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.6); max-height: 90vh; overflow-y: auto; }
+        #event-form-box h3 { margin-top: 0; color: #f7f2d5; }
+        .form-section-title { font-size: 11px; text-transform: uppercase; color: rgba(247,242,213,0.4); letter-spacing: 0.12em; margin: 16px 0 8px; border-top: 1px solid rgba(247,242,213,0.08); padding-top: 12px; }
+        .form-row { margin-bottom: 12px; }
+        .form-row label { display: block; font-size: 12px; color: rgba(247,242,213,0.7); margin-bottom: 4px; }
+        .form-row input[type="text"], .form-row input[type="number"], .form-row textarea { width: 100%; padding: 8px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; box-sizing: border-box; background: #1a1a1a; color: #f7f2d5; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+        .form-row input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .form-row textarea { min-height: 120px; resize: vertical; }
+        .form-row input::placeholder, .form-row textarea::placeholder { color: rgba(247,242,213,0.3); }
+        .form-row .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: rgba(247,242,213,0.8); }
+        .form-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        #event-form-cancel { padding: 8px 18px; background: transparent; color: rgba(247,242,213,0.7); border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+        #event-form-cancel:hover { background: rgba(247,242,213,0.06); }
+        #event-form-save { padding: 8px 18px; background: #f7f2d5; color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+        #event-form-save:hover { background: #ede8c4; }
+
+        /* Event Cards */
+        .event-card { background: #111; border: 1px solid rgba(247,242,213,0.1); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .event-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+        .event-card-id { font-size: 14px; font-weight: bold; color: #f7f2d5; font-family: 'IBM Plex Mono', monospace; }
+        .event-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+        .event-badge.active { background: rgba(0,200,100,0.2); color: #00c864; border: 1px solid rgba(0,200,100,0.3); }
+        .event-badge.inactive { background: rgba(247,242,213,0.08); color: rgba(247,242,213,0.4); border: 1px solid rgba(247,242,213,0.15); }
+        .event-card-name { font-size: 13px; color: rgba(247,242,213,0.7); margin-bottom: 6px; }
+        .event-card-meta { font-size: 11px; color: rgba(247,242,213,0.4); display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+        .event-card-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .event-card-actions button { padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+        .event-activate-btn { background: transparent; color: #00c864; border: 1px solid rgba(0,200,100,0.3); }
+        .event-activate-btn:hover:not(:disabled) { background: rgba(0,200,100,0.1); }
+        .event-activate-btn:disabled { opacity: 0.4; cursor: default; }
+        .event-edit-btn { background: transparent; color: rgba(247,242,213,0.8); border: 1px solid rgba(247,242,213,0.2); }
+        .event-edit-btn:hover { background: rgba(247,242,213,0.08); }
+        .event-delete-btn { background: transparent; color: rgba(247,242,213,0.6); border: 1px solid rgba(247,242,213,0.15); }
+        .event-delete-btn:hover { background: rgba(247,242,213,0.08); color: #f7f2d5; }
+
         /* Download / Move buttons */
         #download-selected-btn { }
         #download-all-btn { }
@@ -134,26 +179,41 @@
             <button id="logout-btn">Logout</button>
         </div>
 
-        <div id="main-layout">
-            <div id="sidebar">
-                <div id="sidebar-header">Folders</div>
-                <div id="tree-container"><p style="padding: 12px 16px; color: #888; font-size: 13px;">Loading...</p></div>
-            </div>
+        <div id="tab-bar">
+            <button class="sa-tab active" data-tab="files">Files</button>
+            <button class="sa-tab" data-tab="events">Events</button>
+        </div>
 
-            <div id="right-panel">
-                <div id="panel-controls">
-                    <button class="btn" id="delete-selected-btn" disabled>Delete Selected (0)</button>
-                    <button class="btn" id="download-selected-btn" disabled>Download Selected (0)</button>
-                    <button class="btn" id="download-all-btn">Download All</button>
-                    <button class="btn" id="select-all-btn">Select All</button>
-                    <button class="btn" id="clear-selection-btn">Clear</button>
-                    <span class="photo-count" id="photo-count"></span>
+        <div id="files-view" style="display: flex; flex: 1; overflow: hidden;">
+            <div id="main-layout">
+                <div id="sidebar">
+                    <div id="sidebar-header">Folders</div>
+                    <div id="tree-container"><p style="padding: 12px 16px; color: #888; font-size: 13px;">Loading...</p></div>
                 </div>
-                <div id="photo-grid-container">
-                    <div id="empty-msg">Select a folder to view its contents.</div>
-                    <div id="photo-grid" class="hidden"></div>
+
+                <div id="right-panel">
+                    <div id="panel-controls">
+                        <button class="btn" id="delete-selected-btn" disabled>Delete Selected (0)</button>
+                        <button class="btn" id="download-selected-btn" disabled>Download Selected (0)</button>
+                        <button class="btn" id="download-all-btn">Download All</button>
+                        <button class="btn" id="select-all-btn">Select All</button>
+                        <button class="btn" id="clear-selection-btn">Clear</button>
+                        <span class="photo-count" id="photo-count"></span>
+                    </div>
+                    <div id="photo-grid-container">
+                        <div id="empty-msg">Select a folder to view its contents.</div>
+                        <div id="photo-grid" class="hidden"></div>
+                    </div>
                 </div>
             </div>
+        </div>
+
+        <div id="events-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <div id="events-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 16px;">Event Configurations</h2>
+                <button class="btn" id="create-event-btn" style="padding: 8px 16px; background: #f7f2d5; color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">+ New Event</button>
+            </div>
+            <div id="events-list"></div>
         </div>
     </div>
 
@@ -179,6 +239,79 @@
                 <button id="move-modal-cancel">Cancel</button>
                 <button id="move-modal-confirm">Move</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Event Form Modal -->
+    <div id="event-form-overlay">
+        <div id="event-form-box">
+            <h3 id="event-form-title">New Event</h3>
+            <form id="event-form">
+                <div class="form-section-title" style="border-top: none; padding-top: 0; margin-top: 0;">General</div>
+                <div class="form-row">
+                    <label for="ef-event-id">Event ID</label>
+                    <input type="text" id="ef-event-id" placeholder="e.g. wedding-2026" required>
+                </div>
+                <div class="form-row">
+                    <label for="ef-event-name">Event Name</label>
+                    <input type="text" id="ef-event-name" placeholder="e.g. Jane & John's Wedding" required>
+                </div>
+                <div class="form-row">
+                    <label for="ef-background-url">Background URL</label>
+                    <input type="text" id="ef-background-url" placeholder="https://...">
+                </div>
+
+                <div class="form-section-title">Capture</div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label for="ef-total-shots">Total Shots</label>
+                        <input type="number" id="ef-total-shots" value="3" min="1" max="10">
+                    </div>
+                    <div class="form-row" style="margin-bottom:0;"></div>
+                    <div class="form-row">
+                        <label for="ef-photo-width">Photo Width (px)</label>
+                        <input type="number" id="ef-photo-width" value="880" min="1">
+                    </div>
+                    <div class="form-row">
+                        <label for="ef-photo-height">Photo Height (px)</label>
+                        <input type="number" id="ef-photo-height" value="495" min="1">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Countdown</div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label for="ef-countdown-seconds">Seconds</label>
+                        <input type="number" id="ef-countdown-seconds" value="3" min="1">
+                    </div>
+                    <div class="form-row">
+                        <label for="ef-countdown-step-ms">Step (ms)</label>
+                        <input type="number" id="ef-countdown-step-ms" value="500" min="100">
+                    </div>
+                </div>
+
+                <div class="form-section-title">QR Code</div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label for="ef-qr-size">Size (px)</label>
+                        <input type="number" id="ef-qr-size" value="300" min="100">
+                    </div>
+                    <div class="form-row">
+                        <label for="ef-qr-margin">Margin</label>
+                        <input type="number" id="ef-qr-margin" value="4" min="0">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Templates (JSON)</div>
+                <div class="form-row">
+                    <textarea id="ef-templates" placeholder='[{"file":"...","width":880,"height":495,"slots":[...]}]'></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" id="event-form-cancel">Cancel</button>
+                    <button type="submit" id="event-form-save">Save</button>
+                </div>
+            </form>
         </div>
     </div>
 

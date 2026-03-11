@@ -37,11 +37,40 @@ const templateImageCache = new Map();
 // Config loading
 // ---------------------------
 async function loadConfig() {
-  const res = await fetch("config.json");
-  if (!res.ok) {
-    throw new Error(`Failed to load config.json: ${res.status}`);
+  const staticRes = await fetch("config.json");
+  if (!staticRes.ok) {
+    throw new Error(`Failed to load config.json: ${staticRes.status}`);
   }
-  CONFIG = await res.json();
+  const staticConfig = await staticRes.json();
+  const serverUrl = staticConfig.serverUrl;
+
+  let usedServerConfig = false;
+  if (serverUrl) {
+    try {
+      const eventRes = await fetch(`${serverUrl}/api/event/config`);
+      if (eventRes.ok) {
+        const eventConfig = await eventRes.json();
+        CONFIG = {
+          siteName: eventConfig.event_name,
+          serverUrl: serverUrl,
+          saveApiUrl: `${serverUrl}/api/save`,
+          templates: eventConfig.templates,
+          capture: eventConfig.capture,
+          countdown: eventConfig.countdown,
+          qr: eventConfig.qr,
+        };
+        usedServerConfig = true;
+        console.log("[CONFIG] Loaded from server API.");
+      }
+    } catch (e) {
+      console.warn("[CONFIG] Server config fetch failed, falling back to config.json:", e);
+    }
+  }
+
+  if (!usedServerConfig) {
+    CONFIG = staticConfig;
+    console.log("[CONFIG] Using static config.json.");
+  }
 
   if (CONFIG.siteName) {
     document.title = CONFIG.siteName;

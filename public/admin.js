@@ -21,17 +21,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedIds = new Set();
     let eventId = null;
 
-    // Fetch event ID
+    const eventIdDisplay = document.getElementById('event-id-display');
+
+    // Fetch active event ID (read-only, defaults to "test")
     fetch(`${API_BASE}/api/event`)
         .then(res => res.json())
         .then(data => {
-            eventId = data.eventId;
-            const eventIdEl = document.querySelector('h1');
-            if (eventIdEl) {
-                eventIdEl.textContent = `Admin Panel - Event: ${eventId}`;
-            }
+            eventId = data.eventId || data.event_id || 'test';
+            eventIdDisplay.textContent = eventId;
         })
-        .catch(err => console.warn('Failed to fetch event ID:', err));
+        .catch(err => {
+            console.warn('Failed to fetch event ID:', err);
+            eventId = 'test';
+            eventIdDisplay.textContent = 'test (default)';
+        });
 
     if (adminPassword) {
         showAdminContent();
