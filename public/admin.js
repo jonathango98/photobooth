@@ -23,16 +23,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const eventIdDisplay = document.getElementById('event-id-display');
 
-    // Fetch active event ID (read-only)
+    // Fetch active event ID (read-only, defaults to "test")
     fetch(`${API_BASE}/api/event`)
         .then(res => res.json())
         .then(data => {
-            eventId = data.eventId || data.event_id;
-            eventIdDisplay.textContent = eventId || '(none)';
+            eventId = data.eventId || data.event_id || 'test';
+            eventIdDisplay.textContent = eventId;
         })
         .catch(err => {
             console.warn('Failed to fetch event ID:', err);
-            eventIdDisplay.textContent = '(unavailable)';
+            eventId = 'test';
+            eventIdDisplay.textContent = 'test (default)';
         });
 
     if (adminPassword) {
