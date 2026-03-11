@@ -4,43 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Photobooth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; background: #f4f4f4; color: #333; margin: 0; padding: 20px; }
+        body { font-family: 'IBM Plex Mono', monospace; background: #000; color: #f7f2d5; margin: 0; padding: 24px; }
         .container { max-width: 1200px; margin: 0 auto; }
-        h1 { margin-bottom: 20px; }
-        .login-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 400px; margin: 50px auto; }
-        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .login-box button { width: 100%; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        h1 { margin-bottom: 24px; font-size: 18px; letter-spacing: 0.1em; }
+        .login-box { background: #111; padding: 24px; border-radius: 8px; border: 1px solid rgba(247,242,213,0.12); max-width: 400px; margin: 80px auto; }
+        .login-box h2 { margin-top: 0; letter-spacing: 0.05em; }
+        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; box-sizing: border-box; background: #1a1a1a; color: #f7f2d5; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+        .login-box input::placeholder { color: rgba(247,242,213,0.35); }
+        .login-box button { width: 100%; padding: 10px; background: #f7f2d5; color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.05em; }
+        .login-box button:hover { background: #ede8c4; }
         .admin-controls { display: none; }
 
         /* Sessions List as a Grid */
         #sessions-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 25px;
+            gap: 20px;
             align-items: start;
         }
 
         .session {
-            background: #fff;
+            background: #111;
             padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            border: 1px solid rgba(247,242,213,0.1);
             display: flex;
             flex-direction: column;
         }
         .session h3 {
             margin-top: 0;
-            font-size: 14px;
-            color: #666;
-            border-bottom: 1px solid #eee;
+            font-size: 12px;
+            color: rgba(247,242,213,0.5);
+            border-bottom: 1px solid rgba(247,242,213,0.08);
             padding-bottom: 8px;
             margin-bottom: 12px;
+            letter-spacing: 0.05em;
         }
 
         .photo-grid {
             display: grid;
-            gap: 10px;
+            gap: 8px;
         }
 
         /* Raw Tab: 16:9 Grid - inside session card */
@@ -61,19 +67,19 @@
 
         .photo-item {
             position: relative;
-            background: #e0e0e0;
+            background: #1a1a1a;
             border-radius: 8px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
             transition: transform 0.2s, border 0.2s;
             cursor: pointer;
-            border: 3px solid transparent;
+            border: 2px solid transparent;
         }
         .photo-item.selected {
-            border-color: #007bff;
+            border-color: #f7f2d5;
         }
         .photo-item:hover {
             transform: scale(1.02);
@@ -84,37 +90,42 @@
             right: 10px;
             width: 20px;
             height: 20px;
-            background: #fff;
-            border: 2px solid #007bff;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid rgba(247,242,213,0.6);
             border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10;
         }
+        .photo-item.selected .checkbox-overlay {
+            border-color: #f7f2d5;
+            background: rgba(247,242,213,0.15);
+        }
         .photo-item.selected .checkbox-overlay::after {
             content: "✓";
-            color: #007bff;
+            color: #f7f2d5;
             font-weight: bold;
         }
 
-        .selection-controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        .selection-controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .photo-item img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
         }
-        .photo-item .label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 2px; }
-        .btn { padding: 8px 16px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 10px; }
-        .btn-download-all { background: #17a2b8; margin-bottom: 20px; }
-        #logout-btn { background: #dc3545; float: right; margin-top: -50px; }
+        .photo-item .label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #f7f2d5; font-size: 10px; padding: 2px 4px; border-radius: 2px; }
+        .btn { padding: 7px 14px; background: transparent; color: rgba(247,242,213,0.8); border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+        .btn:hover { background: rgba(247,242,213,0.08); color: #f7f2d5; }
+        .btn-download-all { margin-bottom: 20px; }
+        #logout-btn { float: right; margin-top: -46px; }
 
         /* Tabs Styling */
-        .tabs { border-bottom: 2px solid #ccc; margin-bottom: 20px; display: flex; gap: 5px; }
-        .tab-btn { padding: 10px 20px; border: none; background: #ddd; border-top-left-radius: 4px; border-top-right-radius: 4px; cursor: pointer; transition: 0.3s; }
-        .tab-btn:hover { background: #ccc; }
-        .tab-btn.active { background: #fff; border: 2px solid #ccc; border-bottom: none; margin-bottom: -2px; font-weight: bold; }
+        .tabs { border-bottom: 1px solid rgba(247,242,213,0.15); margin-bottom: 20px; display: flex; gap: 4px; }
+        .tab-btn { padding: 8px 18px; border: none; background: transparent; color: rgba(247,242,213,0.5); border-top-left-radius: 4px; border-top-right-radius: 4px; cursor: pointer; transition: 0.2s; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.05em; }
+        .tab-btn:hover { color: rgba(247,242,213,0.8); background: rgba(247,242,213,0.04); }
+        .tab-btn.active { background: rgba(247,242,213,0.08); color: #f7f2d5; border: 1px solid rgba(247,242,213,0.15); border-bottom: 1px solid #000; margin-bottom: -1px; }
     </style>
 </head>
 <body>
