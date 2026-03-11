@@ -441,8 +441,17 @@ async function uploadSession() {
   const data = await res.json();
 
   if (data.collageUrl) {
-    // Cloudinary returns absolute URLs, use directly
-    renderQr(data.collageUrl);
+    const base =
+      CONFIG.serverUrl && CONFIG.serverUrl.trim().length > 0
+        ? CONFIG.serverUrl.replace(/\/+$/, "")
+        : window.location.origin;
+
+    const absoluteUrl = data.collageUrl.startsWith("http")
+      ? data.collageUrl
+      : `${base}${data.collageUrl}`;
+
+    console.log("[UPLOAD] QR absolute URL:", absoluteUrl);
+    renderQr(absoluteUrl);
   } else {
     console.warn("[UPLOAD] No collageUrl in response.");
   }

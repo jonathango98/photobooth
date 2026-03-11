@@ -1,3 +1,5 @@
+const API_BASE = 'https://photobooth-server-production.up.railway.app';
+
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
     const adminContent = document.getElementById('admin-content');
@@ -7,16 +9,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionsList = document.getElementById('sessions-list');
     const downloadZipBtn = document.getElementById('download-zip-btn');
     const tabBtns = document.querySelectorAll('.tab-btn');
-    
-    // Selection buttons
+
     const downloadSelectedBtn = document.getElementById('download-selected-btn');
     const selectAllBtn = document.getElementById('select-all-btn');
     const clearSelectionBtn = document.getElementById('clear-selection-btn');
 
     let adminPassword = localStorage.getItem('adminPassword');
+    // photoData: { collages: [...], raws: [...] } — each item: { id, url, uploadedAt }
     let photoData = { collages: [], raws: [] };
     let currentTab = 'collages';
     let selectedIds = new Set();
+    let eventId = null;
+
+    // Fetch event ID
+    fetch(`${API_BASE}/api/event`)
+        .then(res => res.json())
+        .then(data => {
+            eventId = data.eventId;
+            const eventIdEl = document.querySelector('h1');
+            if (eventIdEl) {
+                eventIdEl.textContent = `Admin Panel - Event: ${eventId}`;
+            }
+        })
+        .catch(err => console.warn('Failed to fetch event ID:', err));
 
     if (adminPassword) {
         showAdminContent();
@@ -44,10 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Selection Handlers ---
     selectAllBtn.addEventListener('click', () => {
         const currentItems = currentTab === 'collages' ? photoData.collages : photoData.raws;
-        currentItems.forEach(item => selectedIds.add(item.public_id));
+        currentItems.forEach(item => selectedIds.add(item.id));
         renderPhotos();
         updateSelectionUI();
     });
@@ -65,21 +79,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/admin/download-selected', {
+            const response = await fetch(`${API_BASE}/api/admin/download-selected`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
-                    'x-admin-password': adminPassword 
+                    'x-admin-password': adminPassword
                 },
-                body: JSON.stringify({ publicIds: Array.from(selectedIds) })
+                body: JSON.stringify({ photoIds: Array.from(selectedIds) })
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                window.location.href = data.url;
-            } else {
+            if (!response.ok) {
                 alert('Error generating ZIP for selected photos');
+                return;
             }
+
+            await downloadBlob(response, 'selected-photos.zip');
         } catch (err) {
             console.error(err);
             alert('Error connecting to server');
@@ -88,27 +102,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     downloadZipBtn.addEventListener('click', async () => {
         try {
-            const response = await fetch('/api/admin/download-zip', {
+            const response = await fetch(`${API_BASE}/api/admin/download-zip`, {
                 headers: { 'x-admin-password': adminPassword }
             });
-            if (response.ok) {
-                const data = await response.json();
-                window.location.href = data.url;
-            } else {
-                alert('Error generating ZIP URL');
+
+            if (!response.ok) {
+                alert('Error generating ZIP');
+                return;
             }
+
+            await downloadBlob(response, 'all-photos.zip');
         } catch (err) {
             console.error(err);
-            alert('Error generating ZIP URL');
+            alert('Error connecting to server');
         }
     });
+
+    async function downloadBlob(response, filename) {
+        const blob = await response.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
 
     async function showAdminContent() {
         loginForm.style.display = 'none';
         adminContent.style.display = 'block';
 
         try {
-            const response = await fetch('/api/admin/photos', {
+            const response = await fetch(`${API_BASE}/api/admin/photos`, {
                 headers: { 'x-admin-password': adminPassword }
             });
 
@@ -123,7 +149,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Failed to fetch photos');
             }
 
-            photoData = await response.json();
+            // booth-server returns: { ok, photos: [{ id, url, folder, uploadedAt }] }
+            const data = await response.json();
+            const photos = data.photos || [];
+
+            photoData = {
+                collages: photos.filter(p => p.folder === 'collage'),
+                raws: photos.filter(p => p.folder === 'raw'),
+            };
+
             renderPhotos();
         } catch (err) {
             console.error(err);
@@ -131,11 +165,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function toggleSelection(publicId) {
-        if (selectedIds.has(publicId)) {
-            selectedIds.delete(publicId);
+    function toggleSelection(id) {
+        if (selectedIds.has(id)) {
+            selectedIds.delete(id);
         } else {
-            selectedIds.add(publicId);
+            selectedIds.add(id);
         }
         renderPhotos();
         updateSelectionUI();
@@ -146,18 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadSelectedBtn.style.background = selectedIds.size > 0 ? '#007bff' : '#6c757d';
     }
 
+    function getSessionId(id) {
+        const match = id.match(/session_(\d+)/);
+        return match ? match[1] : 'unknown';
+    }
+
     function renderPhotos() {
         const sessions = {};
         sessionsList.className = `tab-${currentTab}`;
 
-        function getSessionId(publicId) {
-            const match = publicId.match(/session_(\d+)/);
-            return match ? match[1] : 'unknown';
-        }
-
         const itemsToRender = currentTab === 'collages' ? photoData.collages : photoData.raws;
         itemsToRender.forEach(photo => {
-            const sessionId = getSessionId(photo.public_id);
+            const sessionId = getSessionId(photo.id);
             if (!sessions[sessionId]) sessions[sessionId] = [];
             sessions[sessionId].push(photo);
         });
@@ -174,18 +208,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const items = sessions[sessionId];
             const sessionDiv = document.createElement('div');
             sessionDiv.className = 'session';
-            
+
             const date = sessionId === 'unknown' ? 'Unknown Date' : new Date(parseInt(sessionId)).toLocaleString();
-            
-            let h3 = document.createElement('h3');
-            h3.textContent = `Session: ${date}`;
+
+            const h3 = document.createElement('h3');
+            h3.textContent = `Event ID: ${sessionId} | ${date}`;
             sessionDiv.appendChild(h3);
 
-            let grid = document.createElement('div');
+            const grid = document.createElement('div');
             grid.className = 'photo-grid';
 
-            items.sort((a, b) => a.public_id.localeCompare(b.public_id)).forEach(item => {
-                const isSelected = selectedIds.has(item.public_id);
+            items.sort((a, b) => a.id.localeCompare(b.id)).forEach(item => {
+                const isSelected = selectedIds.has(item.id);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `photo-item ${isSelected ? 'selected' : ''}`;
 
@@ -193,18 +227,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkbox.className = 'checkbox-overlay';
 
                 const img = document.createElement('img');
-                img.src = item.secure_url;
+                img.src = item.url;
                 img.alt = 'Photo';
 
                 const label = document.createElement('span');
                 label.className = 'label';
-                label.textContent = item.public_id.split('_').pop();
+                label.textContent = item.id.split('_').pop();
 
                 itemDiv.append(checkbox, img, label);
 
                 itemDiv.addEventListener('click', (e) => {
                     e.preventDefault();
-                    toggleSelection(item.public_id);
+                    toggleSelection(item.id);
                 });
 
                 grid.appendChild(itemDiv);

@@ -1,7 +1,8 @@
 {
   "siteName": "IFGF NextGen Photo Booth",
 
-  "saveApiUrl": "/api/save",
+  "serverUrl": "https://photobooth-server-production.up.railway.app",
+  "saveApiUrl": "https://photobooth-server-production.up.railway.app/api/save",
 
   "templates": [
     {
