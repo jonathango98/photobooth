@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Photobooth</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f4; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 20px; }
+        .login-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 400px; margin: 50px auto; }
+        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .login-box button { width: 100%; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .admin-controls { display: none; }
+
+        /* Sessions List as a Grid */
+        #sessions-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            align-items: start;
+        }
+
+        .session {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+        }
+        .session h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .photo-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        /* Raw Tab: 16:9 Grid - inside session card */
+        .tab-raws .photo-grid {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+        .tab-raws .photo-item {
+            aspect-ratio: 16 / 9;
+        }
+
+        /* Collage Tab: 9:16 Grid - inside session card */
+        .tab-collages .photo-grid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+        .tab-collages .photo-item {
+            aspect-ratio: 9 / 16;
+        }
+
+        .photo-item {
+            position: relative;
+            background: #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, border 0.2s;
+            cursor: pointer;
+            border: 3px solid transparent;
+        }
+        .photo-item.selected {
+            border-color: #007bff;
+        }
+        .photo-item:hover {
+            transform: scale(1.02);
+        }
+        .photo-item .checkbox-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border: 2px solid #007bff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .photo-item.selected .checkbox-overlay::after {
+            content: "✓";
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .selection-controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .photo-item .label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 2px; }
+        .btn { padding: 8px 16px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 10px; }
+        .btn-download-all { background: #17a2b8; margin-bottom: 20px; }
+        #logout-btn { background: #dc3545; float: right; margin-top: -50px; }
+
+        /* Tabs Styling */
+        .tabs { border-bottom: 2px solid #ccc; margin-bottom: 20px; display: flex; gap: 5px; }
+        .tab-btn { padding: 10px 20px; border: none; background: #ddd; border-top-left-radius: 4px; border-top-right-radius: 4px; cursor: pointer; transition: 0.3s; }
+        .tab-btn:hover { background: #ccc; }
+        .tab-btn.active { background: #fff; border: 2px solid #ccc; border-bottom: none; margin-bottom: -2px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Panel</h1>
+
+        <div id="login-form" class="login-box">
+            <h2>Enter Password</h2>
+            <input type="password" id="admin-password" placeholder="Password">
+            <button id="login-btn">Login</button>
+        </div>
+
+        <div id="admin-content" class="admin-controls">
+            <button id="logout-btn" class="btn">Logout</button>
+            <button id="download-zip-btn" class="btn btn-download-all">Download All as ZIP</button>
+
+            <div class="selection-controls">
+                <button id="download-selected-btn" class="btn" style="background: #6c757d;">Download Selected</button>
+                <button id="select-all-btn" class="btn" style="background: #fff; color: #333; border: 1px solid #ccc;">Select All</button>
+                <button id="clear-selection-btn" class="btn" style="background: #fff; color: #333; border: 1px solid #ccc;">Clear Selection</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="collages">Collages</button>
+                <button class="tab-btn" data-tab="raws">Raw Images</button>
+            </div>
+
+            <div id="sessions-list"></div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

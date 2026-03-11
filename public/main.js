@@ -518,8 +518,8 @@ async function uploadSession() {
 
   if (data.collageUrl) {
     const base =
-      CONFIG.publicBaseUrl && CONFIG.publicBaseUrl.trim().length > 0
-        ? CONFIG.publicBaseUrl.replace(/\/+$/, "")
+      CONFIG.serverUrl && CONFIG.serverUrl.trim().length > 0
+        ? CONFIG.serverUrl.replace(/\/+$/, "")
         : window.location.origin;
 
     const absoluteUrl = data.collageUrl.startsWith("http")

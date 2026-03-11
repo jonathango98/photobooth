@@ -1,8 +1,8 @@
 {
   "siteName": "Jonathan's Photobooth",
 
-  "publicBaseUrl": "",
-  "saveApiUrl": "/api/save",
+  "serverUrl": "https://photobooth-server-production.up.railway.app",
+  "saveApiUrl": "https://photobooth-server-production.up.railway.app/api/save",
 
   "templates": [
     {
