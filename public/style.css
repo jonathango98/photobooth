@@ -83,11 +83,15 @@ body {
 
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-  gap: 40px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 250px));
+  justify-content: center;
+  gap: 24px;
   width: 100%;
   max-width: 90vw;
+  max-height: 75vh;
+  overflow-y: auto;
   margin: 0 auto;
+  padding: 8px;
 }
 
 .template-item {

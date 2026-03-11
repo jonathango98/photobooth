@@ -313,8 +313,13 @@ function startCountdown() {
           currentShotIndex++;
 
           if (currentShotIndex >= totalShots) {
-            populateTemplateScreen();
-            showScreen(templateScreen);
+            if (CONFIG.templates.length === 1) {
+              buildTemplateCollage(0);
+              showScreen(resultScreen);
+            } else {
+              populateTemplateScreen();
+              showScreen(templateScreen);
+            }
           }
         }, FREEZE_DURATION_MS);
       }, 250);
