@@ -793,7 +793,6 @@ document.addEventListener('DOMContentLoaded', () => {
         idInput.disabled = !!event;
 
         document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
-        document.getElementById('ef-is-active').checked = src ? !!src.is_active : true;
         document.getElementById('ef-background-url').value = src ? (src.background_url || '') : '';
         document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
         document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
@@ -833,7 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventData = {
             event_id: document.getElementById('ef-event-id').value.trim(),
             event_name: document.getElementById('ef-event-name').value.trim(),
-            is_active: document.getElementById('ef-is-active').checked,
+            is_active: false,
             background_url: document.getElementById('ef-background-url').value.trim() || null,
             capture: {
                 totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
