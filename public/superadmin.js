@@ -672,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const activateBtn = card.querySelector('.event-activate-btn');
             if (!event.is_active) {
-                activateBtn.addEventListener('click', () => activateEvent(event.event_id));
+                activateBtn.addEventListener('click', () => activateEvent(event));
             }
 
             card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
@@ -695,11 +695,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function activateEvent(eventId) {
+    async function activateEvent(event) {
+        const { event_id, created_at, updated_at, ...rest } = event;
         try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}/activate`, {
-                method: 'POST',
-                headers: authHeaders()
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify({ ...rest, is_active: true })
             });
             if (res.status === 401) { handle401(); return; }
             if (!res.ok) { alert('Failed to activate event.'); return; }
