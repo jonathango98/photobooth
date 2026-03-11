@@ -663,11 +663,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>Updated: ${updatedAt}</span>
                 </div>
                 <div class="event-card-actions">
+                    ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-activate-btn" disabled>Active</button>`}
                     <button class="event-edit-btn">Edit</button>
                     <button class="event-duplicate-btn">Duplicate</button>
                     <button class="event-delete-btn">Delete</button>
                 </div>
             `;
+
+            const activateBtn = card.querySelector('.event-activate-btn');
+            if (!event.is_active) {
+                activateBtn.addEventListener('click', () => activateEvent(event.event_id));
+            }
 
             card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
             card.querySelector('.event-duplicate-btn').addEventListener('click', () => {
@@ -687,6 +693,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             listEl.appendChild(card);
         });
+    }
+
+    async function activateEvent(eventId) {
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}/activate`, {
+                method: 'POST',
+                headers: authHeaders()
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Failed to activate event.'); return; }
+            loadEvents();
+        } catch (err) {
+            console.error(err);
+            alert('Error activating event.');
+        }
     }
 
     async function createEvent(eventData) {
