@@ -270,6 +270,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPhotos() {
         photoGrid.innerHTML = '';
+        currentFiles.sort((a, b) => {
+            const ta = a.lastModified || a.last_modified ? new Date(a.lastModified || a.last_modified).getTime() : 0;
+            const tb = b.lastModified || b.last_modified ? new Date(b.lastModified || b.last_modified).getTime() : 0;
+            if (ta !== tb) return tb - ta;
+            return (b.key || '').localeCompare(a.key || '');
+        });
         if (currentFiles.length === 0) {
             emptyMsg.textContent = 'No files in this folder.';
             emptyMsg.classList.remove('hidden');
@@ -627,7 +633,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        events.forEach(event => {
+        const sorted = [...events].sort((a, b) => {
+            const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return tb - ta;
+        });
+
+        sorted.forEach(event => {
             const card = document.createElement('div');
             card.className = 'event-card';
 
@@ -652,11 +664,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="event-card-actions">
                     <button class="event-edit-btn">Edit</button>
+                    <button class="event-duplicate-btn">Duplicate</button>
                     <button class="event-delete-btn">Delete</button>
                 </div>
             `;
 
             card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
+            card.querySelector('.event-duplicate-btn').addEventListener('click', () => {
+                const copy = { ...event };
+                delete copy.event_id;
+                delete copy.created_at;
+                delete copy.updated_at;
+                openEventForm(null, copy);
+            });
             card.querySelector('.event-delete-btn').addEventListener('click', () => {
                 confirmAction(
                     'Delete Event',
@@ -739,26 +759,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ], null, 2);
 
-    function openEventForm(event) {
+    function openEventForm(event, prefill = null) {
+        const src = event || prefill;
         eventFormMode = event ? 'edit' : 'create';
         eventFormEditId = event ? event.event_id : null;
-        eventFormTitle.textContent = event ? 'Edit Event' : 'New Event';
+        eventFormTitle.textContent = event ? 'Edit Event' : (prefill ? 'Duplicate Event' : 'New Event');
 
         const idInput = document.getElementById('ef-event-id');
         idInput.value = event ? event.event_id : '';
         idInput.disabled = !!event;
 
-        document.getElementById('ef-event-name').value = event ? (event.event_name || '') : '';
-        document.getElementById('ef-is-active').checked = event ? !!event.is_active : true;
-        document.getElementById('ef-background-url').value = event ? (event.background_url || '') : '';
-        document.getElementById('ef-total-shots').value = event ? (event.capture?.totalShots ?? 3) : 3;
-        document.getElementById('ef-photo-width').value = event ? (event.capture?.photoWidth ?? 880) : 880;
-        document.getElementById('ef-photo-height').value = event ? (event.capture?.photoHeight ?? 495) : 495;
-        document.getElementById('ef-countdown-seconds').value = event ? (event.countdown?.seconds ?? 3) : 3;
-        document.getElementById('ef-countdown-step-ms').value = event ? (event.countdown?.stepMs ?? 500) : 500;
-        document.getElementById('ef-qr-size').value = event ? (event.qr?.size ?? 300) : 300;
-        document.getElementById('ef-qr-margin').value = event ? (event.qr?.margin ?? 4) : 4;
-        document.getElementById('ef-templates').value = event ? JSON.stringify(event.templates, null, 2) : DEFAULT_TEMPLATES;
+        document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
+        document.getElementById('ef-is-active').checked = src ? !!src.is_active : true;
+        document.getElementById('ef-background-url').value = src ? (src.background_url || '') : '';
+        document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
+        document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
+        document.getElementById('ef-photo-height').value = src ? (src.capture?.photoHeight ?? 495) : 495;
+        document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
+        document.getElementById('ef-countdown-step-ms').value = src ? (src.countdown?.stepMs ?? 500) : 500;
+        document.getElementById('ef-qr-size').value = src ? (src.qr?.size ?? 300) : 300;
+        document.getElementById('ef-qr-margin').value = src ? (src.qr?.margin ?? 4) : 4;
+        document.getElementById('ef-templates').value = src ? JSON.stringify(src.templates, null, 2) : DEFAULT_TEMPLATES;
 
         eventFormOverlay.classList.add('active');
     }
