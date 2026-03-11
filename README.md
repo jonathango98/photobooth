@@ -1,74 +1,66 @@
-# Photobooth
+# Photobooth App
 
-A simple web-based photobooth application that captures multiple photos, allows template selection, and generates a collage with a QR code for sharing.
+A modern, web-based photobooth application with Cloudinary integration, session-based photo management, and a secure admin panel.
 
 ## Features
 
--   Live camera feed on idle screen.
--   Configurable photo capture countdown.
--   Multiple photo shots.
--   Template selection for collages.
--   QR code generation for sharing collages.
--   Backend to save captured raw photos and collages.
+- **Capture & Collage**: Take 3 photos and automatically generate a vertical collage.
+- **Cloudinary Storage**: Photos are uploaded directly to Cloudinary (folders: `raw` and `collage`).
+- **Secure Admin Panel**: A password-protected dashboard to view and download photos.
+- **Session Grouping**: Photos are grouped by timestamped sessions for easy navigation.
+- **Bulk Download**: Download everything as a ZIP or select specific photos to download.
+- **Responsive Design**: Modern grid layouts that work on mobile and desktop.
 
-## Installation
+---
 
-This project requires Node.js.
+## 🔐 Admin Panel
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd photobooth
-    ```
+The admin panel allows you to manage all photos captured during your event.
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+- **Access URL**: `/admin.html` (e.g., `https://your-app.onrender.com/admin.html`)
+- **Security**: Password protected via the `ADMIN_PASSWORD` environment variable.
+- **Tabs**: Switch between **Collages** and **Raw Images**.
+- **Selection Mode**: Click on photos to select them individually for custom downloads.
+- **Bulk Actions**: "Select All" and "Clear Selection" for fast management.
+- **ZIP Generation**: Download all photos at once or just your specific selection.
 
-## Usage
+---
 
-1.  **Start the server:**
-    ```bash
-    node server.js
-    ```
-    The server will typically start on `http://localhost:3000`. Check your console output for the exact address.
+## Setup
 
-2.  **Open in Browser:**
-    Navigate to the server address (e.g., `http://localhost:3000`) in your web browser.
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-3.  **Take Photos:**
-    -   The live camera feed will be displayed on the idle screen.
-    -   Click anywhere on the screen to start the photo countdown.
-    -   Follow the prompts to take multiple shots.
+2. **Environment Variables**:
+   Create a `.env` file based on `.env.example`:
+   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary Cloud Name.
+   - `CLOUDINARY_API_KEY`: Your Cloudinary API Key.
+   - `CLOUDINARY_API_SECRET`: Your Cloudinary API Secret.
+   - `ADMIN_PASSWORD`: A password of your choice for the admin panel.
 
-4.  **Select Template & Share:**
-    -   After all shots are captured, you will be directed to a template selection screen.
-    -   Choose your preferred collage template.
-    -   The generated collage will be displayed along with a QR code. Scan the QR code with your phone to view or download the collage.
+3. **Run Locally**:
+   ```bash
+   npm start
+   ```
+   Access the booth at `http://localhost:3000` and the admin panel at `http://localhost:3000/admin.html`.
+
+## Deployment (Render)
+
+1. Push this code to a **GitHub** repository.
+2. Create a new **Web Service** on [Render](https://dashboard.render.com/).
+3. Connect your repository.
+4. Set the **Build Command** to `npm install`.
+5. Set the **Start Command** to `npm start`.
+6. Add your environment variables (`CLOUDINARY_*` and `ADMIN_PASSWORD`) in the **Environment** tab.
+7. Your live admin URL will be `https://your-app-name.onrender.com/admin.html`.
 
 ## Project Structure
 
--   `server.js`: The main Node.js Express server that handles static file serving and photo upload API.
--   `public/`: Contains all frontend assets.
-    -   `public/index.html`: The main HTML file for the photobooth interface.
-    -   `public/main.js`: JavaScript logic for camera control, photo capture, collage generation, and UI interactions.
-    -   `public/style.css`: CSS file for styling the application.
-    -   `public/config.json`: Configuration file for photobooth settings (e.g., number of shots, countdown timers, template definitions).
-    -   `public/templates/`: Directory holding image files used as overlays for collage templates.
--   `photos/`: Directory where the server saves captured images.
-    -   `photos/raw/`: Stores individual raw photos taken during a session.
-    -   `photos/collage/`: Stores the final generated photo collages.
-
-## Configuration
-
-The `public/config.json` file allows customization of the photobooth behavior, including:
-
--   `siteName`: The title shown in the browser tab.
--   `capture.totalShots`: Number of photos to take per session.
--   `capture.photoWidth`, `capture.photoHeight`: Dimensions for captured photos.
--   `countdown.seconds`, `countdown.stepMs`: Countdown timer settings.
--   `templates`: An array defining collage templates, including their layout and image overlays.
--   `qr.size`, `qr.margin`: Settings for the generated QR code.
-
-Feel free to modify `public/config.json` to suit your needs.
+- `server.js`: Express backend handling Cloudinary uploads and Admin APIs.
+- `public/index.html`: Main photobooth interface.
+- `public/admin.html`: Password-protected admin dashboard.
+- `public/main.js`: Photobooth logic (camera, canvas, UI).
+- `public/admin.js`: Admin panel logic (fetching, selection, ZIP generation).
+- `public/config.json`: Customization for templates and capture settings.

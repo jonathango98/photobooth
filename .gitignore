@@ -4,3 +4,10 @@ package-lock.json
 /photos/
 *.psd
 .env
+.vscode
+.ropeproject
+.claude
+.vscode
+
+# Local Netlify folder
+.netlify

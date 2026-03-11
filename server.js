@@ -27,8 +27,75 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
 // Serve frontend files (index.html, main.js, etc.)
 app.use(express.static(path.join(__dirname, "public")));
+
+// --------------------------
+// Admin Middleware
+// --------------------------
+const checkAdmin = (req, res, next) => {
+  const password = req.headers["x-admin-password"];
+  if (password === process.env.ADMIN_PASSWORD) {
+    next();
+  } else {
+    res.status(401).send("Unauthorized");
+  }
+};
+
+// --------------------------
+// Admin API endpoints
+// --------------------------
+app.get("/api/admin/photos", checkAdmin, async (req, res) => {
+  try {
+    // List both 'collage' and 'raw' folders
+    const [collageRes, rawRes] = await Promise.all([
+      cloudinary.api.resources({ type: 'upload', prefix: 'collage/', max_results: 500 }),
+      cloudinary.api.resources({ type: 'upload', prefix: 'raw/', max_results: 500 })
+    ]);
+
+    res.json({
+      collages: collageRes.resources,
+      raws: rawRes.resources
+    });
+  } catch (err) {
+    console.error("Error listing photos:", err);
+    res.status(500).send("Error listing photos");
+  }
+});
+
+app.post("/api/admin/download-selected", checkAdmin, (req, res) => {
+  try {
+    const { publicIds } = req.body;
+    if (!publicIds || !Array.isArray(publicIds) || publicIds.length === 0) {
+      return res.status(400).send("No photos selected");
+    }
+
+    // Generate a zip URL for the specific public IDs provided
+    const url = cloudinary.utils.download_zip_url({
+      public_ids: publicIds,
+      resource_type: "image",
+    });
+    res.json({ url });
+  } catch (err) {
+    console.error("Error generating selected zip URL:", err);
+    res.status(500).send("Error generating zip URL");
+  }
+});
+
+app.get("/api/admin/download-zip", checkAdmin, (req, res) => {
+  try {
+    // Generate a zip URL for all uploaded files
+    const url = cloudinary.utils.download_zip_url({
+      prefixes: ["collage/", "raw/"],
+      resource_type: "image",
+    });
+    res.json({ url });
+  } catch (err) {
+    console.error("Error generating zip URL:", err);
+    res.status(500).send("Error generating zip URL");
+  }
+});
 
 // --------------------------
 // Multer setup (in-memory)
@@ -61,33 +128,35 @@ function uploadFromBuffer(buffer, folder, filename) {
 // --------------------------
 // /api/save endpoint
 // --------------------------
+const MAX_RAW_PHOTOS = 10;
+const rawFields = Array.from({ length: MAX_RAW_PHOTOS }, (_, i) => ({
+  name: `raw${i + 1}`,
+  maxCount: 1,
+}));
+
 const cpUpload = upload.fields([
-  { name: "raw1", maxCount: 1 },
-  { name: "raw2", maxCount: 1 },
-  { name: "raw3", maxCount: 1 },
+  ...rawFields,
   { name: "collage", maxCount: 1 },
 ]);
 
 app.post("/api/save", cpUpload, async (req, res) => {
   try {
     const files = req.files || {};
-    console.log("Received files:", Object.keys(files));
 
-    // Simple session id for grouping
     const sessionId = Date.now().toString();
 
     // 1) Save raw photos to Cloudinary
-    const rawFields = ["raw1", "raw2", "raw3"];
     const uploadPromises = [];
 
-    rawFields.forEach((fieldName, index) => {
+    for (let i = 0; i < MAX_RAW_PHOTOS; i++) {
+      const fieldName = `raw${i + 1}`;
       const fileArr = files[fieldName];
-      if (!fileArr || fileArr.length === 0) return;
+      if (!fileArr || fileArr.length === 0) continue;
 
       const file = fileArr[0];
-      const rawFilename = `session_${sessionId}_raw${index + 1}`;
+      const rawFilename = `session_${sessionId}_raw${i + 1}`;
       uploadPromises.push(uploadFromBuffer(file.buffer, "raw", rawFilename));
-    });
+    }
 
     // 2) Save collage to Cloudinary
     const collageArr = files["collage"];

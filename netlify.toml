@@ -1,0 +1,23 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/save"
+  to = "/.netlify/functions/save"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/photos"
+  to = "/.netlify/functions/admin-photos"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/download-selected"
+  to = "/.netlify/functions/admin-download-selected"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/download-zip"
+  to = "/.netlify/functions/admin-download-zip"
+  status = 200

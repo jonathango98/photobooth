@@ -1,5 +1,3 @@
-console.log("Photobooth Loaded");
-
 // ---------------------------
 // Global config & state
 // ---------------------------
@@ -23,14 +21,17 @@ const templateGrid = document.getElementById("template-grid");
 let stream = null;
 let animationFrameId = null;
 let currentCountdownText = "";   // "", "3", "2", "1", "SMILE!"
-let currentShotIndex = 0;        // shots taken so far: 0..CONFIG.capture.totalShots
+let currentShotIndex = 0;        // shots taken so far
 const capturedCanvases = [];     // raw shot canvases
-let selectedTemplateIndex = null; // new state for template selection
+let selectedTemplateIndex = null;
 
 // Preview of captured frame
-let frozenFrame = null;          // canvas of last captured image (same size as cameraCanvas)
-let freezeUntil = 0;             // timestamp (ms) until preview should last
-const FREEZE_DURATION_MS = 1000; // 1 second freeze preview
+let frozenFrame = null;
+let freezeUntil = 0;
+const FREEZE_DURATION_MS = 1000;
+
+// Template image cache (avoids double-loading)
+const templateImageCache = new Map();
 
 // ---------------------------
 // Config loading
@@ -41,20 +42,39 @@ async function loadConfig() {
     throw new Error(`Failed to load config.json: ${res.status}`);
   }
   CONFIG = await res.json();
-  console.log("[CONFIG]", CONFIG);
 
-  // Apply site name to document title if provided
   if (CONFIG.siteName) {
     document.title = CONFIG.siteName;
   }
+
+  // Pre-load template images
+  if (CONFIG.templates) {
+    await Promise.all(CONFIG.templates.map(t => loadTemplateImage(t.file)));
+  }
 }
 
+function loadTemplateImage(src) {
+  if (templateImageCache.has(src)) {
+    return Promise.resolve(templateImageCache.get(src));
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      templateImageCache.set(src, img);
+      resolve(img);
+    };
+    img.onerror = () => {
+      console.warn(`[TEMPLATE] Image ${src} failed to load.`);
+      resolve(null);
+    };
+    img.src = src;
+  });
+}
 
 // ---------------------------
 // UI Helper
 // ---------------------------
 function showScreen(screen) {
-  console.log("[UI] showScreen:", screen.id);
   document.querySelectorAll(".screen").forEach((s) =>
     s.classList.remove("active")
   );
@@ -67,12 +87,10 @@ function showScreen(screen) {
 async function startCamera() {
   try {
     if (stream) {
-      console.log("[CAM] stream already exists, just start render loop");
       startRenderLoop();
       return;
     }
 
-    console.log("[CAM] requesting camera…");
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "user" },
       audio: false,
@@ -83,22 +101,15 @@ async function startCamera() {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
 
-      console.log("[CAM] metadata:", vw, "x", vh);
+      if (!vw || !vh) return;
 
-      if (!vw || !vh) {
-        console.warn("[CAM] video metadata not ready");
-        return;
-      }
-
-      // Maintain aspect ratio and avoid fullscreen
       const aspect = vw / vh;
-      const displayWidth  = 1000;            // desired preview width
+      const displayWidth  = 1000;
       const displayHeight = displayWidth / aspect;
 
       cameraCanvas.width  = displayWidth;
       cameraCanvas.height = displayHeight;
 
-      // Once camera is ready, hide static idle text
       if (idleText) {
         idleText.style.display = "none";
       }
@@ -116,8 +127,6 @@ async function startCamera() {
 // RENDER LOOP (camera preview + overlays)
 // ---------------------------
 function startRenderLoop() {
-  console.log("[RENDER] start loop");
-
   function render() {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
@@ -131,48 +140,42 @@ function startRenderLoop() {
 
     if (cw && ch) {
       if (isFrozen && frozenFrame) {
-        // Show frozen captured image (already mirrored + correct aspect)
         cameraCtx.drawImage(frozenFrame, 0, 0, cw, ch);
       } else if (vw && vh) {
-        // Normal live preview, mirrored
         cameraCtx.save();
         cameraCtx.scale(-1, 1);
         cameraCtx.translate(-cw, 0);
         cameraCtx.drawImage(video, 0, 0, cw, ch);
         cameraCtx.restore();
       } else {
-        // Before video is ready, show a black canvas
         cameraCtx.fillStyle = "#000";
         cameraCtx.fillRect(0, 0, cw, ch);
       }
     }
 
-    // --- Overlays (only when NOT frozen) ---
+    // Overlays (only when NOT frozen)
     if (!isFrozen && cw && ch && CONFIG) {
       const totalShots = CONFIG.capture?.totalShots ?? 3;
 
-      // Shot indicator (e.g., 1/3, 2/3) when we still have shots to take
       if (currentShotIndex < totalShots) {
-        const shotNumber = currentShotIndex + 1; // upcoming shot
-        cameraCtx.font = `${cw * 0.04}px system-ui`; // Responsive font size
+        const shotNumber = currentShotIndex + 1;
+        cameraCtx.font = `${cw * 0.04}px system-ui`;
         cameraCtx.fillStyle = "rgba(255,255,255,0.85)";
         cameraCtx.textAlign = "left";
         cameraCtx.textBaseline = "top";
         cameraCtx.fillText(`${shotNumber}/${totalShots}`, 40, 30);
       }
 
-      // Countdown text (center)
       if (currentCountdownText) {
-        cameraCtx.font = `${cw * 0.2}px system-ui`; // Responsive font size
-        cameraCtx.fillStyle = "rgba(255,255,255,0.4)"; // bigger + more transparent
+        cameraCtx.font = `${cw * 0.2}px system-ui`;
+        cameraCtx.fillStyle = "rgba(255,255,255,0.4)";
         cameraCtx.textAlign = "center";
         cameraCtx.textBaseline = "middle";
         cameraCtx.fillText(currentCountdownText, cw / 2, ch / 2);
       }
 
-      // "PRESS TO START" text when not counting down and shots still available
       if (!currentCountdownText && currentShotIndex < totalShots) {
-        cameraCtx.font = `${cw * 0.04}px system-ui`; // Responsive font size
+        cameraCtx.font = `${cw * 0.04}px system-ui`;
         cameraCtx.fillStyle = "rgba(255,255,255,0.7)";
         cameraCtx.textAlign = "center";
         cameraCtx.textBaseline = "bottom";
@@ -190,7 +193,7 @@ function startRenderLoop() {
 }
 
 // ---------------------------
-// CAPTURE (center crop → photoWidth × photoHeight, NOT mirrored)
+// CAPTURE (center crop, NOT mirrored)
 // ---------------------------
 function captureOneShot() {
   if (!CONFIG) return;
@@ -211,33 +214,26 @@ function captureOneShot() {
   let sx, sy, sw, sh;
 
   if (videoAspect > targetAspect) {
-    // Video too wide → crop sides
     sh = vh;
     sw = sh * targetAspect;
     sx = (vw - sw) / 2;
     sy = 0;
   } else {
-    // Video too tall → crop top/bottom
     sw = vw;
     sh = sw / targetAspect;
     sx = 0;
     sy = (vh - sh) / 2;
   }
 
-  // Offscreen canvas for RAW shot (for collage)
   const off = document.createElement("canvas");
   off.width = targetW;
   off.height = targetH;
   const offCtx = off.getContext("2d");
-
-  // Capture is not mirrored (correct orientation for final print)
   offCtx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
 
   capturedCanvases.push(off);
-  console.log("[CAPTURE] shot captured, total:", capturedCanvases.length);
 
-  // Freeze-frame preview:
-  // Draw the mirrored video frame directly into a separate canvas (no overlays)
+  // Freeze-frame preview
   const cw = cameraCanvas.width;
   const ch = cameraCanvas.height;
 
@@ -247,7 +243,6 @@ function captureOneShot() {
     freezeCanvas.height = ch;
     const fCtx = freezeCanvas.getContext("2d");
 
-    // Mirror same as preview
     fCtx.save();
     fCtx.scale(-1, 1);
     fCtx.translate(-cw, 0);
@@ -260,18 +255,16 @@ function captureOneShot() {
 }
 
 // ---------------------------
-// Countdown (config-driven, SMILE in all caps before capture)
+// Countdown
 // ---------------------------
-function startCountdown(seconds) {
+function startCountdown() {
   if (!CONFIG) return;
 
-  const defaultSeconds = CONFIG.countdown?.seconds ?? 3;
-  const intervalMs     = CONFIG.countdown?.stepMs ?? 500;
-
+  const seconds    = CONFIG.countdown?.seconds ?? 3;
+  const intervalMs = CONFIG.countdown?.stepMs ?? 500;
   const totalShots = CONFIG.capture?.totalShots ?? 3;
 
-  console.log("[COUNTDOWN] start, shots taken:", currentShotIndex);
-  let remaining = seconds ?? defaultSeconds;
+  let remaining = seconds;
   currentCountdownText = remaining.toString();
 
   const timer = setInterval(() => {
@@ -281,116 +274,80 @@ function startCountdown(seconds) {
       currentCountdownText = remaining.toString();
     } else {
       clearInterval(timer);
-      // ALL CAPS for SMILE
       currentCountdownText = "SMILE!";
 
       setTimeout(() => {
-        // Take the shot and start preview freeze
         captureOneShot();
-
         currentCountdownText = "";
 
-        // After the preview delay, move on to next shot or result
         setTimeout(() => {
           currentShotIndex++;
-          console.log(
-            "[COUNTDOWN] shot complete, shots taken now:",
-            currentShotIndex
-          );
 
           if (currentShotIndex >= totalShots) {
-            console.log(
-              "[FLOW] reached TOTAL_SHOTS → go to template selection"
-            );
             populateTemplateScreen();
             showScreen(templateScreen);
           }
         }, FREEZE_DURATION_MS);
-      }, 250); // short delay after SMILE! before capture
+      }, 250);
     }
   }, intervalMs);
 }
 
 // ---------------------------
-// Populate Template Screen & Carousel
+// Populate Template Screen
 // ---------------------------
-async function populateTemplateScreen() {
+function populateTemplateScreen() {
   if (!CONFIG || !CONFIG.templates) return;
 
-  console.log('[TEMPLATE] Populating template screen with', CONFIG.templates.length, 'templates');
-  templateGrid.innerHTML = ""; // Clear existing templates
-  selectedTemplateIndex = null; // Reset selection
+  templateGrid.innerHTML = "";
+  selectedTemplateIndex = null;
 
-  const templatePromises = CONFIG.templates.map(async (template, index) => {
-    console.log('[TEMPLATE] Processing template:', template.name);
+  const PHOTO_W = CONFIG.capture.photoWidth;
+  const PHOTO_H = CONFIG.capture.photoHeight;
+
+  CONFIG.templates.forEach((template, index) => {
     const item = document.createElement("div");
     item.className = "template-item";
     item.dataset.templateIndex = index;
 
     const previewCanvas = document.createElement("canvas");
     const previewCtx = previewCanvas.getContext("2d");
+    previewCanvas.width = template.width;
+    previewCanvas.height = template.height;
+
+    // Draw photos into slots
+    for (let i = 0; i < capturedCanvases.length; i++) {
+      const slot = template.slots[i];
+      if (!slot) continue;
+      previewCtx.drawImage(capturedCanvases[i], slot.x, slot.y, PHOTO_W, PHOTO_H);
+    }
+
+    // Draw cached template overlay
+    const templateImg = templateImageCache.get(template.file);
+    if (templateImg) {
+      previewCtx.drawImage(templateImg, 0, 0, template.width, template.height);
+    }
 
     item.appendChild(previewCanvas);
     templateGrid.appendChild(item);
 
-    // Set canvas dimensions
-    previewCanvas.width = template.width;
-    previewCanvas.height = template.height;
-
-    // Draw photos
-    const PHOTO_W = CONFIG.capture.photoWidth;
-    const PHOTO_H = CONFIG.capture.photoHeight;
-    for (let i = 0; i < capturedCanvases.length; i++) {
-      const shot = capturedCanvases[i];
-      const slot = template.slots[i];
-      if (!slot) continue;
-      previewCtx.drawImage(shot, slot.x, slot.y, PHOTO_W, PHOTO_H);
-    }
-
-    // Draw template overlay
-    const templateImg = new Image();
-    templateImg.src = template.file;
-    console.log('[TEMPLATE] Loading image:', templateImg.src);
-
-    await new Promise(resolve => {
-      templateImg.onload = () => {
-        console.log('[TEMPLATE] Image loaded successfully:', templateImg.src);
-        previewCtx.drawImage(templateImg, 0, 0, template.width, template.height);
-        resolve();
-      };
-      templateImg.onerror = () => {
-        console.warn(`[TEMPLATE] Image ${template.file} failed to load.`);
-        resolve(); // Continue even if image fails
-      }
-    });
-
     item.addEventListener("click", () => {
       if (selectedTemplateIndex === index) {
-        // This item is already selected, so this is a confirmation click
-        console.log(`[TEMPLATE] confirmed index: ${index}`);
         buildTemplateCollage(index);
         showScreen(resultScreen);
-        selectedTemplateIndex = null; // Reset for next time
+        selectedTemplateIndex = null;
       } else {
-        // This is a new selection
-        console.log(`[TEMPLATE] selected index: ${index}`);
-        // Remove 'selected' from previously selected item
         if (selectedTemplateIndex !== null) {
           const prevSelected = templateGrid.querySelector(`[data-template-index="${selectedTemplateIndex}"]`);
           if (prevSelected) {
             prevSelected.classList.remove("selected");
           }
         }
-        // Add 'selected' to current item and update state
         item.classList.add("selected");
         selectedTemplateIndex = index;
       }
     });
   });
-
-  console.log('[TEMPLATE] Waiting for all templates to render...');
-  await Promise.all(templatePromises);
-  console.log('[TEMPLATE] All templates rendered.');
 }
 
 // ---------------------------
@@ -403,22 +360,7 @@ async function buildTemplateCollage(templateIndex = 0) {
   }
 
   const template = CONFIG.templates[templateIndex];
-  console.log("[COLLAGE] start buildTemplateCollage with template:", template);
-
-  // Load the selected template image
-  const templateImg = new Image();
-  templateImg.src = template.file;
-  await new Promise((resolve) => {
-    if (templateImg.complete) {
-      resolve();
-    } else {
-      templateImg.onload = () => resolve();
-      templateImg.onerror = () => {
-        console.warn("Template image failed to load, continuing without it");
-        resolve();
-      };
-    }
-  });
+  const templateImg = templateImageCache.get(template.file);
 
   const TEMPLATE_WIDTH  = template.width;
   const TEMPLATE_HEIGHT = template.height;
@@ -428,34 +370,26 @@ async function buildTemplateCollage(templateIndex = 0) {
 
   photoCanvas.width  = TEMPLATE_WIDTH;
   photoCanvas.height = TEMPLATE_HEIGHT;
-
   photoCtx.clearRect(0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
 
-  // 1) Draw photos first
-  console.log("[COLLAGE] drawing photos, count:", capturedCanvases.length);
+  // 1) Draw photos
   for (let i = 0; i < capturedCanvases.length; i++) {
-    const shot = capturedCanvases[i];
     const slot = PHOTO_SLOTS[i];
     if (!slot) continue;
-    photoCtx.drawImage(shot, slot.x, slot.y, PHOTO_W, PHOTO_H);
+    photoCtx.drawImage(capturedCanvases[i], slot.x, slot.y, PHOTO_W, PHOTO_H);
   }
 
-  // 2) Draw template on top (if it exists)
-  try {
+  // 2) Draw template overlay on top
+  if (templateImg) {
     photoCtx.drawImage(templateImg, 0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
-    console.log("[COLLAGE] template drawn");
-  } catch (e) {
-    console.warn("[COLLAGE] could not draw template:", e);
   }
 
-  // 3) Upload raw shots + collage to server
+  // 3) Upload
   try {
     await uploadSession();
   } catch (e) {
     console.error("[COLLAGE] uploadSession failed:", e);
   }
-
-  console.log("[COLLAGE] done");
 }
 
 // ---------------------------
@@ -464,18 +398,14 @@ async function buildTemplateCollage(templateIndex = 0) {
 async function uploadSession() {
   if (!CONFIG) return;
 
-  console.log("[UPLOAD] start");
   const formData = new FormData();
 
   // Raw photos
   const rawBlobs = await Promise.all(
     capturedCanvases.map(
-      (canvas, idx) =>
+      (canvas) =>
         new Promise((resolve) =>
-          canvas.toBlob((blob) => {
-            console.log("[UPLOAD] raw toBlob index", idx);
-            resolve(blob);
-          }, "image/jpeg", 0.9)
+          canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.9)
         )
     )
   );
@@ -485,12 +415,9 @@ async function uploadSession() {
     formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
   });
 
-  // Collage (photoCanvas)
+  // Collage
   const collageBlob = await new Promise((resolve) =>
-    photoCanvas.toBlob((blob) => {
-      console.log("[UPLOAD] collage toBlob done");
-      resolve(blob);
-    }, "image/jpeg", 0.9)
+    photoCanvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.9)
   );
 
   if (collageBlob) {
@@ -504,8 +431,6 @@ async function uploadSession() {
     body: formData,
   });
 
-  console.log("[UPLOAD] response status:", res.status);
-
   if (!res.ok) {
     const text = await res.text();
     console.error("[UPLOAD] failed:", text);
@@ -514,39 +439,23 @@ async function uploadSession() {
   }
 
   const data = await res.json();
-  console.log("[UPLOAD] Saved session:", data);
 
   if (data.collageUrl) {
-    const base =
-      CONFIG.publicBaseUrl && CONFIG.publicBaseUrl.trim().length > 0
-        ? CONFIG.publicBaseUrl.replace(/\/+$/, "")
-        : window.location.origin;
-
-    const absoluteUrl = data.collageUrl.startsWith("http")
-      ? data.collageUrl
-      : `${base}${data.collageUrl}`;
-
-    console.log("[UPLOAD] QR absolute URL:", absoluteUrl);
-    renderQr(absoluteUrl);
+    // Cloudinary returns absolute URLs, use directly
+    renderQr(data.collageUrl);
   } else {
     console.warn("[UPLOAD] No collageUrl in response.");
   }
 }
 
 // ---------------------------
-// Render QR code for collageUrl
+// Render QR code
 // ---------------------------
 function renderQr(url) {
-  if (!qrCanvas) return;
-  if (typeof QRCode === "undefined") {
-    console.warn("[QR] library not loaded.");
-    return;
-  }
+  if (!qrCanvas || typeof QRCode === "undefined") return;
 
   const size   = CONFIG?.qr?.size   ?? 300;
   const margin = CONFIG?.qr?.margin ?? 4;
-
-  console.log("[QR] rendering for:", url);
 
   QRCode.toCanvas(
     qrCanvas,
@@ -555,16 +464,12 @@ function renderQr(url) {
       width: size,
       margin: margin,
       color: {
-        dark: '#FFFFFF', // White foreground
-        light: '#2c2c2c' // Grey background
+        dark: '#FFFFFF',
+        light: '#2c2c2c'
       }
     },
     (error) => {
-      if (error) {
-        console.error("[QR] Error rendering:", error);
-      } else {
-        console.log("[QR] done");
-      }
+      if (error) console.error("[QR] Error rendering:", error);
     }
   );
 }
@@ -573,29 +478,11 @@ function renderQr(url) {
 // Event Listeners & init
 // ---------------------------
 function attachEventListeners() {
-  // Click anywhere on idle-screen (canvas area) to start countdown for next shot
   idleScreen.addEventListener("click", () => {
-    console.log("[FLOW] idle-screen click");
-
-    if (!CONFIG) {
-      console.warn("Config not loaded yet.");
-      return;
-    }
-
-    if (!video.srcObject) {
-      console.warn("[FLOW] video.srcObject is null, camera not ready yet");
-      return;
-    }
-
-    // If already counting down, ignore clicks
-    if (currentCountdownText) {
-      console.log("[FLOW] countdown running, ignore click");
-      return;
-    }
+    if (!CONFIG || !video.srcObject || currentCountdownText) return;
 
     const totalShots = CONFIG.capture?.totalShots ?? 3;
 
-    // If we already finished shots but somehow stayed on this screen, reset
     if (currentShotIndex >= totalShots) {
       currentShotIndex = 0;
       capturedCanvases.length = 0;
@@ -603,24 +490,19 @@ function attachEventListeners() {
       freezeUntil = 0;
     }
 
-    // Start countdown for next shot
     startCountdown();
   });
 
-  // Back button from result → idle
   backBtn.addEventListener("click", () => {
-    console.log("[FLOW] result → idle");
     if (!CONFIG) return;
 
-    // Reset session but keep stream alive
     currentShotIndex = 0;
     currentCountdownText = "";
     capturedCanvases.length = 0;
     frozenFrame = null;
     freezeUntil = 0;
-    selectedTemplateIndex = null; // Reset template selection
+    selectedTemplateIndex = null;
 
-    // Clear QR canvas
     if (qrCanvas) {
       const ctx = qrCanvas.getContext("2d");
       ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
@@ -635,16 +517,10 @@ async function init() {
     await loadConfig();
     attachEventListeners();
     startCamera();
-    console.log("[INIT] Photobooth ready.");
   } catch (err) {
     console.error("[INIT] Failed to initialize:", err);
     alert("Failed to load photobooth configuration.");
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  init();
-});
-// ----------------------------------
-// END OF FILE
-// --------------------------
+document.addEventListener("DOMContentLoaded", init);
