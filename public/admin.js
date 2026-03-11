@@ -19,6 +19,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let photoData = { collages: [], raws: [] };
     let currentTab = 'collages';
     let selectedIds = new Set();
+    let eventId = null;
+
+    // Fetch event ID
+    fetch(`${API_BASE}/api/event`)
+        .then(res => res.json())
+        .then(data => {
+            eventId = data.eventId;
+            const eventIdEl = document.querySelector('h1');
+            if (eventIdEl) {
+                eventIdEl.textContent = `Admin Panel - Event: ${eventId}`;
+            }
+        })
+        .catch(err => console.warn('Failed to fetch event ID:', err));
 
     if (adminPassword) {
         showAdminContent();
@@ -199,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const date = sessionId === 'unknown' ? 'Unknown Date' : new Date(parseInt(sessionId)).toLocaleString();
 
             const h3 = document.createElement('h3');
-            h3.textContent = `Session: ${date}`;
+            h3.textContent = `Event ID: ${sessionId} | ${date}`;
             sessionDiv.appendChild(h3);
 
             const grid = document.createElement('div');
