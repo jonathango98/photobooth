@@ -270,11 +270,11 @@ body::after {
 
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   justify-content: center;
-  gap: 20px;
+  gap: 28px;
   width: 100%;
-  max-width: 680px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 8px;
 }
