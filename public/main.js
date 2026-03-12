@@ -53,11 +53,9 @@ async function loadConfig() {
         CONFIG = {
           siteName: eventConfig.event_name,
           serverUrl: serverUrl,
-          saveApiUrl: `${serverUrl}/api/save`,
           templates: eventConfig.templates,
           capture: eventConfig.capture,
           countdown: eventConfig.countdown,
-          qr: eventConfig.qr,
         };
         usedServerConfig = true;
         console.log("[CONFIG] Loaded from server API.");
@@ -458,7 +456,7 @@ async function uploadSession() {
     formData.append("collage", collageBlob, "collage.jpg");
   }
 
-  const saveApiUrl = CONFIG.saveApiUrl || "/api/save";
+  const saveApiUrl = `${CONFIG.serverUrl}/api/save`;
 
   const res = await fetch(saveApiUrl, {
     method: "POST",
@@ -497,8 +495,8 @@ async function uploadSession() {
 function renderQr(url) {
   if (!qrCanvas || typeof QRCode === "undefined") return;
 
-  const size   = CONFIG?.qr?.size   ?? 300;
-  const margin = CONFIG?.qr?.margin ?? 4;
+  const size   = 300;
+  const margin = 4;
 
   QRCode.toCanvas(
     qrCanvas,

@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const DEFAULT_TEMPLATES = JSON.stringify([
+    const DEFAULT_TEMPLATES = formatTemplatesJSON([
         {
             "file": "template1.png",
             "width": 880,
@@ -780,7 +780,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 { "x": 0, "y": 0 }
             ]
         }
-    ], null, 2);
+    ]);
+
+    function formatTemplatesJSON(templates) {
+        // Expand top-level array and template objects (depth 0-1), but keep slots/inner objects compact
+        return '[\n' + templates.map(t => {
+            const { slots, ...rest } = t;
+            const restStr = JSON.stringify(rest);
+            const slotsStr = slots ? `,\n    "slots": [${slots.map(s => JSON.stringify(s)).join(', ')}]` : '';
+            return '  {' + restStr.slice(1, -1) + slotsStr + '\n  }';
+        }).join(',\n') + '\n]';
+    }
 
     function openEventForm(event, prefill = null) {
         const src = event || prefill;
@@ -799,9 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ef-photo-height').value = src ? (src.capture?.photoHeight ?? 495) : 495;
         document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
         document.getElementById('ef-countdown-step-ms').value = src ? (src.countdown?.stepMs ?? 500) : 500;
-        document.getElementById('ef-qr-size').value = src ? (src.qr?.size ?? 300) : 300;
-        document.getElementById('ef-qr-margin').value = src ? (src.qr?.margin ?? 4) : 4;
-        document.getElementById('ef-templates').value = src ? JSON.stringify(src.templates, null, 2) : DEFAULT_TEMPLATES;
+        document.getElementById('ef-templates').value = src ? formatTemplatesJSON(src.templates) : DEFAULT_TEMPLATES;
 
         eventFormOverlay.classList.add('active');
     }
@@ -823,7 +831,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let templates;
         try {
-            templates = JSON.parse(document.getElementById('ef-templates').value);
+            const raw = JSON.parse(document.getElementById('ef-templates').value);
+            templates = raw.map(({ name, preview, ...rest }) => rest);
         } catch {
             alert('Templates field is not valid JSON.');
             return;
@@ -842,10 +851,6 @@ document.addEventListener('DOMContentLoaded', () => {
             countdown: {
                 seconds: parseInt(document.getElementById('ef-countdown-seconds').value, 10),
                 stepMs: parseInt(document.getElementById('ef-countdown-step-ms').value, 10),
-            },
-            qr: {
-                size: parseInt(document.getElementById('ef-qr-size').value, 10),
-                margin: parseInt(document.getElementById('ef-qr-margin').value, 10),
             },
             templates,
         };
