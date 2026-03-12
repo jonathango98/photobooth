@@ -5,7 +5,6 @@
   <title>Photobooth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -56,11 +55,16 @@
       <div class="result-qr-wrap">
         <div class="qr-card">
           <p id="scan-to-download-text">Scan to Download</p>
-          <canvas id="qr-canvas" width="300" height="300"></canvas>
+          <img id="qr-img" alt="QR Code" />
         </div>
-        <button id="back-btn">Start Over</button>
-        <div class="reset-bar-wrap">
-          <div id="reset-bar"></div>
+        <div class="result-actions">
+          <button id="back-btn">Start Over</button>
+          <div class="reset-countdown">
+            <span id="reset-label">Restarting in <span id="reset-seconds"></span>s</span>
+            <div class="reset-bar-wrap">
+              <div id="reset-bar"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

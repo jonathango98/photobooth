@@ -270,11 +270,11 @@ body::after {
 
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   justify-content: center;
-  gap: 20px;
+  gap: 28px;
   width: 100%;
-  max-width: 680px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 8px;
 }
@@ -289,7 +289,6 @@ body::after {
 
 .template-item-card {
   position: relative;
-  aspect-ratio: 9/16;
   border-radius: 10px;
   overflow: hidden;
   width: 100%;
@@ -388,11 +387,17 @@ body::after {
     0 16px 48px rgba(0, 0, 0, 0.7);
 }
 
+/* Landscape template: constrain photo but keep side-by-side */
+.result-layout.landscape #photo-canvas {
+  max-width: 55vw;
+  max-height: 75vh;
+}
+
 .result-qr-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
 }
 
 /* QR card */
@@ -402,28 +407,38 @@ body::after {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(201, 164, 83, 0.2);
   border-radius: 20px;
-  padding: 24px 28px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 #scan-to-download-text {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-style: italic;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--cream);
-  opacity: 0.8;
+  opacity: 0.7;
   margin: 0;
 }
 
-#qr-canvas {
-  width: 240px;
-  height: 240px;
+#qr-img {
+  width: 220px;
+  height: 220px;
   border-radius: 10px;
   display: block;
+}
+
+/* Start Over + countdown */
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
 }
 
 /* Start Over button */
@@ -449,9 +464,26 @@ body::after {
   transform: scale(1.05);
 }
 
+/* Reset countdown label + bar */
+.reset-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+#reset-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+  opacity: 0.4;
+}
+
 /* Auto-reset progress bar */
 .reset-bar-wrap {
-  width: 240px;
+  width: 200px;
   height: 2px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;

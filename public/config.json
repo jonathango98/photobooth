@@ -47,7 +47,7 @@
     "stepMs": 500
   },
 
-  "autoResetSeconds": 30,
+  "autoResetSeconds": 60,
 
   "gestureTrigger": {
     "enabled": true,

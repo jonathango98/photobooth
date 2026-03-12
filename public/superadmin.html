@@ -88,6 +88,14 @@
         #modal-confirm { padding: 8px 18px; background: #f7f2d5; color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
         #modal-confirm:hover { background: #ede8c4; }
 
+        /* Lightbox */
+        #preview-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 2000; align-items: center; justify-content: center; }
+        #preview-overlay.active { display: flex; }
+        #preview-inner { position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; justify-content: center; }
+        #preview-img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 8px 48px rgba(0,0,0,0.8); display: block; }
+        #preview-close { position: fixed; top: 20px; right: 24px; background: transparent; border: 1px solid rgba(247,242,213,0.3); color: #f7f2d5; font-size: 22px; line-height: 1; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: monospace; }
+        #preview-close:hover { background: rgba(247,242,213,0.1); }
+
         /* Hidden */
         .hidden { display: none !important; }
 
@@ -354,6 +362,14 @@
                 </div>
             </form>
         </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="preview-overlay">
+        <div id="preview-inner">
+            <img id="preview-img" src="" alt="">
+        </div>
+        <button id="preview-close">×</button>
     </div>
 
     <script src="superadmin.js"></script>
