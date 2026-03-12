@@ -112,6 +112,11 @@
         .form-row .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: rgba(247,242,213,0.8); }
         .form-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
         .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .gesture-type-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .gesture-type-option { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-size: 13px; color: rgba(247,242,213,0.7); background: #1a1a1a; transition: border-color 0.15s, background 0.15s; user-select: none; }
+        .gesture-type-option:hover { border-color: rgba(247,242,213,0.4); background: rgba(247,242,213,0.05); }
+        .gesture-type-option input[type="radio"] { display: none; }
+        .gesture-type-option:has(input:checked) { border-color: #f7f2d5; color: #f7f2d5; background: rgba(247,242,213,0.08); }
         #event-form-cancel { padding: 8px 18px; background: transparent; color: rgba(247,242,213,0.7); border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
         #event-form-cancel:hover { background: rgba(247,242,213,0.06); }
         #event-form-save { padding: 8px 18px; background: #f7f2d5; color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
@@ -182,6 +187,7 @@
         <div id="tab-bar">
             <button class="sa-tab active" data-tab="files">Files</button>
             <button class="sa-tab" data-tab="events">Events</button>
+            <button class="sa-tab" data-tab="debug">Debug</button>
         </div>
 
         <div id="files-view" style="display: flex; flex: 1; overflow: hidden;">
@@ -206,6 +212,18 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="debug-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0; font-size: 16px;">Trigger Debug</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button id="debug-hid-btn" class="btn" style="padding: 6px 14px; border: 1px solid rgba(0,200,100,0.3); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: rgba(0,200,100,0.08); color: #00c864;">Connect HID Device</button>
+                    <button id="debug-clear-btn" class="btn" style="padding: 6px 14px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: transparent; color: rgba(247,242,213,0.8);">Clear</button>
+                </div>
+            </div>
+            <p style="font-size: 12px; color: rgba(247,242,213,0.45); margin: 0 0 16px;">Listening for: keyboard, mouse, pointer, touch, gamepad, HID, and volume changes. AB Shutter3 volume keys are intercepted by macOS — use "Connect HID Device" to read raw input.</p>
+            <div id="debug-log" style="font-size: 12px; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
 
         <div id="events-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
@@ -290,7 +308,42 @@
                     </div>
                 </div>
 
-<div class="form-section-title">Templates (JSON)</div>
+<div class="form-section-title">Gesture Trigger</div>
+                <div class="form-row">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="ef-gesture-enabled">
+                        Enable gesture trigger
+                    </label>
+                </div>
+                <div class="form-row">
+                    <label>Gesture Type</label>
+                    <div class="gesture-type-group">
+                        <label class="gesture-type-option">
+                            <input type="radio" name="ef-gesture-type" value="peace">
+                            <span>✌️</span>
+                        </label>
+                        <label class="gesture-type-option">
+                            <input type="radio" name="ef-gesture-type" value="palm">
+                            <span>🖐️</span>
+                        </label>
+                        <label class="gesture-type-option">
+                            <input type="radio" name="ef-gesture-type" value="thumbsup">
+                            <span>👍</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label for="ef-gesture-hold-duration">Hold Duration (ms)</label>
+                        <input type="number" id="ef-gesture-hold-duration" value="2000" min="500" max="10000">
+                    </div>
+                    <div class="form-row">
+                        <label for="ef-gesture-fps">Detection FPS</label>
+                        <input type="number" id="ef-gesture-fps" value="10" min="1" max="30">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Templates (JSON)</div>
                 <div class="form-row">
                     <textarea id="ef-templates" rows="14" placeholder='[{"file":"...","width":880,"height":495,"slots":[...]}]'></textarea>
                 </div>

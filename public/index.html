@@ -25,6 +25,16 @@
     <!-- Shown before camera permission granted -->
     <h1 id="idle-text">PRESS TO START</h1>
 
+    <!-- Peace sign progress ring -->
+    <svg id="peace-progress" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="54" stroke-width="6" fill="none"
+              stroke="rgba(255,255,255,0.2)" />
+      <circle id="peace-ring" cx="60" cy="60" r="54" stroke-width="6" fill="none"
+              stroke="gold" stroke-linecap="round"
+              stroke-dasharray="339.292" stroke-dashoffset="339.292" />
+      <text id="gesture-emoji" x="60" y="68" text-anchor="middle" font-size="32" fill="white">✌️</text>
+    </svg>
+
     <video id="video" autoplay playsinline style="display:none;"></video>
   </div>
 

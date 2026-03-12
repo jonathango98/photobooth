@@ -47,5 +47,12 @@
     "stepMs": 500
   },
 
-  "autoResetSeconds": 30
+  "autoResetSeconds": 30,
+
+  "gestureTrigger": {
+    "enabled": true,
+    "gestureType": "peace",
+    "holdDuration": 1000,
+    "detectionFps": 10
+  }
 }
