@@ -3,28 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <title>Photobooth</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
 
-  <!-- CAMERA / IDLE SCREEN (single screen) -->
+  <!-- White flash on capture -->
+  <div id="flash-overlay"></div>
+
+  <!-- CAMERA / IDLE SCREEN -->
   <div id="idle-screen" class="screen active">
-    <canvas id="camera-canvas"></canvas>
-    <!-- Static text so first load is not blank -->
+    <div class="camera-wrap">
+      <canvas id="camera-canvas"></canvas>
+      <div class="camera-overlay">
+        <div id="shot-counter" class="shot-counter"></div>
+        <div id="countdown-overlay" class="countdown-overlay"></div>
+        <div id="press-hint" class="press-hint hidden">PRESS TO START</div>
+      </div>
+    </div>
+    <!-- Shown before camera permission granted -->
     <h1 id="idle-text">PRESS TO START</h1>
-    <!-- Hidden video source -->
+
     <video id="video" autoplay playsinline style="display:none;"></video>
   </div>
 
   <!-- TEMPLATE SELECTION SCREEN -->
   <div id="template-screen" class="screen">
     <div class="template-layout">
-      <h2>CHOOSE A TEMPLATE</h2>
-      <div id="template-grid" class="template-grid">
-        <!-- Templates will be injected here by main.js -->
-      </div>
+      <h2>CHOOSE A TEMPLATE<span>select your style</span></h2>
+      <div id="template-grid" class="template-grid"></div>
+      <button id="confirm-btn">Confirm Selection</button>
     </div>
   </div>
 
@@ -35,9 +44,14 @@
         <canvas id="photo-canvas"></canvas>
       </div>
       <div class="result-qr-wrap">
-        <p id="scan-to-download-text">Scan to Download</p>
-        <canvas id="qr-canvas" width="300" height="300"></canvas>
+        <div class="qr-card">
+          <p id="scan-to-download-text">Scan to Download</p>
+          <canvas id="qr-canvas" width="300" height="300"></canvas>
+        </div>
         <button id="back-btn">Start Over</button>
+        <div class="reset-bar-wrap">
+          <div id="reset-bar"></div>
+        </div>
       </div>
     </div>
   </div>

@@ -4,33 +4,41 @@
 let CONFIG = null;
 
 // Elements
-const idleScreen   = document.getElementById("idle-screen");
-const templateScreen = document.getElementById("template-screen");
-const resultScreen = document.getElementById("result-screen");
-const cameraCanvas = document.getElementById("camera-canvas");
-const cameraCtx    = cameraCanvas.getContext("2d");
-const idleText     = document.getElementById("idle-text");
-const video        = document.getElementById("video");
-const photoCanvas  = document.getElementById("photo-canvas");
-const photoCtx     = photoCanvas.getContext("2d");
-const backBtn      = document.getElementById("back-btn");
-const qrCanvas     = document.getElementById("qr-canvas");
-const templateGrid = document.getElementById("template-grid");
+const idleScreen       = document.getElementById("idle-screen");
+const templateScreen   = document.getElementById("template-screen");
+const resultScreen     = document.getElementById("result-screen");
+const cameraCanvas     = document.getElementById("camera-canvas");
+const cameraCtx        = cameraCanvas.getContext("2d");
+const idleText         = document.getElementById("idle-text");
+const video            = document.getElementById("video");
+const photoCanvas      = document.getElementById("photo-canvas");
+const photoCtx         = photoCanvas.getContext("2d");
+const backBtn          = document.getElementById("back-btn");
+const qrCanvas         = document.getElementById("qr-canvas");
+const templateGrid     = document.getElementById("template-grid");
+const flashOverlay     = document.getElementById("flash-overlay");
+const siteNameEl       = document.getElementById("site-name");
+const shotCounter      = document.getElementById("shot-counter");
+const countdownOverlay = document.getElementById("countdown-overlay");
+const pressHint        = document.getElementById("press-hint");
+const confirmBtn       = document.getElementById("confirm-btn");
+const resetBar         = document.getElementById("reset-bar");
 
 // State
 let stream = null;
 let animationFrameId = null;
-let currentCountdownText = "";   // "", "3", "2", "1", "SMILE!"
-let currentShotIndex = 0;        // shots taken so far
-const capturedCanvases = [];     // raw shot canvases
+let isCountingDown = false;
+let currentShotIndex = 0;
+const capturedCanvases = [];
 let selectedTemplateIndex = null;
+let autoResetTimer = null;
 
-// Preview of captured frame
+// Freeze-frame preview
 let frozenFrame = null;
 let freezeUntil = 0;
 const FREEZE_DURATION_MS = 1000;
 
-// Template image cache (avoids double-loading)
+// Template image cache
 const templateImageCache = new Map();
 
 // ---------------------------
@@ -56,6 +64,7 @@ async function loadConfig() {
           templates: eventConfig.templates,
           capture: eventConfig.capture,
           countdown: eventConfig.countdown,
+          autoResetSeconds: staticConfig.autoResetSeconds ?? 30,
         };
         usedServerConfig = true;
         console.log("[CONFIG] Loaded from server API.");
@@ -72,9 +81,9 @@ async function loadConfig() {
 
   if (CONFIG.siteName) {
     document.title = CONFIG.siteName;
+    if (siteNameEl) siteNameEl.textContent = CONFIG.siteName;
   }
 
-  // Pre-load template images
   if (CONFIG.templates) {
     await Promise.all(CONFIG.templates.map(t => loadTemplateImage(t.file)));
   }
@@ -86,30 +95,78 @@ function loadTemplateImage(src) {
   }
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => {
-      templateImageCache.set(src, img);
-      resolve(img);
-    };
-    img.onerror = () => {
-      console.warn(`[TEMPLATE] Image ${src} failed to load.`);
-      resolve(null);
-    };
+    img.onload = () => { templateImageCache.set(src, img); resolve(img); };
+    img.onerror = () => { console.warn(`[TEMPLATE] Image ${src} failed to load.`); resolve(null); };
     img.src = src;
   });
 }
 
 // ---------------------------
-// UI Helper
+// UI helpers
 // ---------------------------
 function showScreen(screen) {
-  document.querySelectorAll(".screen").forEach((s) =>
-    s.classList.remove("active")
-  );
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   screen.classList.add("active");
 }
 
+function triggerFlash() {
+  flashOverlay.style.transition = "opacity 0.05s ease-in";
+  flashOverlay.style.opacity = "1";
+  setTimeout(() => {
+    flashOverlay.style.transition = "opacity 0.6s ease-out";
+    flashOverlay.style.opacity = "0";
+  }, 80);
+}
+
+function showCountdownOverlay(text, isSmile = false) {
+  countdownOverlay.textContent = text;
+  countdownOverlay.classList.remove("show", "smile");
+  void countdownOverlay.offsetWidth; // force reflow to restart animation
+  countdownOverlay.classList.add("show");
+  if (isSmile) countdownOverlay.classList.add("smile");
+}
+
+function hideCountdownOverlay() {
+  countdownOverlay.classList.remove("show", "smile");
+  countdownOverlay.textContent = "";
+}
+
+function updateShotCounter() {
+  if (!CONFIG || !stream) return;
+  const totalShots = CONFIG.capture?.totalShots ?? 3;
+  if (currentShotIndex < totalShots) {
+    shotCounter.textContent = `${currentShotIndex + 1} / ${totalShots}`;
+  } else {
+    shotCounter.textContent = "";
+  }
+}
+
+function startAutoReset() {
+  const seconds = CONFIG?.autoResetSeconds ?? 30;
+  clearAutoReset();
+  resetBar.style.transition = "none";
+  resetBar.style.transform = "scaleX(1)";
+  void resetBar.offsetWidth;
+  resetBar.style.transition = `transform ${seconds}s linear`;
+  resetBar.style.transform = "scaleX(0)";
+  autoResetTimer = setTimeout(() => {
+    backBtn.click();
+  }, seconds * 1000);
+}
+
+function clearAutoReset() {
+  if (autoResetTimer) {
+    clearTimeout(autoResetTimer);
+    autoResetTimer = null;
+  }
+  if (resetBar) {
+    resetBar.style.transition = "none";
+    resetBar.style.transform = "scaleX(1)";
+  }
+}
+
 // ---------------------------
-// CAMERA START
+// Camera start
 // ---------------------------
 async function startCamera() {
   try {
@@ -127,7 +184,6 @@ async function startCamera() {
     video.onloadedmetadata = () => {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
-
       if (!vw || !vh) return;
 
       const aspect = vw / vh;
@@ -137,9 +193,9 @@ async function startCamera() {
       cameraCanvas.width  = displayWidth;
       cameraCanvas.height = displayHeight;
 
-      if (idleText) {
-        idleText.style.display = "none";
-      }
+      if (idleText) idleText.style.display = "none";
+      if (pressHint) pressHint.classList.remove("hidden");
+      updateShotCounter();
 
       video.play();
       startRenderLoop();
@@ -151,7 +207,7 @@ async function startCamera() {
 }
 
 // ---------------------------
-// RENDER LOOP (camera preview + overlays)
+// Render loop (camera feed only — overlays are HTML)
 // ---------------------------
 function startRenderLoop() {
   function render() {
@@ -175,107 +231,62 @@ function startRenderLoop() {
         cameraCtx.drawImage(video, 0, 0, cw, ch);
         cameraCtx.restore();
       } else {
-        cameraCtx.fillStyle = "#000";
+        cameraCtx.fillStyle = "#1a1714";
         cameraCtx.fillRect(0, 0, cw, ch);
-      }
-    }
-
-    // Overlays (only when NOT frozen)
-    if (!isFrozen && cw && ch && CONFIG) {
-      const totalShots = CONFIG.capture?.totalShots ?? 3;
-
-      if (currentShotIndex < totalShots) {
-        const shotNumber = currentShotIndex + 1;
-        cameraCtx.font = `${cw * 0.04}px system-ui`;
-        cameraCtx.fillStyle = "rgba(255,255,255,0.85)";
-        cameraCtx.textAlign = "left";
-        cameraCtx.textBaseline = "top";
-        cameraCtx.fillText(`${shotNumber}/${totalShots}`, 40, 30);
-      }
-
-      if (currentCountdownText) {
-        cameraCtx.font = `${cw * 0.2}px system-ui`;
-        cameraCtx.fillStyle = "rgba(255,255,255,0.4)";
-        cameraCtx.textAlign = "center";
-        cameraCtx.textBaseline = "middle";
-        cameraCtx.fillText(currentCountdownText, cw / 2, ch / 2);
-      }
-
-      if (!currentCountdownText && currentShotIndex < totalShots) {
-        cameraCtx.font = `${cw * 0.04}px system-ui`;
-        cameraCtx.fillStyle = "rgba(255,255,255,0.7)";
-        cameraCtx.textAlign = "center";
-        cameraCtx.textBaseline = "bottom";
-        cameraCtx.fillText("PRESS TO START", cw / 2, ch - 60);
       }
     }
 
     animationFrameId = requestAnimationFrame(render);
   }
 
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-  }
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
   render();
 }
 
 // ---------------------------
-// CAPTURE (center crop, NOT mirrored)
+// Capture (center crop, not mirrored)
 // ---------------------------
 function captureOneShot() {
   if (!CONFIG) return;
 
   const vw = video.videoWidth;
   const vh = video.videoHeight;
-
-  if (!vw || !vh) {
-    alert("Camera not ready yet.");
-    return;
-  }
+  if (!vw || !vh) { alert("Camera not ready yet."); return; }
 
   const targetW = CONFIG.capture.photoWidth;
   const targetH = CONFIG.capture.photoHeight;
   const targetAspect = targetW / targetH;
-  const videoAspect = vw / vh;
+  const videoAspect  = vw / vh;
 
   let sx, sy, sw, sh;
-
   if (videoAspect > targetAspect) {
-    sh = vh;
-    sw = sh * targetAspect;
-    sx = (vw - sw) / 2;
-    sy = 0;
+    sh = vh; sw = sh * targetAspect; sx = (vw - sw) / 2; sy = 0;
   } else {
-    sw = vw;
-    sh = sw / targetAspect;
-    sx = 0;
-    sy = (vh - sh) / 2;
+    sw = vw; sh = sw / targetAspect; sx = 0; sy = (vh - sh) / 2;
   }
 
   const off = document.createElement("canvas");
-  off.width = targetW;
+  off.width  = targetW;
   off.height = targetH;
   const offCtx = off.getContext("2d");
   offCtx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
-
   capturedCanvases.push(off);
+
+  triggerFlash();
 
   // Freeze-frame preview
   const cw = cameraCanvas.width;
   const ch = cameraCanvas.height;
-
   if (cw && ch) {
     const freezeCanvas = document.createElement("canvas");
-    freezeCanvas.width = cw;
+    freezeCanvas.width  = cw;
     freezeCanvas.height = ch;
     const fCtx = freezeCanvas.getContext("2d");
-
     fCtx.save();
     fCtx.scale(-1, 1);
     fCtx.translate(-cw, 0);
     fCtx.drawImage(video, 0, 0, cw, ch);
     fCtx.restore();
-
     frozenFrame = freezeCanvas;
     freezeUntil = Date.now() + FREEZE_DURATION_MS;
   }
@@ -285,39 +296,47 @@ function captureOneShot() {
 // Countdown
 // ---------------------------
 function startCountdown() {
-  if (!CONFIG) return;
+  if (!CONFIG || isCountingDown) return;
+
+  isCountingDown = true;
+  pressHint.classList.add("hidden");
 
   const seconds    = CONFIG.countdown?.seconds ?? 3;
   const intervalMs = CONFIG.countdown?.stepMs ?? 500;
   const totalShots = CONFIG.capture?.totalShots ?? 3;
 
   let remaining = seconds;
-  currentCountdownText = remaining.toString();
+  showCountdownOverlay(remaining.toString());
 
   const timer = setInterval(() => {
     remaining--;
 
     if (remaining > 0) {
-      currentCountdownText = remaining.toString();
+      showCountdownOverlay(remaining.toString());
     } else {
       clearInterval(timer);
-      currentCountdownText = "SMILE!";
+      showCountdownOverlay("SMILE!", true);
 
       setTimeout(() => {
         captureOneShot();
-        currentCountdownText = "";
+        hideCountdownOverlay();
 
         setTimeout(() => {
           currentShotIndex++;
+          isCountingDown = false;
+          updateShotCounter();
 
           if (currentShotIndex >= totalShots) {
             if (CONFIG.templates.length === 1) {
               buildTemplateCollage(0);
               showScreen(resultScreen);
+              startAutoReset();
             } else {
               populateTemplateScreen();
               showScreen(templateScreen);
             }
+          } else {
+            pressHint.classList.remove("hidden");
           }
         }, FREEZE_DURATION_MS);
       }, 250);
@@ -333,6 +352,7 @@ function populateTemplateScreen() {
 
   templateGrid.innerHTML = "";
   selectedTemplateIndex = null;
+  confirmBtn.classList.remove("visible");
 
   const PHOTO_W = CONFIG.capture.photoWidth;
   const PHOTO_H = CONFIG.capture.photoHeight;
@@ -342,48 +362,48 @@ function populateTemplateScreen() {
     item.className = "template-item";
     item.dataset.templateIndex = index;
 
+    const card = document.createElement("div");
+    card.className = "template-item-card";
+
     const previewCanvas = document.createElement("canvas");
     const previewCtx = previewCanvas.getContext("2d");
-    previewCanvas.width = template.width;
+    previewCanvas.width  = template.width;
     previewCanvas.height = template.height;
 
-    // Draw photos into slots
     for (let i = 0; i < capturedCanvases.length; i++) {
       const slot = template.slots[i];
       if (!slot) continue;
       previewCtx.drawImage(capturedCanvases[i], slot.x, slot.y, PHOTO_W, PHOTO_H);
     }
 
-    // Draw cached template overlay
     const templateImg = templateImageCache.get(template.file);
     if (templateImg) {
       previewCtx.drawImage(templateImg, 0, 0, template.width, template.height);
     }
 
-    item.appendChild(previewCanvas);
+    const numLabel = document.createElement("div");
+    numLabel.className = "template-number";
+    numLabel.textContent = `Style ${index + 1}`;
+
+    card.appendChild(previewCanvas);
+    item.appendChild(card);
+    item.appendChild(numLabel);
     templateGrid.appendChild(item);
 
     item.addEventListener("click", () => {
-      if (selectedTemplateIndex === index) {
-        buildTemplateCollage(index);
-        showScreen(resultScreen);
-        selectedTemplateIndex = null;
-      } else {
-        if (selectedTemplateIndex !== null) {
-          const prevSelected = templateGrid.querySelector(`[data-template-index="${selectedTemplateIndex}"]`);
-          if (prevSelected) {
-            prevSelected.classList.remove("selected");
-          }
-        }
-        item.classList.add("selected");
-        selectedTemplateIndex = index;
+      if (selectedTemplateIndex !== null) {
+        const prev = templateGrid.querySelector(`[data-template-index="${selectedTemplateIndex}"]`);
+        if (prev) prev.classList.remove("selected");
       }
+      item.classList.add("selected");
+      selectedTemplateIndex = index;
+      confirmBtn.classList.add("visible");
     });
   });
 }
 
 // ---------------------------
-// Build Final Collage & upload
+// Build final collage & upload
 // ---------------------------
 async function buildTemplateCollage(templateIndex = 0) {
   if (!CONFIG || !CONFIG.templates || !CONFIG.templates[templateIndex]) {
@@ -391,7 +411,7 @@ async function buildTemplateCollage(templateIndex = 0) {
     return;
   }
 
-  const template = CONFIG.templates[templateIndex];
+  const template    = CONFIG.templates[templateIndex];
   const templateImg = templateImageCache.get(template.file);
 
   const TEMPLATE_WIDTH  = template.width;
@@ -404,19 +424,16 @@ async function buildTemplateCollage(templateIndex = 0) {
   photoCanvas.height = TEMPLATE_HEIGHT;
   photoCtx.clearRect(0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
 
-  // 1) Draw photos
   for (let i = 0; i < capturedCanvases.length; i++) {
     const slot = PHOTO_SLOTS[i];
     if (!slot) continue;
     photoCtx.drawImage(capturedCanvases[i], slot.x, slot.y, PHOTO_W, PHOTO_H);
   }
 
-  // 2) Draw template overlay on top
   if (templateImg) {
     photoCtx.drawImage(templateImg, 0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
   }
 
-  // 3) Upload
   try {
     await uploadSession();
   } catch (e) {
@@ -425,20 +442,16 @@ async function buildTemplateCollage(templateIndex = 0) {
 }
 
 // ---------------------------
-// Upload raw + collage to server
+// Upload raw shots + collage
 // ---------------------------
 async function uploadSession() {
   if (!CONFIG) return;
 
   const formData = new FormData();
 
-  // Raw photos
   const rawBlobs = await Promise.all(
-    capturedCanvases.map(
-      (canvas) =>
-        new Promise((resolve) =>
-          canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.9)
-        )
+    capturedCanvases.map(canvas =>
+      new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9))
     )
   );
 
@@ -447,22 +460,12 @@ async function uploadSession() {
     formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
   });
 
-  // Collage
-  const collageBlob = await new Promise((resolve) =>
-    photoCanvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.9)
+  const collageBlob = await new Promise(resolve =>
+    photoCanvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9)
   );
+  if (collageBlob) formData.append("collage", collageBlob, "collage.jpg");
 
-  if (collageBlob) {
-    formData.append("collage", collageBlob, "collage.jpg");
-  }
-
-  const saveApiUrl = `${CONFIG.serverUrl}/api/save`;
-
-  const res = await fetch(saveApiUrl, {
-    method: "POST",
-    body: formData,
-  });
-
+  const res = await fetch(`${CONFIG.serverUrl}/api/save`, { method: "POST", body: formData });
   if (!res.ok) {
     const text = await res.text();
     console.error("[UPLOAD] failed:", text);
@@ -471,17 +474,13 @@ async function uploadSession() {
   }
 
   const data = await res.json();
-
   if (data.collageUrl) {
-    const base =
-      CONFIG.serverUrl && CONFIG.serverUrl.trim().length > 0
-        ? CONFIG.serverUrl.replace(/\/+$/, "")
-        : window.location.origin;
-
+    const base = CONFIG.serverUrl?.trim()
+      ? CONFIG.serverUrl.replace(/\/+$/, "")
+      : window.location.origin;
     const absoluteUrl = data.collageUrl.startsWith("http")
       ? data.collageUrl
       : `${base}${data.collageUrl}`;
-
     console.log("[UPLOAD] QR absolute URL:", absoluteUrl);
     renderQr(absoluteUrl);
   } else {
@@ -494,55 +493,54 @@ async function uploadSession() {
 // ---------------------------
 function renderQr(url) {
   if (!qrCanvas || typeof QRCode === "undefined") return;
-
-  const size   = 300;
-  const margin = 4;
-
-  QRCode.toCanvas(
-    qrCanvas,
-    url,
-    {
-      width: size,
-      margin: margin,
-      color: {
-        dark: '#FFFFFF',
-        light: '#2c2c2c'
-      }
-    },
-    (error) => {
-      if (error) console.error("[QR] Error rendering:", error);
-    }
-  );
+  QRCode.toCanvas(qrCanvas, url, {
+    width: 300,
+    margin: 4,
+    color: { dark: "#FFFFFF", light: "#2c2c2c" },
+  }, (error) => {
+    if (error) console.error("[QR] Error rendering:", error);
+  });
 }
 
 // ---------------------------
-// Event Listeners & init
+// Event listeners & init
 // ---------------------------
 function attachEventListeners() {
   idleScreen.addEventListener("click", () => {
-    if (!CONFIG || !video.srcObject || currentCountdownText) return;
+    if (!CONFIG || !video.srcObject || isCountingDown) return;
 
     const totalShots = CONFIG.capture?.totalShots ?? 3;
-
     if (currentShotIndex >= totalShots) {
       currentShotIndex = 0;
       capturedCanvases.length = 0;
       frozenFrame = null;
       freezeUntil = 0;
+      updateShotCounter();
     }
 
     startCountdown();
   });
 
+  confirmBtn.addEventListener("click", () => {
+    if (selectedTemplateIndex === null) return;
+    buildTemplateCollage(selectedTemplateIndex);
+    showScreen(resultScreen);
+    startAutoReset();
+    selectedTemplateIndex = null;
+    confirmBtn.classList.remove("visible");
+  });
+
   backBtn.addEventListener("click", () => {
     if (!CONFIG) return;
-
+    clearAutoReset();
     currentShotIndex = 0;
-    currentCountdownText = "";
+    isCountingDown = false;
     capturedCanvases.length = 0;
     frozenFrame = null;
     freezeUntil = 0;
     selectedTemplateIndex = null;
+    hideCountdownOverlay();
+    updateShotCounter();
 
     if (qrCanvas) {
       const ctx = qrCanvas.getContext("2d");
@@ -551,6 +549,21 @@ function attachEventListeners() {
 
     showScreen(idleScreen);
   });
+
+  // Hide cursor after 5s inactivity (kiosk mode)
+  let cursorTimer = null;
+  document.addEventListener("mousemove", () => {
+    document.body.style.cursor = "";
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(() => {
+      document.body.style.cursor = "none";
+    }, 5000);
+  });
+
+  // Prevent pull-to-refresh and overscroll on touch devices
+  document.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+  }, { passive: false });
 }
 
 async function init() {

@@ -45,5 +45,7 @@
   "countdown": {
     "seconds": 3,
     "stepMs": 500
-  }
+  },
+
+  "autoResetSeconds": 30
 }
