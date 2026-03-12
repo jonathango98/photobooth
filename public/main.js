@@ -149,20 +149,25 @@ function isPeaceSign(landmarks) {
 }
 
 function isOpenPalm(landmarks) {
-  const indexExtended = landmarks[8].y < landmarks[6].y;
-  const middleExtended = landmarks[12].y < landmarks[10].y;
-  const ringExtended = landmarks[16].y < landmarks[14].y;
-  const pinkyExtended = landmarks[20].y < landmarks[18].y;
-  return indexExtended && middleExtended && ringExtended && pinkyExtended;
+  // Check each finger at two joints for stricter detection
+  const indexExtended = landmarks[8].y < landmarks[6].y && landmarks[6].y < landmarks[5].y;
+  const middleExtended = landmarks[12].y < landmarks[10].y && landmarks[10].y < landmarks[9].y;
+  const ringExtended = landmarks[16].y < landmarks[14].y && landmarks[14].y < landmarks[13].y;
+  const pinkyExtended = landmarks[20].y < landmarks[18].y && landmarks[18].y < landmarks[17].y;
+  const thumbExtended = landmarks[4].y < landmarks[3].y && landmarks[4].x > landmarks[3].x;
+  return indexExtended && middleExtended && ringExtended && pinkyExtended && thumbExtended;
 }
 
 function isThumbsUp(landmarks) {
-  const thumbExtended = landmarks[4].y < landmarks[3].y;
+  // Thumb clearly raised above the MCP joint (not just the IP joint)
+  const thumbExtended = landmarks[4].y < landmarks[2].y;
+  // Only require 3 of 4 fingers to be curled for more leniency
   const indexCurled = landmarks[8].y > landmarks[6].y;
   const middleCurled = landmarks[12].y > landmarks[10].y;
   const ringCurled = landmarks[16].y > landmarks[14].y;
   const pinkyCurled = landmarks[20].y > landmarks[18].y;
-  return thumbExtended && indexCurled && middleCurled && ringCurled && pinkyCurled;
+  const curledCount = [indexCurled, middleCurled, ringCurled, pinkyCurled].filter(Boolean).length;
+  return thumbExtended && curledCount >= 3;
 }
 
 function getGestureDetector() {
