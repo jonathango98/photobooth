@@ -117,18 +117,16 @@ function loadTemplateImage(src) {
 // ---------------------------
 async function initHandLandmarker() {
   if (!CONFIG?.gestureTrigger?.enabled) return;
-  if (typeof vision === "undefined" && typeof FilesetResolver === "undefined") {
-    console.warn("[GESTURE] MediaPipe vision bundle not loaded.");
+  if (typeof FilesetResolver === "undefined" || typeof HandLandmarker === "undefined") {
+    console.warn("[GESTURE] MediaPipe globals not found — bundle may not have loaded.");
     return;
   }
 
   try {
-    const visionModule = typeof vision !== "undefined" ? vision : window;
-    const fileset = await visionModule.FilesetResolver.createFromOptions({
-      wasmLoaderPath: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js",
-      wasmBinaryPath: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm",
-    });
-    handLandmarker = await visionModule.HandLandmarker.createFromOptions(fileset, {
+    const fileset = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+    );
+    handLandmarker = await HandLandmarker.createFromOptions(fileset, {
       baseOptions: {
         modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
         delegate: "GPU",
