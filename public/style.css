@@ -129,13 +129,14 @@ body::after {
   top: 18px;
   left: 18px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.2rem;
-  letter-spacing: 0.08em;
-  color: rgba(232, 220, 200, 0.9);
-  background: rgba(20, 17, 14, 0.6);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(232, 220, 200, 0.95);
+  background: rgba(20, 17, 14, 0.65);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(201, 164, 83, 0.25);
+  border: 1px solid rgba(201, 164, 83, 0.35);
   border-radius: 999px;
   padding: 6px 20px;
 }
@@ -186,8 +187,8 @@ body::after {
   left: 50%;
   transform: translateX(-50%);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: clamp(1rem, 2.5vmin, 1.5rem);
-  letter-spacing: 0.3em;
+  font-size: clamp(1.1rem, 2.5vmin, 1.6rem);
+  letter-spacing: 0.1em;
   color: rgba(232, 220, 200, 0.7);
   white-space: nowrap;
   animation: breathe 3s ease-in-out infinite;
@@ -210,7 +211,7 @@ body::after {
   transform: translateX(-50%);
   font-family: 'IBM Plex Mono', monospace;
   font-size: clamp(2rem, 5vmin, 4rem);
-  letter-spacing: 0.3em;
+  letter-spacing: 0.1em;
   opacity: 0.7;
   text-align: center;
   pointer-events: none;
@@ -239,7 +240,7 @@ body::after {
   text-align: center;
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   font-weight: 600;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.05em;
   margin: 0;
   color: var(--cream);
   text-transform: uppercase;
@@ -250,7 +251,7 @@ body::after {
   font-size: 0.52em;
   font-style: italic;
   font-weight: 400;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.05em;
   opacity: 0.55;
   margin-top: 6px;
   text-transform: none;
@@ -268,46 +269,46 @@ body::after {
 }
 
 .template-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.template-item-card {
   position: relative;
   aspect-ratio: 9/16;
   border-radius: 10px;
   overflow: hidden;
-  cursor: pointer;
+  width: 100%;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.template-item:hover {
+.template-item:hover .template-item-card {
   transform: scale(1.04);
   box-shadow: 0 8px 32px rgba(201, 164, 83, 0.2), 0 4px 12px rgba(0, 0, 0, 0.4);
   border-color: rgba(201, 164, 83, 0.3);
 }
 
-.template-item canvas {
+.template-item-card canvas {
   width: 100%;
   height: 100%;
   display: block;
 }
 
 .template-number {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.85rem;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 999px;
-  padding: 4px 14px;
-  pointer-events: none;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: rgba(232, 220, 200, 0.7);
   font-family: 'IBM Plex Mono', monospace;
-  font-style: italic;
   white-space: nowrap;
+  text-align: center;
 }
 
-.template-item.selected {
+.template-item.selected .template-item-card {
   transform: scale(1.06);
   box-shadow:
     0 0 0 2px var(--gold),
@@ -315,26 +316,32 @@ body::after {
   border-color: var(--gold);
 }
 
+.template-item.selected .template-number {
+  color: var(--gold);
+}
+
 /* Confirm button */
 #confirm-btn {
   display: none;
-  padding: 16px 56px;
+  padding: 18px 64px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.2rem;
-  letter-spacing: 0.2em;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   border-radius: 999px;
-  border: 1px solid var(--gold);
-  background: rgba(201, 164, 83, 0.1);
-  color: var(--gold);
+  border: 2px solid var(--gold);
+  background: rgba(201, 164, 83, 0.25);
+  color: var(--cream);
   cursor: pointer;
   transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
   text-transform: uppercase;
+  box-shadow: 0 0 20px rgba(201, 164, 83, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 #confirm-btn:hover {
-  background: rgba(201, 164, 83, 0.2);
-  box-shadow: 0 0 24px rgba(201, 164, 83, 0.25);
-  transform: scale(1.03);
+  background: rgba(201, 164, 83, 0.4);
+  box-shadow: 0 0 32px rgba(201, 164, 83, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
 }
 
 #confirm-btn.visible {
@@ -395,7 +402,7 @@ body::after {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 1.3rem;
   font-style: italic;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.03em;
   color: var(--cream);
   opacity: 0.8;
   margin: 0;
@@ -410,23 +417,25 @@ body::after {
 
 /* Start Over button */
 #back-btn {
-  padding: 16px 52px;
+  padding: 18px 60px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.2rem;
-  letter-spacing: 0.2em;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   border-radius: 999px;
-  border: 1px solid rgba(200, 112, 58, 0.5);
-  background: rgba(200, 112, 58, 0.1);
-  color: var(--orange);
+  border: 2px solid var(--orange);
+  background: rgba(200, 112, 58, 0.25);
+  color: var(--cream);
   cursor: pointer;
   transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
   text-transform: uppercase;
+  box-shadow: 0 0 20px rgba(200, 112, 58, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 #back-btn:hover {
-  background: rgba(200, 112, 58, 0.2);
-  box-shadow: 0 0 24px rgba(200, 112, 58, 0.25);
-  transform: scale(1.03);
+  background: rgba(200, 112, 58, 0.4);
+  box-shadow: 0 0 32px rgba(200, 112, 58, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
 }
 
 /* Auto-reset progress bar */

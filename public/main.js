@@ -362,6 +362,9 @@ function populateTemplateScreen() {
     item.className = "template-item";
     item.dataset.templateIndex = index;
 
+    const card = document.createElement("div");
+    card.className = "template-item-card";
+
     const previewCanvas = document.createElement("canvas");
     const previewCtx = previewCanvas.getContext("2d");
     previewCanvas.width  = template.width;
@@ -382,7 +385,8 @@ function populateTemplateScreen() {
     numLabel.className = "template-number";
     numLabel.textContent = `Style ${index + 1}`;
 
-    item.appendChild(previewCanvas);
+    card.appendChild(previewCanvas);
+    item.appendChild(card);
     item.appendChild(numLabel);
     templateGrid.appendChild(item);
 
