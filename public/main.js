@@ -14,7 +14,7 @@ const video            = document.getElementById("video");
 const photoCanvas      = document.getElementById("photo-canvas");
 const photoCtx         = photoCanvas.getContext("2d");
 const backBtn          = document.getElementById("back-btn");
-const qrCanvas         = document.getElementById("qr-canvas");
+const qrImg            = document.getElementById("qr-img");
 const templateGrid     = document.getElementById("template-grid");
 const flashOverlay     = document.getElementById("flash-overlay");
 const siteNameEl       = document.getElementById("site-name");
@@ -32,6 +32,7 @@ let currentShotIndex = 0;
 const capturedCanvases = [];
 let selectedTemplateIndex = null;
 let autoResetTimer = null;
+let autoResetCountInterval = null;
 
 // Freeze-frame preview
 let frozenFrame = null;
@@ -287,13 +288,25 @@ function updateShotCounter() {
 }
 
 function startAutoReset() {
-  const seconds = CONFIG?.autoResetSeconds ?? 30;
+  const seconds = CONFIG?.autoResetSeconds ?? 60;
   clearAutoReset();
   resetBar.style.transition = "none";
   resetBar.style.transform = "scaleX(1)";
   void resetBar.offsetWidth;
   resetBar.style.transition = `transform ${seconds}s linear`;
   resetBar.style.transform = "scaleX(0)";
+
+  const resetSecondsEl = document.getElementById("reset-seconds");
+  if (resetSecondsEl) {
+    let remaining = seconds;
+    resetSecondsEl.textContent = remaining;
+    autoResetCountInterval = setInterval(() => {
+      remaining -= 1;
+      resetSecondsEl.textContent = remaining;
+      if (remaining <= 0) clearInterval(autoResetCountInterval);
+    }, 1000);
+  }
+
   autoResetTimer = setTimeout(() => {
     backBtn.click();
   }, seconds * 1000);
@@ -303,6 +316,10 @@ function clearAutoReset() {
   if (autoResetTimer) {
     clearTimeout(autoResetTimer);
     autoResetTimer = null;
+  }
+  if (autoResetCountInterval) {
+    clearInterval(autoResetCountInterval);
+    autoResetCountInterval = null;
   }
   if (resetBar) {
     resetBar.style.transition = "none";
@@ -646,14 +663,9 @@ async function uploadSession() {
 // Render QR code
 // ---------------------------
 function renderQr(url) {
-  if (!qrCanvas || typeof QRCode === "undefined") return;
-  QRCode.toCanvas(qrCanvas, url, {
-    width: 300,
-    margin: 4,
-    color: { dark: "#FFFFFF", light: "#2c2c2c" },
-  }, (error) => {
-    if (error) console.error("[QR] Error rendering:", error);
-  });
+  if (!qrImg) return;
+  const encoded = encodeURIComponent(url);
+  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}&bgcolor=ffffff&color=000000&margin=10`;
 }
 
 // ---------------------------
@@ -731,10 +743,7 @@ function attachEventListeners() {
     hideCountdownOverlay();
     updateShotCounter();
 
-    if (qrCanvas) {
-      const ctx = qrCanvas.getContext("2d");
-      ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
-    }
+    if (qrImg) qrImg.src = "";
 
     showScreen(idleScreen);
     startGestureDetection();
