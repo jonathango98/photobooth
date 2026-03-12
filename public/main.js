@@ -506,8 +506,9 @@ function renderQr(url) {
 // Event listeners & init
 // ---------------------------
 function attachEventListeners() {
-  idleScreen.addEventListener("click", () => {
+  function triggerCapture() {
     if (!CONFIG || !video.srcObject || isCountingDown) return;
+    if (!idleScreen.classList.contains("active")) return;
 
     const totalShots = CONFIG.capture?.totalShots ?? 3;
     if (currentShotIndex >= totalShots) {
@@ -519,6 +520,15 @@ function attachEventListeners() {
     }
 
     startCountdown();
+  }
+
+  idleScreen.addEventListener("click", triggerCapture);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "AudioVolumeUp") {
+      e.preventDefault();
+      triggerCapture();
+    }
   });
 
   confirmBtn.addEventListener("click", () => {
