@@ -40,6 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showAdminContent();
     }
 
+    passwordInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') loginBtn.click();
+    });
+
     loginBtn.addEventListener('click', () => {
         adminPassword = passwordInput.value;
         localStorage.setItem('adminPassword', adminPassword);

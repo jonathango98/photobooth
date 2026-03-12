@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingMoveSourceKey = null;
     let eventFormMode = null; // 'create' or 'edit'
     let eventFormEditId = null;
+    let eventFormEditIsActive = false;
 
     // --- Tab Switching ---
 
@@ -910,6 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const src = event || prefill;
         eventFormMode = event ? 'edit' : 'create';
         eventFormEditId = event ? event.event_id : null;
+        eventFormEditIsActive = event ? (event.is_active ?? false) : false;
         eventFormTitle.textContent = event ? 'Edit Event' : (prefill ? 'Duplicate Event' : 'New Event');
 
         const idInput = document.getElementById('ef-event-id');
@@ -960,7 +962,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventData = {
             event_id: document.getElementById('ef-event-id').value.trim(),
             event_name: document.getElementById('ef-event-name').value.trim(),
-            is_active: false,
+            is_active: eventFormMode === 'edit' ? eventFormEditIsActive : false,
             background_url: document.getElementById('ef-background-url').value.trim() || null,
             capture: {
                 totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
