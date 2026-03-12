@@ -182,6 +182,7 @@
         <div id="tab-bar">
             <button class="sa-tab active" data-tab="files">Files</button>
             <button class="sa-tab" data-tab="events">Events</button>
+            <button class="sa-tab" data-tab="debug">Debug</button>
         </div>
 
         <div id="files-view" style="display: flex; flex: 1; overflow: hidden;">
@@ -206,6 +207,15 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="debug-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0; font-size: 16px;">Trigger Debug</h2>
+                <button id="debug-clear-btn" class="btn" style="padding: 6px 14px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: transparent; color: rgba(247,242,213,0.8);">Clear</button>
+            </div>
+            <p style="font-size: 12px; color: rgba(247,242,213,0.45); margin: 0 0 16px;">Press any key — logs all keydown events. Trigger key: <code style="background:#1a1a1a; padding:2px 6px; border-radius:3px; color:#f7f2d5;">AudioVolumeUp</code></p>
+            <div id="debug-log" style="font-size: 12px; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
 
         <div id="events-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">

@@ -47,20 +47,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventFormTitle = document.getElementById('event-form-title');
     const eventFormCancel = document.getElementById('event-form-cancel');
 
+    const debugView = document.getElementById('debug-view');
+
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             tabButtons.forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             const tab = btn.dataset.tab;
-            if (tab === 'files') {
-                filesView.classList.remove('hidden');
-                eventsView.classList.add('hidden');
-            } else if (tab === 'events') {
-                filesView.classList.add('hidden');
-                eventsView.classList.remove('hidden');
-                loadEvents();
-            }
+            filesView.classList.toggle('hidden', tab !== 'files');
+            eventsView.classList.toggle('hidden', tab !== 'events');
+            debugView.classList.toggle('hidden', tab !== 'debug');
+            if (tab === 'events') loadEvents();
         });
+    });
+
+    // --- Debug Tab ---
+    const debugLog = document.getElementById('debug-log');
+    const debugClearBtn = document.getElementById('debug-clear-btn');
+
+    debugClearBtn.addEventListener('click', () => { debugLog.innerHTML = ''; });
+
+    document.addEventListener('keydown', e => {
+        if (debugView.classList.contains('hidden')) return;
+        const isTrigger = e.key === 'AudioVolumeUp';
+        const row = document.createElement('div');
+        row.style.cssText = `padding: 6px 10px; border-radius: 4px; background: ${isTrigger ? 'rgba(0,200,100,0.12)' : 'rgba(247,242,213,0.04)'}; border: 1px solid ${isTrigger ? 'rgba(0,200,100,0.3)' : 'rgba(247,242,213,0.08)'}; color: ${isTrigger ? '#00c864' : 'rgba(247,242,213,0.8)'};`;
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+        row.textContent = `[${ts}]  key="${e.key}"  code="${e.code}"  type=keydown${isTrigger ? '  ← TRIGGER' : ''}`;
+        debugLog.prepend(row);
     });
 
     createEventBtn.addEventListener('click', () => openEventForm(null));
