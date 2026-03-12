@@ -387,20 +387,10 @@ body::after {
     0 16px 48px rgba(0, 0, 0, 0.7);
 }
 
-/* Landscape template: stack vertically */
-.result-layout.landscape {
-  flex-direction: column;
-  gap: 24px;
-}
-
+/* Landscape template: constrain photo but keep side-by-side */
 .result-layout.landscape #photo-canvas {
-  max-width: 70vw;
-  max-height: 45vh;
-}
-
-.result-layout.landscape .result-qr-wrap {
-  flex-direction: row;
-  gap: 24px;
+  max-width: 55vw;
+  max-height: 75vh;
 }
 
 .result-qr-wrap {
@@ -436,8 +426,8 @@ body::after {
 }
 
 #qr-img {
-  width: 160px;
-  height: 160px;
+  width: 220px;
+  height: 220px;
   border-radius: 10px;
   display: block;
 }

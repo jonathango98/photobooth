@@ -665,7 +665,7 @@ async function uploadSession() {
 function renderQr(url) {
   if (!qrImg) return;
   const encoded = encodeURIComponent(url);
-  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}&bgcolor=ffffff&color=000000&margin=10`;
+  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encoded}&bgcolor=ffffff&color=000000&margin=10`;
 }
 
 // ---------------------------
