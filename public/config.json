@@ -51,7 +51,7 @@
 
   "gestureTrigger": {
     "enabled": true,
-    "holdDuration": 2000,
+    "holdDuration": 1000,
     "detectionFps": 10
   }
 }
