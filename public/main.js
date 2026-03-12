@@ -531,6 +531,26 @@ function attachEventListeners() {
     }
   });
 
+  // WebHID — AB Shutter3 trigger (reportId=2, data[0]=1 on press)
+  if (navigator.hid) {
+    navigator.hid.getDevices().then(devices => {
+      devices.forEach(async device => {
+        try {
+          if (!device.opened) await device.open();
+          console.log(`[HID] Auto-connected: "${device.productName}"`);
+          device.addEventListener("inputreport", e => {
+            const bytes = new Uint8Array(e.data.buffer);
+            if (e.reportId === 2 && bytes[0] === 1) {
+              triggerCapture();
+            }
+          });
+        } catch (err) {
+          console.warn("[HID] Auto-connect failed:", err);
+        }
+      });
+    });
+  }
+
   confirmBtn.addEventListener("click", () => {
     if (selectedTemplateIndex === null) return;
     buildTemplateCollage(selectedTemplateIndex);
