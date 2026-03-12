@@ -10,7 +10,6 @@ A web-based photobooth app for IFGF NextGen events. Attendees capture 3 photos, 
 ## Tech Stack
 - **Frontend**: Vanilla HTML/CSS/JS (static site), IBM Plex Mono font, QRCode.js
 - **Backend server**: Separate repo, hosted on Railway (`photobooth-server-production.up.railway.app`)
-- **Image storage**: Cloudinary (folders: `raw` and `collage`)
 - **Deployment**: Netlify (frontend), Railway (server)
 - **Runtime**: Deno (deno.lock present), though README references npm
 
