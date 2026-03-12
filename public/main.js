@@ -117,12 +117,11 @@ function loadTemplateImage(src) {
 // ---------------------------
 async function initHandLandmarker() {
   if (!CONFIG?.gestureTrigger?.enabled) return;
-  if (typeof FilesetResolver === "undefined" || typeof HandLandmarker === "undefined") {
-    console.warn("[GESTURE] MediaPipe globals not found — bundle may not have loaded.");
-    return;
-  }
 
   try {
+    const { FilesetResolver, HandLandmarker } = await import(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
+    );
     const fileset = await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
     );
