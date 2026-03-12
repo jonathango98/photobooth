@@ -40,7 +40,7 @@ type: {{user | feedback | project | reference}}
 
 ## Project Quick Reference
 
-- **Stack**: Vanilla HTML/CSS/JS frontend, external backend on Railway
+- **Stack**: Vanilla HTML/CSS/JS frontend, external backend on Railway, S3 bucket on Railway for image storage
 - **Deploy**: `netlify.toml` publishes `public/` directory
 - **Config**: `public/config.json` (templates, dimensions, server URL)
 - **Admin panels**: `admin.html` (basic) and `superadmin.html` (full management)

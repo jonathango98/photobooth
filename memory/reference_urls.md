@@ -5,5 +5,6 @@ type: reference
 ---
 
 - **Production server**: `https://photobooth-server-production.up.railway.app` (backend API on Railway)
+- **Image storage**: S3 bucket on Railway
 - **Frontend hosting**: Netlify (config in `netlify.toml`, publish dir: `public`)
 - **Git branches for deployments**: `railway`, `render`, `netlify` branches exist for platform-specific configs
