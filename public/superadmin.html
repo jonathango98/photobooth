@@ -212,9 +212,12 @@
         <div id="debug-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h2 style="margin: 0; font-size: 16px;">Trigger Debug</h2>
-                <button id="debug-clear-btn" class="btn" style="padding: 6px 14px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: transparent; color: rgba(247,242,213,0.8);">Clear</button>
+                <div style="display: flex; gap: 8px;">
+                    <button id="debug-hid-btn" class="btn" style="padding: 6px 14px; border: 1px solid rgba(0,200,100,0.3); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: rgba(0,200,100,0.08); color: #00c864;">Connect HID Device</button>
+                    <button id="debug-clear-btn" class="btn" style="padding: 6px 14px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: transparent; color: rgba(247,242,213,0.8);">Clear</button>
+                </div>
             </div>
-            <p style="font-size: 12px; color: rgba(247,242,213,0.45); margin: 0 0 16px;">Listening for: keyboard, mouse, pointer, touch, gamepad, and input events. Press the trigger to see what it sends.</p>
+            <p style="font-size: 12px; color: rgba(247,242,213,0.45); margin: 0 0 16px;">Listening for: keyboard, mouse, pointer, touch, gamepad, HID, and volume changes. AB Shutter3 volume keys are intercepted by macOS — use "Connect HID Device" to read raw input.</p>
             <div id="debug-log" style="font-size: 12px; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
 

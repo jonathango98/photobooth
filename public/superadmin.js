@@ -136,6 +136,57 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // WebHID — connect AB Shutter3 or any HID device to see raw reports
+    const debugHidBtn = document.getElementById('debug-hid-btn');
+    if (navigator.hid) {
+        debugHidBtn.addEventListener('click', async () => {
+            try {
+                const devices = await navigator.hid.requestDevice({ filters: [] });
+                for (const device of devices) {
+                    debugAddRow(`HID device selected: "${device.productName}" vendorId=0x${device.vendorId.toString(16)} productId=0x${device.productId.toString(16)}`, true);
+                    if (!device.opened) await device.open();
+                    debugAddRow(`HID device opened: "${device.productName}"  collections=${device.collections.length}`, true);
+                    device.addEventListener('inputreport', e => {
+                        const bytes = Array.from(new Uint8Array(e.data.buffer));
+                        debugAddRow(`HID inputreport  reportId=${e.reportId}  data=[${bytes.join(', ')}]  (0x${bytes.map(b => b.toString(16).padStart(2, '0')).join(' ')})`, true);
+                    });
+                }
+            } catch (err) {
+                debugAddRow(`HID error: ${err.message}`);
+            }
+        });
+
+        // Auto-listen to already-paired HID devices
+        navigator.hid.getDevices().then(devices => {
+            devices.forEach(async device => {
+                debugAddRow(`HID previously paired: "${device.productName}"`);
+                try {
+                    if (!device.opened) await device.open();
+                    device.addEventListener('inputreport', e => {
+                        const bytes = Array.from(new Uint8Array(e.data.buffer));
+                        debugAddRow(`HID inputreport  reportId=${e.reportId}  data=[${bytes.join(', ')}]  (0x${bytes.map(b => b.toString(16).padStart(2, '0')).join(' ')})`, true);
+                    });
+                } catch (err) {
+                    debugAddRow(`HID auto-open error: ${err.message}`);
+                }
+            });
+        });
+    } else {
+        debugHidBtn.disabled = true;
+        debugHidBtn.textContent = 'WebHID not supported';
+        debugHidBtn.style.opacity = '0.4';
+        debugHidBtn.style.cursor = 'default';
+    }
+
+    // Volume change detection via hidden audio element
+    const debugAudio = document.createElement('audio');
+    debugAudio.volume = 0.5;
+    debugAudio.muted = true;
+    document.body.appendChild(debugAudio);
+    debugAudio.addEventListener('volumechange', () => {
+        debugAddRow(`volumechange  volume=${debugAudio.volume}  muted=${debugAudio.muted}`, true);
+    });
+
     createEventBtn.addEventListener('click', () => openEventForm(null));
 
     // --- Auth ---
