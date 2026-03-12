@@ -924,6 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
         document.getElementById('ef-countdown-step-ms').value = src ? (src.countdown?.stepMs ?? 500) : 500;
         document.getElementById('ef-gesture-enabled').checked = src ? (src.gestureTrigger?.enabled ?? false) : false;
+        document.getElementById('ef-gesture-type').value = src ? (src.gestureTrigger?.gestureType ?? 'peace') : 'peace';
         document.getElementById('ef-gesture-hold-duration').value = src ? (src.gestureTrigger?.holdDuration ?? 2000) : 2000;
         document.getElementById('ef-gesture-fps').value = src ? (src.gestureTrigger?.detectionFps ?? 10) : 10;
         document.getElementById('ef-templates').value = src ? JSON.stringify(src.templates, null, 2) : DEFAULT_TEMPLATES;
@@ -971,6 +972,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             gestureTrigger: {
                 enabled: document.getElementById('ef-gesture-enabled').checked,
+                gestureType: document.getElementById('ef-gesture-type').value,
                 holdDuration: parseInt(document.getElementById('ef-gesture-hold-duration').value, 10),
                 detectionFps: parseInt(document.getElementById('ef-gesture-fps').value, 10),
             },

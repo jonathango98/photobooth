@@ -51,6 +51,7 @@
 
   "gestureTrigger": {
     "enabled": true,
+    "gestureType": "peace",
     "holdDuration": 1000,
     "detectionFps": 10
   }

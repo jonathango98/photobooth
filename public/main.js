@@ -140,14 +140,43 @@ async function initHandLandmarker() {
 }
 
 function isPeaceSign(landmarks) {
-  // landmarks is an array of 21 points with x, y, z
   // In MediaPipe, y increases downward, so "extended" = tip.y < pip.y
   const indexExtended = landmarks[8].y < landmarks[6].y;
   const middleExtended = landmarks[12].y < landmarks[10].y;
   const ringCurled = landmarks[16].y > landmarks[14].y;
   const pinkyCurled = landmarks[20].y > landmarks[18].y;
-
   return indexExtended && middleExtended && ringCurled && pinkyCurled;
+}
+
+function isOpenPalm(landmarks) {
+  const indexExtended = landmarks[8].y < landmarks[6].y;
+  const middleExtended = landmarks[12].y < landmarks[10].y;
+  const ringExtended = landmarks[16].y < landmarks[14].y;
+  const pinkyExtended = landmarks[20].y < landmarks[18].y;
+  return indexExtended && middleExtended && ringExtended && pinkyExtended;
+}
+
+function isThumbsUp(landmarks) {
+  const thumbExtended = landmarks[4].y < landmarks[3].y;
+  const indexCurled = landmarks[8].y > landmarks[6].y;
+  const middleCurled = landmarks[12].y > landmarks[10].y;
+  const ringCurled = landmarks[16].y > landmarks[14].y;
+  const pinkyCurled = landmarks[20].y > landmarks[18].y;
+  return thumbExtended && indexCurled && middleCurled && ringCurled && pinkyCurled;
+}
+
+function getGestureDetector() {
+  const type = CONFIG?.gestureTrigger?.gestureType ?? "peace";
+  if (type === "palm") return isOpenPalm;
+  if (type === "thumbsup") return isThumbsUp;
+  return isPeaceSign;
+}
+
+function getGestureEmoji() {
+  const type = CONFIG?.gestureTrigger?.gestureType ?? "peace";
+  if (type === "palm") return "🖐️";
+  if (type === "thumbsup") return "👍";
+  return "✌️";
 }
 
 function startGestureDetection() {
@@ -156,6 +185,10 @@ function startGestureDetection() {
 
   const fps = CONFIG.gestureTrigger.detectionFps ?? 10;
   const holdDuration = CONFIG.gestureTrigger.holdDuration ?? 2000;
+  const detectGesture = getGestureDetector();
+
+  const gestureEmoji = document.getElementById("gesture-emoji");
+  if (gestureEmoji) gestureEmoji.textContent = getGestureEmoji();
 
   gestureDetectionInterval = setInterval(() => {
     if (!video.srcObject || video.readyState < 2) return;
@@ -166,7 +199,7 @@ function startGestureDetection() {
 
     let peaceDetected = false;
     if (results.landmarks && results.landmarks.length > 0) {
-      peaceDetected = isPeaceSign(results.landmarks[0]);
+      peaceDetected = detectGesture(results.landmarks[0]);
     }
 
     if (peaceDetected) {
