@@ -191,6 +191,29 @@ body::after {
   50%       { opacity: 0.9; }
 }
 
+/* Peace sign progress ring */
+#peace-progress {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  z-index: 20;
+  display: none;
+  pointer-events: none;
+}
+
+#peace-progress.visible {
+  display: block;
+}
+
+#peace-ring {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.1s linear;
+}
+
 /* Static idle text (shown before camera starts) */
 #idle-text {
   position: absolute;

@@ -41,6 +41,16 @@ const FREEZE_DURATION_MS = 1000;
 // Template image cache
 const templateImageCache = new Map();
 
+// Gesture detection state
+let handLandmarker = null;
+let gestureDetectionInterval = null;
+let peaceSignStartTime = null;
+let peaceConsecutiveCount = 0;
+const PEACE_CONSECUTIVE_REQUIRED = 3;
+const peaceProgress = document.getElementById("peace-progress");
+const peaceRing = document.getElementById("peace-ring");
+const PEACE_RING_CIRCUMFERENCE = 339.292;
+
 // ---------------------------
 // Config loading
 // ---------------------------
@@ -65,6 +75,7 @@ async function loadConfig() {
           capture: eventConfig.capture,
           countdown: eventConfig.countdown,
           autoResetSeconds: staticConfig.autoResetSeconds ?? 30,
+          gestureTrigger: staticConfig.gestureTrigger,
         };
         usedServerConfig = true;
         console.log("[CONFIG] Loaded from server API.");
@@ -99,6 +110,105 @@ function loadTemplateImage(src) {
     img.onerror = () => { console.warn(`[TEMPLATE] Image ${src} failed to load.`); resolve(null); };
     img.src = src;
   });
+}
+
+// ---------------------------
+// Gesture detection (MediaPipe Hand Landmarker)
+// ---------------------------
+async function initHandLandmarker() {
+  if (!CONFIG?.gestureTrigger?.enabled) return;
+  if (typeof vision === "undefined" && typeof FilesetResolver === "undefined") {
+    console.warn("[GESTURE] MediaPipe vision bundle not loaded.");
+    return;
+  }
+
+  try {
+    const visionModule = typeof vision !== "undefined" ? vision : window;
+    const fileset = await visionModule.FilesetResolver.createFromOptions({
+      wasmLoaderPath: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js",
+      wasmBinaryPath: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm",
+    });
+    handLandmarker = await visionModule.HandLandmarker.createFromOptions(fileset, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        delegate: "GPU",
+      },
+      runningMode: "VIDEO",
+      numHands: 1,
+    });
+    console.log("[GESTURE] HandLandmarker initialized.");
+  } catch (e) {
+    console.error("[GESTURE] Failed to init HandLandmarker:", e);
+  }
+}
+
+function isPeaceSign(landmarks) {
+  // landmarks is an array of 21 points with x, y, z
+  // In MediaPipe, y increases downward, so "extended" = tip.y < pip.y
+  const indexExtended = landmarks[8].y < landmarks[6].y;
+  const middleExtended = landmarks[12].y < landmarks[10].y;
+  const ringCurled = landmarks[16].y > landmarks[14].y;
+  const pinkyCurled = landmarks[20].y > landmarks[18].y;
+
+  return indexExtended && middleExtended && ringCurled && pinkyCurled;
+}
+
+function startGestureDetection() {
+  if (!handLandmarker || !CONFIG?.gestureTrigger?.enabled) return;
+  stopGestureDetection();
+
+  const fps = CONFIG.gestureTrigger.detectionFps ?? 10;
+  const holdDuration = CONFIG.gestureTrigger.holdDuration ?? 2000;
+
+  gestureDetectionInterval = setInterval(() => {
+    if (!video.srcObject || video.readyState < 2) return;
+    if (!idleScreen.classList.contains("active")) return;
+    if (isCountingDown) return;
+
+    const results = handLandmarker.detectForVideo(video, performance.now());
+
+    let peaceDetected = false;
+    if (results.landmarks && results.landmarks.length > 0) {
+      peaceDetected = isPeaceSign(results.landmarks[0]);
+    }
+
+    if (peaceDetected) {
+      peaceConsecutiveCount++;
+
+      if (peaceConsecutiveCount >= PEACE_CONSECUTIVE_REQUIRED) {
+        if (!peaceSignStartTime) {
+          peaceSignStartTime = Date.now();
+          peaceProgress.classList.add("visible");
+        }
+
+        const elapsed = Date.now() - peaceSignStartTime;
+        const progress = Math.min(elapsed / holdDuration, 1);
+        peaceRing.style.strokeDashoffset = PEACE_RING_CIRCUMFERENCE * (1 - progress);
+
+        if (elapsed >= holdDuration) {
+          resetPeaceState();
+          triggerCaptureFromGesture();
+        }
+      }
+    } else {
+      resetPeaceState();
+    }
+  }, 1000 / fps);
+}
+
+function stopGestureDetection() {
+  if (gestureDetectionInterval) {
+    clearInterval(gestureDetectionInterval);
+    gestureDetectionInterval = null;
+  }
+  resetPeaceState();
+}
+
+function resetPeaceState() {
+  peaceSignStartTime = null;
+  peaceConsecutiveCount = 0;
+  if (peaceProgress) peaceProgress.classList.remove("visible");
+  if (peaceRing) peaceRing.style.strokeDashoffset = PEACE_RING_CIRCUMFERENCE;
 }
 
 // ---------------------------
@@ -199,6 +309,7 @@ async function startCamera() {
 
       video.play();
       startRenderLoop();
+      startGestureDetection();
     };
   } catch (e) {
     console.error("[CAM] error:", e);
@@ -300,6 +411,7 @@ function startCountdown() {
 
   isCountingDown = true;
   pressHint.classList.add("hidden");
+  stopGestureDetection();
 
   const seconds    = CONFIG.countdown?.seconds ?? 3;
   const intervalMs = CONFIG.countdown?.stepMs ?? 500;
@@ -337,6 +449,7 @@ function startCountdown() {
             }
           } else {
             pressHint.classList.remove("hidden");
+            startGestureDetection();
           }
         }, FREEZE_DURATION_MS);
       }, 250);
@@ -505,23 +618,28 @@ function renderQr(url) {
 // ---------------------------
 // Event listeners & init
 // ---------------------------
-function attachEventListeners() {
-  function triggerCapture() {
-    if (!CONFIG || !video.srcObject || isCountingDown) return;
-    if (!idleScreen.classList.contains("active")) return;
+function triggerCapture() {
+  if (!CONFIG || !video.srcObject || isCountingDown) return;
+  if (!idleScreen.classList.contains("active")) return;
 
-    const totalShots = CONFIG.capture?.totalShots ?? 3;
-    if (currentShotIndex >= totalShots) {
-      currentShotIndex = 0;
-      capturedCanvases.length = 0;
-      frozenFrame = null;
-      freezeUntil = 0;
-      updateShotCounter();
-    }
-
-    startCountdown();
+  const totalShots = CONFIG.capture?.totalShots ?? 3;
+  if (currentShotIndex >= totalShots) {
+    currentShotIndex = 0;
+    capturedCanvases.length = 0;
+    frozenFrame = null;
+    freezeUntil = 0;
+    updateShotCounter();
   }
 
+  startCountdown();
+}
+
+function triggerCaptureFromGesture() {
+  stopGestureDetection();
+  triggerCapture();
+}
+
+function attachEventListeners() {
   idleScreen.addEventListener("click", triggerCapture);
 
   document.addEventListener("keydown", (e) => {
@@ -578,6 +696,7 @@ function attachEventListeners() {
     }
 
     showScreen(idleScreen);
+    startGestureDetection();
   });
 
   // Hide cursor after 5s inactivity (kiosk mode)
@@ -600,6 +719,7 @@ async function init() {
   try {
     await loadConfig();
     attachEventListeners();
+    await initHandLandmarker();
     startCamera();
   } catch (err) {
     console.error("[INIT] Failed to initialize:", err);

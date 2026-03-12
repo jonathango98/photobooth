@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -24,6 +25,16 @@
     </div>
     <!-- Shown before camera permission granted -->
     <h1 id="idle-text">PRESS TO START</h1>
+
+    <!-- Peace sign progress ring -->
+    <svg id="peace-progress" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="54" stroke-width="6" fill="none"
+              stroke="rgba(255,255,255,0.2)" />
+      <circle id="peace-ring" cx="60" cy="60" r="54" stroke-width="6" fill="none"
+              stroke="gold" stroke-linecap="round"
+              stroke-dasharray="339.292" stroke-dashoffset="339.292" />
+      <text x="60" y="68" text-anchor="middle" font-size="32" fill="white">✌️</text>
+    </svg>
 
     <video id="video" autoplay playsinline style="display:none;"></video>
   </div>
