@@ -67,14 +67,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     debugClearBtn.addEventListener('click', () => { debugLog.innerHTML = ''; });
 
-    document.addEventListener('keydown', e => {
+    function debugAddRow(text, highlight = false) {
         if (debugView.classList.contains('hidden')) return;
-        const isTrigger = e.key === 'AudioVolumeUp';
         const row = document.createElement('div');
-        row.style.cssText = `padding: 6px 10px; border-radius: 4px; background: ${isTrigger ? 'rgba(0,200,100,0.12)' : 'rgba(247,242,213,0.04)'}; border: 1px solid ${isTrigger ? 'rgba(0,200,100,0.3)' : 'rgba(247,242,213,0.08)'}; color: ${isTrigger ? '#00c864' : 'rgba(247,242,213,0.8)'};`;
-        const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
-        row.textContent = `[${ts}]  key="${e.key}"  code="${e.code}"  type=keydown${isTrigger ? '  ← TRIGGER' : ''}`;
+        row.style.cssText = `padding: 6px 10px; border-radius: 4px; background: ${highlight ? 'rgba(0,200,100,0.12)' : 'rgba(247,242,213,0.04)'}; border: 1px solid ${highlight ? 'rgba(0,200,100,0.3)' : 'rgba(247,242,213,0.08)'}; color: ${highlight ? '#00c864' : 'rgba(247,242,213,0.8)'};`;
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        row.textContent = `[${ts}]  ${text}`;
         debugLog.prepend(row);
+    }
+
+    // Keyboard events
+    ['keydown', 'keyup'].forEach(type => {
+        document.addEventListener(type, e => {
+            const isTrigger = e.key === 'AudioVolumeUp';
+            debugAddRow(`${type}  key="${e.key}"  code="${e.code}"${isTrigger ? '  ← TRIGGER' : ''}`, isTrigger);
+        });
+    });
+
+    // Mouse / pointer events
+    ['mousedown', 'mouseup', 'pointerdown', 'pointerup'].forEach(type => {
+        document.addEventListener(type, e => {
+            if (e.target.closest('#debug-view') && (e.target.closest('button') || e.target === debugLog)) return;
+            debugAddRow(`${type}  button=${e.button}  pointerType=${e.pointerType || 'mouse'}  x=${Math.round(e.clientX)},${Math.round(e.clientY)}`);
+        });
+    });
+
+    // Gamepad
+    window.addEventListener('gamepadconnected', e => {
+        debugAddRow(`gamepadconnected  id="${e.gamepad.id}"  buttons=${e.gamepad.buttons.length}  axes=${e.gamepad.axes.length}`, true);
+    });
+    window.addEventListener('gamepaddisconnected', e => {
+        debugAddRow(`gamepaddisconnected  id="${e.gamepad.id}"`);
+    });
+
+    // Poll gamepads for button presses
+    let prevGamepadStates = {};
+    function pollGamepads() {
+        if (!debugView.classList.contains('hidden')) {
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            for (const gp of gamepads) {
+                if (!gp) continue;
+                const prev = prevGamepadStates[gp.index] || [];
+                gp.buttons.forEach((btn, i) => {
+                    if (btn.pressed && !prev[i]) {
+                        debugAddRow(`gamepad[${gp.index}]  button[${i}] pressed  value=${btn.value}`, true);
+                    } else if (!btn.pressed && prev[i]) {
+                        debugAddRow(`gamepad[${gp.index}]  button[${i}] released`);
+                    }
+                });
+                prevGamepadStates[gp.index] = gp.buttons.map(b => b.pressed);
+            }
+        }
+        requestAnimationFrame(pollGamepads);
+    }
+    pollGamepads();
+
+    // Generic input/change events on the document
+    document.addEventListener('input', e => {
+        if (e.target.closest('#debug-view')) return;
+        debugAddRow(`input  target=${e.target.tagName}  data="${e.data}"  inputType="${e.inputType}"`);
+    });
+
+    // Touch events
+    ['touchstart', 'touchend'].forEach(type => {
+        document.addEventListener(type, e => {
+            if (e.target.closest('#debug-view')) return;
+            debugAddRow(`${type}  touches=${e.touches.length}  changedTouches=${e.changedTouches.length}`);
+        });
     });
 
     createEventBtn.addEventListener('click', () => openEventForm(null));
