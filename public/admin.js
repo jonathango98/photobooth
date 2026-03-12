@@ -1,6 +1,33 @@
 const API_BASE = 'https://photobooth-server-production.up.railway.app';
 
+let collageAspect = '9 / 16';
+let rawAspect = '16 / 9';
+
+fetch('config.json')
+    .then(r => r.json())
+    .then(cfg => {
+        if (cfg.templates?.[0]) {
+            collageAspect = `${cfg.templates[0].width} / ${cfg.templates[0].height}`;
+        }
+        if (cfg.capture?.photoWidth && cfg.capture?.photoHeight) {
+            rawAspect = `${cfg.capture.photoWidth} / ${cfg.capture.photoHeight}`;
+        }
+    })
+    .catch(() => {});
+
+function setupPreviewLightbox() {
+    const overlay = document.getElementById('preview-overlay');
+    const img = document.getElementById('preview-img');
+    const closeBtn = document.getElementById('preview-close');
+    function close() { overlay.classList.remove('active'); img.src = ''; }
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    window._showPreview = url => { img.src = url; overlay.classList.add('active'); };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    setupPreviewLightbox();
     const loginForm = document.getElementById('login-form');
     const adminContent = document.getElementById('admin-content');
     const passwordInput = document.getElementById('admin-password');
@@ -229,9 +256,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isSelected = selectedIds.has(item.id);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `photo-item ${isSelected ? 'selected' : ''}`;
+                itemDiv.style.aspectRatio = currentTab === 'collages' ? collageAspect : rawAspect;
 
                 const checkbox = document.createElement('div');
                 checkbox.className = 'checkbox-overlay';
+
+                const actions = document.createElement('div');
+                actions.className = 'item-actions';
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'item-action-btn';
+                viewBtn.textContent = '👁';
+                viewBtn.title = 'Preview';
+                viewBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    window._showPreview(item.url);
+                });
+                actions.appendChild(viewBtn);
 
                 const img = document.createElement('img');
                 img.src = item.url;
@@ -241,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.className = 'label';
                 label.textContent = item.id.split('_').pop();
 
-                itemDiv.append(checkbox, img, label);
+                itemDiv.append(checkbox, actions, img, label);
 
                 itemDiv.addEventListener('click', (e) => {
                     e.preventDefault();

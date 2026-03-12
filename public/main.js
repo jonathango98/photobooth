@@ -512,6 +512,7 @@ function populateTemplateScreen() {
 
     const card = document.createElement("div");
     card.className = "template-item-card";
+    card.style.aspectRatio = `${template.width} / ${template.height}`;
 
     const previewCanvas = document.createElement("canvas");
     const previewCtx = previewCanvas.getContext("2d");
@@ -571,6 +572,11 @@ async function buildTemplateCollage(templateIndex = 0) {
   photoCanvas.width  = TEMPLATE_WIDTH;
   photoCanvas.height = TEMPLATE_HEIGHT;
   photoCtx.clearRect(0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
+
+  const resultLayout = document.querySelector(".result-layout");
+  if (resultLayout) {
+    resultLayout.classList.toggle("landscape", TEMPLATE_WIDTH > TEMPLATE_HEIGHT);
+  }
 
   for (let i = 0; i < capturedCanvases.length; i++) {
     const slot = PHOTO_SLOTS[i];

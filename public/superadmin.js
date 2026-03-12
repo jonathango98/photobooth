@@ -1,6 +1,18 @@
 const API_BASE = 'https://photobooth-server-production.up.railway.app';
 
+function setupPreviewLightbox() {
+    const overlay = document.getElementById('preview-overlay');
+    const img = document.getElementById('preview-img');
+    const closeBtn = document.getElementById('preview-close');
+    function close() { overlay.classList.remove('active'); img.src = ''; }
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    window._showPreview = url => { img.src = url; overlay.classList.add('active'); };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    setupPreviewLightbox();
     const loginSection = document.getElementById('login-section');
     const appSection = document.getElementById('app-section');
     const passwordInput = document.getElementById('superadmin-password');
@@ -449,6 +461,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Per-file action buttons
             const actions = document.createElement('div');
             actions.className = 'item-actions';
+
+            if (isImage && url) {
+                const previewBtn = document.createElement('button');
+                previewBtn.className = 'item-action-btn';
+                previewBtn.textContent = '👁';
+                previewBtn.title = 'Preview';
+                previewBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    window._showPreview(url);
+                });
+                actions.appendChild(previewBtn);
+            }
 
             const dlBtn = document.createElement('button');
             dlBtn.className = 'item-action-btn';

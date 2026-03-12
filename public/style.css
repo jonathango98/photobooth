@@ -289,7 +289,6 @@ body::after {
 
 .template-item-card {
   position: relative;
-  aspect-ratio: 9/16;
   border-radius: 10px;
   overflow: hidden;
   width: 100%;
@@ -386,6 +385,22 @@ body::after {
   box-shadow:
     0 0 0 1px rgba(201, 164, 83, 0.2),
     0 16px 48px rgba(0, 0, 0, 0.7);
+}
+
+/* Landscape template: stack vertically */
+.result-layout.landscape {
+  flex-direction: column;
+  gap: 24px;
+}
+
+.result-layout.landscape #photo-canvas {
+  max-width: 70vw;
+  max-height: 45vh;
+}
+
+.result-layout.landscape .result-qr-wrap {
+  flex-direction: row;
+  gap: 24px;
 }
 
 .result-qr-wrap {
