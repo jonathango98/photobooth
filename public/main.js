@@ -75,7 +75,7 @@ async function loadConfig() {
           capture: eventConfig.capture,
           countdown: eventConfig.countdown,
           autoResetSeconds: staticConfig.autoResetSeconds ?? 30,
-          gestureTrigger: staticConfig.gestureTrigger,
+          gestureTrigger: eventConfig.gestureTrigger ?? staticConfig.gestureTrigger,
         };
         usedServerConfig = true;
         console.log("[CONFIG] Loaded from server API.");

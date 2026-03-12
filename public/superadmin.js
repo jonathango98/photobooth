@@ -923,6 +923,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ef-photo-height').value = src ? (src.capture?.photoHeight ?? 495) : 495;
         document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
         document.getElementById('ef-countdown-step-ms').value = src ? (src.countdown?.stepMs ?? 500) : 500;
+        document.getElementById('ef-gesture-enabled').checked = src ? (src.gestureTrigger?.enabled ?? false) : false;
+        document.getElementById('ef-gesture-hold-duration').value = src ? (src.gestureTrigger?.holdDuration ?? 2000) : 2000;
+        document.getElementById('ef-gesture-fps').value = src ? (src.gestureTrigger?.detectionFps ?? 10) : 10;
         document.getElementById('ef-templates').value = src ? JSON.stringify(src.templates, null, 2) : DEFAULT_TEMPLATES;
 
         eventFormOverlay.classList.add('active');
@@ -965,6 +968,11 @@ document.addEventListener('DOMContentLoaded', () => {
             countdown: {
                 seconds: parseInt(document.getElementById('ef-countdown-seconds').value, 10),
                 stepMs: parseInt(document.getElementById('ef-countdown-step-ms').value, 10),
+            },
+            gestureTrigger: {
+                enabled: document.getElementById('ef-gesture-enabled').checked,
+                holdDuration: parseInt(document.getElementById('ef-gesture-hold-duration').value, 10),
+                detectionFps: parseInt(document.getElementById('ef-gesture-fps').value, 10),
             },
             templates,
         };
