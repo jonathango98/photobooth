@@ -256,7 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isSelected = selectedIds.has(item.id);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `photo-item ${isSelected ? 'selected' : ''}`;
-                itemDiv.style.aspectRatio = currentTab === 'collages' ? collageAspect : rawAspect;
+                if (currentTab !== 'collages') {
+                    itemDiv.style.aspectRatio = rawAspect;
+                }
 
                 const checkbox = document.createElement('div');
                 checkbox.className = 'checkbox-overlay';

@@ -56,7 +56,16 @@
 
         /* Collage Tab: narrower columns for portrait photos */
         .tab-collages .photo-grid {
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        }
+
+        /* Collages display at natural image aspect ratio */
+        .tab-collages .photo-item {
+            height: auto;
+        }
+        .tab-collages .photo-item img {
+            height: auto;
+            object-fit: unset;
         }
 
         .photo-item {
