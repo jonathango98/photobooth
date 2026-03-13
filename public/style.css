@@ -498,6 +498,136 @@ body::after {
   transform-origin: left;
 }
 
+/* ========================
+   INSTRUCTION POPUP
+======================== */
+.info-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 164, 83, 0.35);
+  background: rgba(20, 17, 14, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--cream);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.1rem;
+  font-style: italic;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.info-btn:hover {
+  background: rgba(201, 164, 83, 0.25);
+  box-shadow: 0 0 16px rgba(201, 164, 83, 0.3);
+}
+
+.instruction-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.instruction-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.instruction-card {
+  background: rgba(26, 23, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(201, 164, 83, 0.25);
+  border-radius: 20px;
+  padding: 36px 40px;
+  max-width: 520px;
+  width: 85%;
+  text-align: left;
+}
+
+.instruction-card h2 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 20px 0;
+  text-align: center;
+}
+
+.instruction-card ol {
+  list-style: none;
+  counter-reset: rules;
+  padding: 0;
+  margin: 0 0 20px 0;
+}
+
+.instruction-card ol li {
+  counter-increment: rules;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--cream);
+  margin-bottom: 12px;
+  padding-left: 32px;
+  position: relative;
+}
+
+.instruction-card ol li::before {
+  content: counter(rules) ".";
+  position: absolute;
+  left: 0;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.instruction-disclaimer {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--orange);
+  text-align: center;
+  margin: 0 0 24px 0;
+  opacity: 0.9;
+}
+
+.instruction-close-btn {
+  display: block;
+  margin: 0 auto;
+  padding: 10px 36px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  border: 2px solid var(--gold);
+  background: rgba(201, 164, 83, 0.25);
+  color: var(--cream);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.instruction-close-btn:hover {
+  background: rgba(201, 164, 83, 0.4);
+  box-shadow: 0 0 20px rgba(201, 164, 83, 0.3);
+}
+
 /* Landscape tablet adjustments */
 @media (max-height: 800px) and (orientation: landscape) {
   .template-layout h2 {

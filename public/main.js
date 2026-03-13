@@ -34,6 +34,11 @@ let selectedTemplateIndex = null;
 let autoResetTimer = null;
 let autoResetCountInterval = null;
 
+// Instruction popup state
+let autoResetTriggered = false;
+let idleInactivityTimer = null;
+const IDLE_INACTIVITY_MS = 60000; // 1 minute
+
 // Freeze-frame preview
 let frozenFrame = null;
 let freezeUntil = 0;
@@ -308,6 +313,7 @@ function startAutoReset() {
   }
 
   autoResetTimer = setTimeout(() => {
+    autoResetTriggered = true;
     backBtn.click();
   }, seconds * 1000);
 }
@@ -324,6 +330,88 @@ function clearAutoReset() {
   if (resetBar) {
     resetBar.style.transition = "none";
     resetBar.style.transform = "scaleX(1)";
+  }
+}
+
+// ---------------------------
+// Instruction popup
+// ---------------------------
+function buildInstructionRules() {
+  const rulesEl = document.getElementById("instruction-rules");
+  const disclaimerEl = document.getElementById("instruction-disclaimer");
+  if (!rulesEl || !CONFIG) return;
+
+  rulesEl.innerHTML = "";
+  const totalShots = CONFIG.capture?.totalShots ?? 3;
+  const gestureEnabled = CONFIG.gestureTrigger?.enabled;
+  const gestureType = CONFIG.gestureTrigger?.gestureType ?? "peace";
+  const templateCount = CONFIG.templates?.length ?? 1;
+
+  // Rule 1: How to start
+  const rule1 = document.createElement("li");
+  if (gestureEnabled) {
+    const gestureNames = { peace: "peace sign ✌️", palm: "open palm 🖐️", thumbsup: "thumbs up 👍" };
+    const gestureName = gestureNames[gestureType] || gestureType;
+    rule1.textContent = `Tap the screen or show a ${gestureName} to start.`;
+  } else {
+    rule1.textContent = "Tap the screen to start.";
+  }
+  rulesEl.appendChild(rule1);
+
+  // Rule 2: Shots & template
+  const rule2 = document.createElement("li");
+  if (templateCount > 1) {
+    rule2.textContent = `After ${totalShots} shots, choose a template.`;
+  } else {
+    rule2.textContent = `Take ${totalShots} shots.`;
+  }
+  rulesEl.appendChild(rule2);
+
+  // Rule 3: QR download
+  const rule3 = document.createElement("li");
+  rule3.textContent = "Scan the QR code to download your picture!";
+  rulesEl.appendChild(rule3);
+
+  // Disclaimer
+  if (disclaimerEl) {
+    disclaimerEl.textContent = "Please be gentle with the iPad 😢";
+  }
+}
+
+function showInstructions() {
+  const overlay = document.getElementById("instruction-overlay");
+  if (overlay) overlay.classList.add("visible");
+  clearIdleInactivityTimer();
+}
+
+function hideInstructions() {
+  const overlay = document.getElementById("instruction-overlay");
+  if (overlay) overlay.classList.remove("visible");
+  startIdleInactivityTimer();
+}
+
+function startIdleInactivityTimer() {
+  clearIdleInactivityTimer();
+  idleInactivityTimer = setTimeout(() => {
+    if (idleScreen.classList.contains("active") && !isCountingDown) {
+      showInstructions();
+    }
+  }, IDLE_INACTIVITY_MS);
+}
+
+function clearIdleInactivityTimer() {
+  if (idleInactivityTimer) {
+    clearTimeout(idleInactivityTimer);
+    idleInactivityTimer = null;
+  }
+}
+
+function resetIdleInactivityTimer() {
+  if (idleScreen.classList.contains("active") && !isCountingDown) {
+    const overlay = document.getElementById("instruction-overlay");
+    if (overlay && !overlay.classList.contains("visible")) {
+      startIdleInactivityTimer();
+    }
   }
 }
 
@@ -675,6 +763,9 @@ function triggerCapture() {
   if (!CONFIG || !video.srcObject || isCountingDown) return;
   if (!idleScreen.classList.contains("active")) return;
 
+  hideInstructions();
+  clearIdleInactivityTimer();
+
   const totalShots = CONFIG.capture?.totalShots ?? 3;
   if (currentShotIndex >= totalShots) {
     currentShotIndex = 0;
@@ -693,6 +784,30 @@ function triggerCaptureFromGesture() {
 }
 
 function attachEventListeners() {
+  // Instruction popup controls
+  const infoBtn = document.getElementById("info-btn");
+  const instructionOverlay = document.getElementById("instruction-overlay");
+  const instructionCloseBtn = document.getElementById("instruction-close-btn");
+
+  if (infoBtn) infoBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showInstructions();
+  });
+
+  if (instructionCloseBtn) instructionCloseBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    hideInstructions();
+  });
+
+  if (instructionOverlay) instructionOverlay.addEventListener("click", (e) => {
+    if (e.target === instructionOverlay) hideInstructions();
+  });
+
+  // Reset idle inactivity timer on any interaction
+  ["click", "touchstart"].forEach(evt => {
+    document.addEventListener(evt, resetIdleInactivityTimer, { passive: true });
+  });
+
   idleScreen.addEventListener("click", triggerCapture);
 
   document.addEventListener("keydown", (e) => {
@@ -747,6 +862,13 @@ function attachEventListeners() {
 
     showScreen(idleScreen);
     startGestureDetection();
+
+    if (autoResetTriggered) {
+      autoResetTriggered = false;
+      showInstructions();
+    } else {
+      startIdleInactivityTimer();
+    }
   });
 
   // Hide cursor after 5s inactivity (kiosk mode)
@@ -768,9 +890,11 @@ function attachEventListeners() {
 async function init() {
   try {
     await loadConfig();
+    buildInstructionRules();
     attachEventListeners();
     await initHandLandmarker();
     startCamera();
+    showInstructions();
   } catch (err) {
     console.error("[INIT] Failed to initialize:", err);
     alert("Failed to load photobooth configuration.");
