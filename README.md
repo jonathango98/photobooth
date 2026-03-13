@@ -1,12 +1,12 @@
 # Photobooth App
 
-A web-based photobooth for events. Users take 3 photos that are composited into a collage, then receive a QR code to download their result.
+A web-based photobooth for events. Users take a configurable number of photos that are composited into a collage, then receive a QR code to download their result.
 
 ---
 
 ## Features
 
-- **Photo Capture & Collage**: Take 3 photos automatically composited into a vertical collage using a selected template.
+- **Photo Capture & Collage**: Take a configurable number of photos automatically composited into a collage using a selected template.
 - **Template Selection**: Multiple templates with customizable photo slot positions.
 - **Gesture Trigger**: Optional peace sign (✌️), palm (🖐️), or thumbs up (👍) detection to auto-capture photos.
 - **QR Code Download**: Collage URL encoded as a QR code for instant download on any device.
@@ -59,7 +59,7 @@ The frontend reads `config.json` on load. Key fields:
   "serverUrl": "https://your-backend.railway.app",
   "siteName": "Event Name",
   "templates": [...],
-  "capture": { "totalShots": 3, "photoWidth": 1080, "photoHeight": 1350 },
+  "capture": { "totalShots": 3, "photoWidth": 1080, "photoHeight": 1350 },  // totalShots is configurable
   "countdown": { "seconds": 3, "stepMs": 1000 },
   "gestureTrigger": { "enabled": true, "gestureType": "peace", "holdDuration": 2000 },
   "autoResetSeconds": 60
