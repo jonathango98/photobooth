@@ -733,27 +733,14 @@ async function uploadSession() {
   }
 
   const data = await res.json();
-  if (data.collageUrl) {
-    const base = CONFIG.serverUrl?.trim()
-      ? CONFIG.serverUrl.replace(/\/+$/, "")
-      : window.location.origin;
-    const absoluteUrl = data.collageUrl.startsWith("http")
-      ? data.collageUrl
-      : `${base}${data.collageUrl}`;
-    console.log("[UPLOAD] QR absolute URL:", absoluteUrl);
-    renderQr(absoluteUrl);
+  if (data.qrCode && qrImg) {
+    const size = CONFIG.qr?.size ?? 300;
+    qrImg.style.width = `${size}px`;
+    qrImg.style.height = `${size}px`;
+    qrImg.src = data.qrCode;
   } else {
-    console.warn("[UPLOAD] No collageUrl in response.");
+    console.warn("[UPLOAD] No qrCode in response.");
   }
-}
-
-// ---------------------------
-// Render QR code
-// ---------------------------
-function renderQr(url) {
-  if (!qrImg) return;
-  const encoded = encodeURIComponent(url);
-  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encoded}&bgcolor=ffffff&color=000000&margin=10`;
 }
 
 // ---------------------------
