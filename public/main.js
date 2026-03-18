@@ -787,6 +787,7 @@ function attachEventListeners() {
   });
 
   if (instructionOverlay) instructionOverlay.addEventListener("click", (e) => {
+    e.stopPropagation();
     if (e.target === instructionOverlay) hideInstructions();
   });
 
