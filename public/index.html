@@ -36,6 +36,9 @@
 
     <video id="video" autoplay playsinline style="display:none;"></video>
 
+    <!-- Reset session button (visible once shots are in progress) -->
+    <button id="reset-btn" class="reset-session-btn hidden">↩ Reset</button>
+
     <!-- Info button to reopen instructions -->
     <button id="info-btn" class="info-btn">i</button>
 
@@ -55,7 +58,10 @@
     <div class="template-layout">
       <h2>CHOOSE A TEMPLATE<span>select your style</span></h2>
       <div id="template-grid" class="template-grid"></div>
-      <button id="confirm-btn">Confirm Selection</button>
+      <div class="template-actions">
+        <button id="template-reset-btn" class="reset-session-btn">↩ Start Over</button>
+        <button id="confirm-btn">Confirm Selection</button>
+      </div>
     </div>
   </div>
 

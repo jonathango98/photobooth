@@ -23,6 +23,8 @@ const countdownOverlay = document.getElementById("countdown-overlay");
 const pressHint        = document.getElementById("press-hint");
 const confirmBtn       = document.getElementById("confirm-btn");
 const resetBar         = document.getElementById("reset-bar");
+const resetBtn         = document.getElementById("reset-btn");
+const templateResetBtn = document.getElementById("template-reset-btn");
 
 // State
 let stream = null;
@@ -289,6 +291,15 @@ function updateShotCounter() {
     shotCounter.textContent = `${currentShotIndex + 1} / ${totalShots}`;
   } else {
     shotCounter.textContent = "";
+  }
+  updateResetBtn();
+}
+
+function updateResetBtn() {
+  if (currentShotIndex > 0) {
+    resetBtn.classList.remove("hidden");
+  } else {
+    resetBtn.classList.add("hidden");
   }
 }
 
@@ -834,7 +845,7 @@ function attachEventListeners() {
     confirmBtn.classList.remove("visible");
   });
 
-  backBtn.addEventListener("click", () => {
+  function resetSession() {
     if (!CONFIG) return;
     clearAutoReset();
     currentShotIndex = 0;
@@ -845,6 +856,7 @@ function attachEventListeners() {
     selectedTemplateIndex = null;
     hideCountdownOverlay();
     updateShotCounter();
+    updateResetBtn();
 
     if (qrImg) qrImg.src = "";
 
@@ -857,7 +869,11 @@ function attachEventListeners() {
     } else {
       startIdleInactivityTimer();
     }
-  });
+  }
+
+  backBtn.addEventListener("click", resetSession);
+  resetBtn.addEventListener("click", resetSession);
+  templateResetBtn.addEventListener("click", resetSession);
 
   // Hide cursor after 5s inactivity (kiosk mode)
   let cursorTimer = null;
