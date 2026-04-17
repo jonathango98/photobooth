@@ -872,8 +872,8 @@ function attachEventListeners() {
   }
 
   backBtn.addEventListener("click", resetSession);
-  resetBtn.addEventListener("click", resetSession);
-  templateResetBtn.addEventListener("click", resetSession);
+  resetBtn.addEventListener("click", () => location.reload());
+  templateResetBtn.addEventListener("click", () => location.reload());
 
   // Hide cursor after 5s inactivity (kiosk mode)
   let cursorTimer = null;
