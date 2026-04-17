@@ -6,7 +6,7 @@
 
 :root {
   --fade: 800ms;
-  --gap: clamp(8px, 2vw, 24px);
+  --gap: clamp(16px, 4vw, 48px);
 }
 
 html, body {
@@ -38,7 +38,7 @@ html, body {
 
 .slot {
   position: relative;
-  height: calc(100vh - 2 * var(--gap));
+  height: calc((100vh - 2 * var(--gap)) * 0.8);
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: 4px;
