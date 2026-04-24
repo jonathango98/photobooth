@@ -162,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="wallpaper-item-info">
                         <span class="wallpaper-item-name" title="${name}">${name}</span>
                         <button class="wallpaper-copy-btn">Copy URL</button>
+                        <button class="wallpaper-delete-btn" title="Delete">🗑</button>
                     </div>
                 `;
                 item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
@@ -169,6 +170,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         const btn = item.querySelector('.wallpaper-copy-btn');
                         btn.textContent = 'Copied!';
                         setTimeout(() => { btn.textContent = 'Copy URL'; }, 2000);
+                    });
+                });
+                item.querySelector('.wallpaper-delete-btn').addEventListener('click', () => {
+                    confirmAction('Delete Wallpaper', `Delete "${name}"?`, async () => {
+                        const res = await fetch(`${API_BASE}/api/superadmin/file`, {
+                            method: 'DELETE',
+                            headers: authHeaders(),
+                            body: JSON.stringify({ key }),
+                        });
+                        if (res.status === 401) { handle401(); return; }
+                        if (!res.ok) { alert('Failed to delete wallpaper.'); return; }
+                        await loadWallpapers();
                     });
                 });
                 wallpaperGrid.appendChild(item);
