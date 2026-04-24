@@ -819,6 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const h = event.capture?.photoHeight ?? '?';
 
             const boothUrl = `${BOOTH_ORIGIN}/?event=${event.event_id}`;
+            const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${event.event_id}`;
             card.innerHTML = `
                 <div class="event-card-header">
                     <input type="checkbox" class="event-card-checkbox" ${selectedEventIds.has(event.event_id) ? 'checked' : ''}>
@@ -835,6 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;">${boothUrl}</span>
                     <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
+                    <button class="event-copy-admin-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy admin link</button>
                 </div>
                 <div class="event-card-actions">
                     ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-deactivate-btn">Deactivate</button>`}
@@ -874,6 +876,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const btn = card.querySelector('.event-copy-link-btn');
                     btn.textContent = 'Copied!';
                     setTimeout(() => { btn.textContent = 'Copy link'; }, 2000);
+                });
+            });
+
+            card.querySelector('.event-copy-admin-link-btn').addEventListener('click', e => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(adminUrl).then(() => {
+                    const btn = card.querySelector('.event-copy-admin-link-btn');
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => { btn.textContent = 'Copy admin link'; }, 2000);
                 });
             });
 
