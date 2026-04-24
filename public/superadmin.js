@@ -967,6 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
         document.getElementById('ef-background-url').value = src ? (src.background_url || '') : '';
+        document.getElementById('ef-admin-password').value = src ? (src.admin_password || '') : '';
         document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
         document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
         document.getElementById('ef-photo-height').value = src ? (src.capture?.photoHeight ?? 495) : 495;
@@ -1011,6 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
             event_name: document.getElementById('ef-event-name').value.trim(),
             is_active: eventFormMode === 'edit' ? eventFormEditIsActive : false,
             background_url: document.getElementById('ef-background-url').value.trim() || null,
+            admin_password: document.getElementById('ef-admin-password').value.trim() || '',
             capture: {
                 totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
                 photoWidth: parseInt(document.getElementById('ef-photo-width').value, 10),
