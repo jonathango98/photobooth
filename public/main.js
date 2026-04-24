@@ -105,6 +105,7 @@ async function loadConfig() {
           countdown: eventConfig.countdown,
           autoResetSeconds: staticConfig.autoResetSeconds ?? 30,
           gestureTrigger: eventConfig.gestureTrigger ?? staticConfig.gestureTrigger,
+          background_url: eventConfig.background_url || null,
         };
         usedServerConfig = true;
         console.log("[CONFIG] Loaded from server API:", CONFIG.eventId);
@@ -123,6 +124,10 @@ async function loadConfig() {
     document.title = CONFIG.siteName;
     if (siteNameEl) siteNameEl.textContent = CONFIG.siteName;
   }
+
+  document.body.style.backgroundImage = CONFIG.background_url
+    ? `url('${CONFIG.background_url}')`
+    : `url('assets/background.png')`;
 
   if (CONFIG.templates) {
     await Promise.all(CONFIG.templates.map(t => loadTemplateImage(t.file)));
