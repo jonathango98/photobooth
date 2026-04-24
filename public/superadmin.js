@@ -48,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let eventFormMode = null; // 'create' or 'edit'
     let eventFormEditId = null;
     let eventFormEditIsActive = false;
+    let selectedEventIds = new Set();
+    let allEvents = [];
 
     // --- Tab Switching ---
 
@@ -201,6 +203,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     createEventBtn.addEventListener('click', () => openEventForm(null));
+
+    document.getElementById('events-bulk-activate-btn').addEventListener('click', () => bulkSetActive(true));
+    document.getElementById('events-bulk-deactivate-btn').addEventListener('click', () => bulkSetActive(false));
+    document.getElementById('events-bulk-clear-btn').addEventListener('click', () => {
+        selectedEventIds.clear();
+        updateEventsBulkBar();
+        renderEventsList(allEvents);
+    });
 
     // --- Auth ---
 
@@ -766,11 +776,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.status === 401) { handle401(); return; }
             if (!res.ok) throw new Error('Failed to load events');
             const data = await res.json();
-            renderEventsList(data.events || data);
+            allEvents = data.events || data;
+            renderEventsList(allEvents);
         } catch (err) {
             console.error(err);
             listEl.innerHTML = '<p style="color:#ff6b6b;font-size:13px;">Failed to load events.</p>';
         }
+    }
+
+    function updateEventsBulkBar() {
+        const bar = document.getElementById('events-bulk-bar');
+        const countEl = document.getElementById('events-bulk-count');
+        const n = selectedEventIds.size;
+        bar.classList.toggle('visible', n > 0);
+        countEl.textContent = `${n} selected`;
     }
 
     function renderEventsList(events) {
@@ -790,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sorted.forEach(event => {
             const card = document.createElement('div');
-            card.className = 'event-card';
+            card.className = `event-card${selectedEventIds.has(event.event_id) ? ' selected' : ''}`;
 
             const createdAt = event.created_at ? new Date(event.created_at).toLocaleString() : '—';
             const updatedAt = event.updated_at ? new Date(event.updated_at).toLocaleString() : '—';
@@ -802,6 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const boothUrl = `${BOOTH_ORIGIN}/?event=${event.event_id}`;
             card.innerHTML = `
                 <div class="event-card-header">
+                    <input type="checkbox" class="event-card-checkbox" ${selectedEventIds.has(event.event_id) ? 'checked' : ''}>
                     <span class="event-card-id">${event.event_id}</span>
                     <span class="event-badge ${event.is_active ? 'active' : 'inactive'}">${event.is_active ? 'active' : 'inactive'}</span>
                 </div>
@@ -823,7 +843,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="event-delete-btn">Delete</button>
                 </div>
             `;
-            card.querySelector('.event-copy-link-btn').addEventListener('click', () => {
+            const checkbox = card.querySelector('.event-card-checkbox');
+            checkbox.addEventListener('click', e => {
+                e.stopPropagation();
+                if (checkbox.checked) {
+                    selectedEventIds.add(event.event_id);
+                } else {
+                    selectedEventIds.delete(event.event_id);
+                }
+                card.classList.toggle('selected', checkbox.checked);
+                updateEventsBulkBar();
+            });
+
+            card.addEventListener('click', e => {
+                if (e.target.closest('button') || e.target === checkbox) return;
+                const nowSelected = !selectedEventIds.has(event.event_id);
+                if (nowSelected) {
+                    selectedEventIds.add(event.event_id);
+                } else {
+                    selectedEventIds.delete(event.event_id);
+                }
+                checkbox.checked = nowSelected;
+                card.classList.toggle('selected', nowSelected);
+                updateEventsBulkBar();
+            });
+
+            card.querySelector('.event-copy-link-btn').addEventListener('click', e => {
+                e.stopPropagation();
                 navigator.clipboard.writeText(boothUrl).then(() => {
                     const btn = card.querySelector('.event-copy-link-btn');
                     btn.textContent = 'Copied!';
@@ -859,6 +905,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             listEl.appendChild(card);
         });
+    }
+
+    async function bulkSetActive(isActive) {
+        const ids = Array.from(selectedEventIds);
+        let failed = 0;
+        for (const id of ids) {
+            const event = allEvents.find(e => e.event_id === id);
+            if (!event) continue;
+            const { event_id, created_at, updated_at, ...rest } = event;
+            try {
+                const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ ...rest, is_active: isActive })
+                });
+                if (res.status === 401) { handle401(); return; }
+                if (!res.ok) failed++;
+            } catch {
+                failed++;
+            }
+        }
+        if (failed > 0) alert(`${failed} event(s) could not be updated.`);
+        selectedEventIds.clear();
+        updateEventsBulkBar();
+        loadEvents();
     }
 
     async function activateEvent(event) {
