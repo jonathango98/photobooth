@@ -62,6 +62,19 @@ const PEACE_RING_CIRCUMFERENCE = 339.292;
 // ---------------------------
 // Config loading
 // ---------------------------
+const _urlEventId = new URLSearchParams(window.location.search).get('event');
+
+function showEventNotFound(eventId) {
+  document.body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1714;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;text-align:center;padding:24px;">
+      <div>
+        <div style="font-size:48px;margin-bottom:16px;">404</div>
+        <div style="font-size:18px;margin-bottom:8px;">Event not found</div>
+        <div style="font-size:13px;color:rgba(247,242,213,0.5);">No event with ID <strong>${eventId}</strong> exists.<br>Check the URL and try again.</div>
+      </div>
+    </div>`;
+}
+
 async function loadConfig() {
   const staticRes = await fetch("config.json");
   if (!staticRes.ok) {
@@ -73,12 +86,20 @@ async function loadConfig() {
   let usedServerConfig = false;
   if (serverUrl) {
     try {
-      const eventRes = await fetch(`${serverUrl}/api/event/config`);
+      const configEndpoint = _urlEventId
+        ? `${serverUrl}/api/event/${encodeURIComponent(_urlEventId)}/config`
+        : `${serverUrl}/api/event/config`;
+      const eventRes = await fetch(configEndpoint);
+      if (eventRes.status === 404 && _urlEventId) {
+        showEventNotFound(_urlEventId);
+        return;
+      }
       if (eventRes.ok) {
         const eventConfig = await eventRes.json();
         CONFIG = {
           siteName: eventConfig.event_name,
           serverUrl: serverUrl,
+          eventId: eventConfig.event_id,
           templates: eventConfig.templates,
           capture: eventConfig.capture,
           countdown: eventConfig.countdown,
@@ -86,7 +107,7 @@ async function loadConfig() {
           gestureTrigger: eventConfig.gestureTrigger ?? staticConfig.gestureTrigger,
         };
         usedServerConfig = true;
-        console.log("[CONFIG] Loaded from server API.");
+        console.log("[CONFIG] Loaded from server API:", CONFIG.eventId);
       }
     } catch (e) {
       console.warn("[CONFIG] Server config fetch failed, falling back to config.json:", e);
@@ -734,6 +755,7 @@ async function uploadSession() {
     photoCanvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9)
   );
   if (collageBlob) formData.append("collage", collageBlob, "collage.jpg");
+  if (CONFIG.eventId) formData.append("eventId", CONFIG.eventId);
 
   const res = await fetch(`${CONFIG.serverUrl}/api/save`, { method: "POST", body: formData });
   if (!res.ok) {

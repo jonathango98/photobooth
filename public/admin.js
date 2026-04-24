@@ -49,19 +49,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let eventId = null;
 
     const eventIdDisplay = document.getElementById('event-id-display');
+    const urlEventId = new URLSearchParams(window.location.search).get('event');
 
-    // Fetch active event ID (read-only, defaults to "test")
-    fetch(`${API_BASE}/api/event`)
-        .then(res => res.json())
-        .then(data => {
-            eventId = data.eventId || data.event_id || 'test';
-            eventIdDisplay.textContent = eventId;
-        })
-        .catch(err => {
-            console.warn('Failed to fetch event ID:', err);
-            eventId = 'test';
-            eventIdDisplay.textContent = 'test (default)';
-        });
+    if (urlEventId) {
+        eventId = urlEventId;
+        if (eventIdDisplay) eventIdDisplay.textContent = eventId;
+    } else {
+        // Fetch active event ID (read-only, defaults to "test")
+        fetch(`${API_BASE}/api/event`)
+            .then(res => res.json())
+            .then(data => {
+                eventId = data.eventId || data.event_id || 'test';
+                if (eventIdDisplay) eventIdDisplay.textContent = eventId;
+            })
+            .catch(err => {
+                console.warn('Failed to fetch event ID:', err);
+                eventId = 'test';
+                if (eventIdDisplay) eventIdDisplay.textContent = 'test (default)';
+            });
+    }
 
     if (adminPassword) {
         showAdminContent();
@@ -136,7 +142,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     downloadZipBtn.addEventListener('click', async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/admin/download-zip`, {
+            const qs = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
+            const response = await fetch(`${API_BASE}/api/admin/download-zip${qs}`, {
                 headers: { 'x-admin-password': adminPassword }
             });
 
@@ -168,7 +175,8 @@ document.addEventListener('DOMContentLoaded', () => {
         adminContent.style.display = 'block';
 
         try {
-            const response = await fetch(`${API_BASE}/api/admin/photos`, {
+            const qs = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
+            const response = await fetch(`${API_BASE}/api/admin/photos${qs}`, {
                 headers: { 'x-admin-password': adminPassword }
             });
 

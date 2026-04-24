@@ -799,6 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const w = event.capture?.photoWidth ?? '?';
             const h = event.capture?.photoHeight ?? '?';
 
+            const boothUrl = `${BOOTH_ORIGIN}/?event=${event.event_id}`;
             card.innerHTML = `
                 <div class="event-card-header">
                     <span class="event-card-id">${event.event_id}</span>
@@ -811,6 +812,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>Created: ${createdAt}</span>
                     <span>Updated: ${updatedAt}</span>
                 </div>
+                <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;">${boothUrl}</span>
+                    <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
+                </div>
                 <div class="event-card-actions">
                     ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-activate-btn" disabled>Active</button>`}
                     <button class="event-edit-btn">Edit</button>
@@ -818,6 +823,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="event-delete-btn">Delete</button>
                 </div>
             `;
+            card.querySelector('.event-copy-link-btn').addEventListener('click', () => {
+                navigator.clipboard.writeText(boothUrl).then(() => {
+                    const btn = card.querySelector('.event-copy-link-btn');
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => { btn.textContent = 'Copy link'; }, 2000);
+                });
+            });
 
             const activateBtn = card.querySelector('.event-activate-btn');
             if (!event.is_active) {
@@ -931,6 +943,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ], null, 2);
 
+    const BOOTH_ORIGIN = window.location.origin;
+
+    function updateBoothUrlPreview() {
+        const preview = document.getElementById('ef-booth-url-preview');
+        if (!preview) return;
+        const id = document.getElementById('ef-event-id').value.trim();
+        preview.textContent = id ? `${BOOTH_ORIGIN}/?event=${id}` : '';
+    }
+
     function openEventForm(event, prefill = null) {
         const src = event || prefill;
         eventFormMode = event ? 'edit' : 'create';
@@ -941,6 +962,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const idInput = document.getElementById('ef-event-id');
         idInput.value = event ? event.event_id : '';
         idInput.disabled = !!event;
+        idInput.addEventListener('input', updateBoothUrlPreview);
+        updateBoothUrlPreview();
 
         document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
         document.getElementById('ef-background-url').value = src ? (src.background_url || '') : '';
