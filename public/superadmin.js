@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const debugView = document.getElementById('debug-view');
 
+    const wallpapersView = document.getElementById('wallpapers-view');
+
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             tabButtons.forEach(t => t.classList.remove('active'));
@@ -71,10 +73,112 @@ document.addEventListener('DOMContentLoaded', () => {
             const tab = btn.dataset.tab;
             filesView.classList.toggle('hidden', tab !== 'files');
             eventsView.classList.toggle('hidden', tab !== 'events');
+            wallpapersView.classList.toggle('hidden', tab !== 'wallpapers');
             debugView.classList.toggle('hidden', tab !== 'debug');
             if (tab === 'events') loadEvents();
+            if (tab === 'wallpapers') loadWallpapers();
         });
     });
+
+    // --- Wallpapers ---
+
+    const wallpaperFileInput = document.getElementById('wallpaper-file-input');
+    const wallpaperChooseBtn = document.getElementById('wallpaper-choose-btn');
+    const wallpaperUploadBtn = document.getElementById('wallpaper-upload-btn');
+    const wallpaperSelectedName = document.getElementById('wallpaper-selected-name');
+    const wallpaperStatus = document.getElementById('wallpaper-status');
+    const wallpaperGrid = document.getElementById('wallpaper-grid');
+    const wallpapersEmpty = document.getElementById('wallpapers-empty');
+    const wallpapersRefreshBtn = document.getElementById('wallpapers-refresh-btn');
+
+    wallpaperChooseBtn.addEventListener('click', () => wallpaperFileInput.click());
+
+    wallpaperFileInput.addEventListener('change', () => {
+        const file = wallpaperFileInput.files[0];
+        if (file) {
+            wallpaperSelectedName.textContent = file.name;
+            wallpaperUploadBtn.disabled = false;
+            wallpaperStatus.textContent = '';
+        } else {
+            wallpaperSelectedName.textContent = 'No file selected';
+            wallpaperUploadBtn.disabled = true;
+        }
+    });
+
+    wallpaperUploadBtn.addEventListener('click', async () => {
+        const file = wallpaperFileInput.files[0];
+        if (!file) return;
+        wallpaperUploadBtn.disabled = true;
+        wallpaperStatus.textContent = 'Uploading...';
+        try {
+            const formData = new FormData();
+            formData.append('wallpaper', file);
+            const res = await fetch(`${API_BASE}/api/superadmin/upload-wallpaper`, {
+                method: 'POST',
+                headers: { 'x-superadmin-password': password },
+                body: formData,
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { wallpaperStatus.textContent = 'Upload failed.'; wallpaperUploadBtn.disabled = false; return; }
+            const data = await res.json();
+            wallpaperStatus.textContent = 'Uploaded!';
+            wallpaperFileInput.value = '';
+            wallpaperSelectedName.textContent = 'No file selected';
+            wallpaperUploadBtn.disabled = true;
+            setTimeout(() => { wallpaperStatus.textContent = ''; }, 3000);
+            await loadWallpapers();
+            navigator.clipboard.writeText(data.url).catch(() => {});
+        } catch (err) {
+            console.error(err);
+            wallpaperStatus.textContent = 'Upload error.';
+            wallpaperUploadBtn.disabled = false;
+        }
+    });
+
+    wallpapersRefreshBtn.addEventListener('click', loadWallpapers);
+
+    async function loadWallpapers() {
+        wallpaperGrid.innerHTML = '';
+        wallpapersEmpty.classList.add('hidden');
+        try {
+            const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent('wallpapers/')}`;
+            const res = await fetch(url, { headers: authHeaders() });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) throw new Error('Failed');
+            const data = await res.json();
+            const files = (data.files || data.photos || []).filter(f => /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.key || ''));
+            if (files.length === 0) {
+                wallpapersEmpty.classList.remove('hidden');
+                return;
+            }
+            files.forEach(file => {
+                const key = file.key;
+                const fileUrl = file.url;
+                const name = key.split('/').pop();
+                const item = document.createElement('div');
+                item.className = 'wallpaper-item';
+                item.innerHTML = `
+                    <img src="${fileUrl}" alt="${name}" loading="lazy">
+                    <div class="wallpaper-item-info">
+                        <span class="wallpaper-item-name" title="${name}">${name}</span>
+                        <button class="wallpaper-copy-btn">Copy URL</button>
+                    </div>
+                `;
+                item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
+                    navigator.clipboard.writeText(fileUrl).then(() => {
+                        const btn = item.querySelector('.wallpaper-copy-btn');
+                        btn.textContent = 'Copied!';
+                        setTimeout(() => { btn.textContent = 'Copy URL'; }, 2000);
+                    });
+                });
+                wallpaperGrid.appendChild(item);
+            });
+        } catch (err) {
+            console.error(err);
+            wallpapersEmpty.textContent = 'Failed to load wallpapers.';
+            wallpapersEmpty.classList.remove('hidden');
+        }
+    }
 
     // --- Debug Tab ---
     const debugLog = document.getElementById('debug-log');

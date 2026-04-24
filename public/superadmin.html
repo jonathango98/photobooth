@@ -99,6 +99,26 @@
         /* Hidden */
         .hidden { display: none !important; }
 
+        /* Wallpapers Tab */
+        #wallpapers-view { padding: 20px; overflow-y: auto; flex: 1; }
+        #wallpaper-upload-box { background: #111; border: 1px solid rgba(247,242,213,0.12); border-radius: 8px; padding: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        #wallpaper-file-input { display: none; }
+        #wallpaper-choose-btn { padding: 8px 16px; border: 1px solid rgba(247,242,213,0.25); border-radius: 4px; background: transparent; color: rgba(247,242,213,0.8); cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+        #wallpaper-choose-btn:hover { background: rgba(247,242,213,0.08); color: #f7f2d5; }
+        #wallpaper-upload-btn { padding: 8px 16px; border: none; border-radius: 4px; background: #f7f2d5; color: #000; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+        #wallpaper-upload-btn:hover { background: #ede8c4; }
+        #wallpaper-upload-btn:disabled { opacity: 0.4; cursor: default; }
+        #wallpaper-selected-name { font-size: 12px; color: rgba(247,242,213,0.5); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #wallpaper-status { font-size: 12px; color: rgba(247,242,213,0.5); width: 100%; }
+        #wallpaper-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+        .wallpaper-item { background: #111; border: 1px solid rgba(247,242,213,0.1); border-radius: 8px; overflow: hidden; }
+        .wallpaper-item img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+        .wallpaper-item-info { padding: 8px 10px; display: flex; align-items: center; gap: 6px; }
+        .wallpaper-item-name { font-size: 11px; color: rgba(247,242,213,0.5); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .wallpaper-copy-btn { padding: 3px 10px; font-size: 11px; background: transparent; color: rgba(247,242,213,0.7); border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; flex-shrink: 0; }
+        .wallpaper-copy-btn:hover { background: rgba(247,242,213,0.08); color: #f7f2d5; }
+        #wallpapers-empty { color: rgba(247,242,213,0.35); font-size: 13px; padding: 40px 0; text-align: center; }
+
         /* Tab Bar */
         #tab-bar { background: #0d0d0d; border-bottom: 1px solid rgba(247,242,213,0.1); padding: 0 20px; display: flex; gap: 4px; }
         .sa-tab { padding: 10px 20px; border: none; background: transparent; color: rgba(247,242,213,0.5); cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px; border-bottom: 2px solid transparent; }
@@ -208,6 +228,7 @@
         <div id="tab-bar">
             <button class="sa-tab active" data-tab="files">Files</button>
             <button class="sa-tab" data-tab="events">Events</button>
+            <button class="sa-tab" data-tab="wallpapers">Wallpapers</button>
             <button class="sa-tab" data-tab="debug">Debug</button>
         </div>
 
@@ -233,6 +254,22 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="wallpapers-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0; font-size: 16px;">Wallpapers</h2>
+                <button class="btn" id="wallpapers-refresh-btn" style="padding: 6px 14px; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: transparent; color: rgba(247,242,213,0.8);">Refresh</button>
+            </div>
+            <div id="wallpaper-upload-box">
+                <input type="file" id="wallpaper-file-input" accept="image/*">
+                <button id="wallpaper-choose-btn">Choose Image</button>
+                <span id="wallpaper-selected-name">No file selected</span>
+                <button id="wallpaper-upload-btn" disabled>Upload</button>
+                <span id="wallpaper-status"></span>
+            </div>
+            <div id="wallpapers-empty" class="hidden">No wallpapers uploaded yet.</div>
+            <div id="wallpaper-grid"></div>
         </div>
 
         <div id="debug-view" class="hidden" style="padding: 20px; overflow-y: auto; flex: 1;">
