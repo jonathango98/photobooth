@@ -817,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
                 </div>
                 <div class="event-card-actions">
-                    ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-activate-btn" disabled>Active</button>`}
+                    ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-deactivate-btn">Deactivate</button>`}
                     <button class="event-edit-btn">Edit</button>
                     <button class="event-duplicate-btn">Duplicate</button>
                     <button class="event-delete-btn">Delete</button>
@@ -832,8 +832,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const activateBtn = card.querySelector('.event-activate-btn');
-            if (!event.is_active) {
+            if (activateBtn) {
                 activateBtn.addEventListener('click', () => activateEvent(event));
+            }
+
+            const deactivateBtn = card.querySelector('.event-deactivate-btn');
+            if (deactivateBtn) {
+                deactivateBtn.addEventListener('click', () => deactivateEvent(event));
             }
 
             card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
@@ -870,6 +875,23 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error(err);
             alert('Error activating event.');
+        }
+    }
+
+    async function deactivateEvent(event) {
+        const { event_id, created_at, updated_at, ...rest } = event;
+        try {
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify({ ...rest, is_active: false })
+            });
+            if (res.status === 401) { handle401(); return; }
+            if (!res.ok) { alert('Failed to deactivate event.'); return; }
+            loadEvents();
+        } catch (err) {
+            console.error(err);
+            alert('Error deactivating event.');
         }
     }
 
