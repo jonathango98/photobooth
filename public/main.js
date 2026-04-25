@@ -49,6 +49,9 @@ const FREEZE_DURATION_MS = 1000;
 // Template image cache
 const templateImageCache = new Map();
 
+// Current session
+let currentSessionId = null;
+
 // Gesture detection state
 let handLandmarker = null;
 let gestureDetectionInterval = null;
@@ -154,14 +157,14 @@ async function initHandLandmarker() {
 
   try {
     const { FilesetResolver, HandLandmarker } = await import(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
+      "./vendor/mediapipe/vision_bundle.mjs"
     );
     const fileset = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+      "./vendor/mediapipe/wasm"
     );
     handLandmarker = await HandLandmarker.createFromOptions(fileset, {
       baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        modelAssetPath: "./vendor/mediapipe/hand_landmarker.task",
         delegate: "GPU",
       },
       runningMode: "VIDEO",
@@ -730,54 +733,81 @@ async function buildTemplateCollage(templateIndex = 0) {
     photoCtx.drawImage(templateImg, 0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
   }
 
+  // Generate stable session ID and show QR immediately
+  currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}`;
+  const qrSize = CONFIG.qr?.size ?? 300;
+  if (qrImg) {
+    qrImg.src = generateQRDataURL(qrUrl, qrSize);
+    qrImg.style.width  = `${qrSize}px`;
+    qrImg.style.height = `${qrSize}px`;
+  }
+  setUploadStatus("Uploading…");
+
   try {
-    await uploadSession();
+    await uploadSession(currentSessionId);
   } catch (e) {
     console.error("[COLLAGE] uploadSession failed:", e);
   }
 }
 
 // ---------------------------
+// QR code helpers
+// ---------------------------
+function generateQRDataURL(url, targetSize) {
+  const qr = qrcode(0, "M");
+  qr.addData(url);
+  qr.make();
+  const cellSize = Math.max(2, Math.floor(targetSize / (qr.getModuleCount() + 8)));
+  return qr.createDataURL(cellSize, Math.ceil(cellSize * 4));
+}
+
+function setUploadStatus(text) {
+  const el = document.getElementById("upload-status");
+  if (el) el.textContent = text;
+}
+
+// ---------------------------
 // Upload raw shots + collage
 // ---------------------------
-async function uploadSession() {
+async function uploadSession(sessionId) {
   if (!CONFIG) return;
-
-  const formData = new FormData();
 
   const rawBlobs = await Promise.all(
     capturedCanvases.map(canvas =>
       new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9))
     )
   );
-
-  rawBlobs.forEach((blob, i) => {
-    if (!blob) return;
-    formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
-  });
-
   const collageBlob = await new Promise(resolve =>
     photoCanvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9)
   );
-  if (collageBlob) formData.append("collage", collageBlob, "collage.jpg");
+
+  const formData = new FormData();
+  formData.append("sessionId", sessionId);
   if (CONFIG.eventId) formData.append("eventId", CONFIG.eventId);
+  rawBlobs.forEach((blob, i) => {
+    if (blob) formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
+  });
+  if (collageBlob) formData.append("collage", collageBlob, "collage.jpg");
 
-  const res = await fetch(`${CONFIG.serverUrl}/api/save`, { method: "POST", body: formData });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("[UPLOAD] failed:", text);
-    alert("Failed to save photos on server.");
-    return;
-  }
-
-  const data = await res.json();
-  if (data.qrCode && qrImg) {
-    const size = CONFIG.qr?.size ?? 300;
-    qrImg.style.width = `${size}px`;
-    qrImg.style.height = `${size}px`;
-    qrImg.src = data.qrCode;
-  } else {
-    console.warn("[UPLOAD] No qrCode in response.");
+  try {
+    const res = await fetch(`${CONFIG.serverUrl}/api/save`, {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    setUploadStatus("Ready! Scan to view.");
+    console.log("[UPLOAD] success", sessionId);
+  } catch (err) {
+    console.warn("[UPLOAD] failed, queuing offline:", err);
+    await window.OfflineQueue.enqueueSession({
+      sessionId,
+      eventId: CONFIG.eventId,
+      rawBlobs,
+      collageBlob,
+    });
+    setUploadStatus("Saved — will sync when internet returns.");
   }
 }
 
@@ -886,6 +916,8 @@ function attachEventListeners() {
     updateResetBtn();
 
     if (qrImg) qrImg.src = "";
+    currentSessionId = null;
+    setUploadStatus("");
 
     showScreen(idleScreen);
     startGestureDetection();
@@ -926,6 +958,21 @@ async function init() {
     await initHandLandmarker();
     startCamera();
     showInstructions();
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(err =>
+        console.warn("[SW] Registration failed:", err)
+      );
+    }
+
+    if (CONFIG?.serverUrl) {
+      window.OfflineQueue.drainQueue(CONFIG.serverUrl);
+      setInterval(() => {
+        if (idleScreen.classList.contains("active")) {
+          window.OfflineQueue.drainQueue(CONFIG.serverUrl);
+        }
+      }, 60_000);
+    }
   } catch (err) {
     console.error("[INIT] Failed to initialize:", err);
     alert("Failed to load photobooth configuration.");

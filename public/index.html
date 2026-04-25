@@ -5,6 +5,7 @@
   <title>Photobooth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="/manifest.json" />
 </head>
 <body>
 
@@ -75,6 +76,7 @@
         <div class="qr-card">
           <p id="scan-to-download-text">Scan to Download</p>
           <img id="qr-img" alt="QR Code" />
+          <p id="upload-status" style="font-size:12px;opacity:0.6;margin:4px 0 0;text-align:center;"></p>
         </div>
         <div class="result-actions">
           <button id="back-btn">Start Over</button>
@@ -89,6 +91,8 @@
     </div>
   </div>
 
+  <script src="vendor/qrcode.min.js"></script>
+  <script src="offline-queue.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
