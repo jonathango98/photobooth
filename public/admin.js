@@ -223,8 +223,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getSessionId(id) {
-        const match = id.match(/session_(\d+)/);
-        return match ? match[1] : 'unknown';
+        // New collage format: eventId/collage/timestamp_random.ext
+        const collageMatch = id.match(/\/collage\/([^/]+)\.\w+$/);
+        if (collageMatch) return collageMatch[1];
+        // New/old raw format: session_timestamp[_random]_rawN.ext
+        const rawMatch = id.match(/session_([A-Za-z0-9_-]+?)_raw\d/);
+        if (rawMatch) return rawMatch[1];
+        // Old collage format: session_timestamp_collage.ext
+        const oldCollageMatch = id.match(/session_(\d+)_collage/);
+        if (oldCollageMatch) return oldCollageMatch[1];
+        return 'unknown';
     }
 
     function renderPhotos() {
@@ -251,10 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionDiv = document.createElement('div');
             sessionDiv.className = 'session';
 
-            const date = sessionId === 'unknown' ? 'Unknown Date' : new Date(parseInt(sessionId)).toLocaleString();
+            const ts = parseInt(sessionId);
+            const date = sessionId === 'unknown' || !ts ? 'Unknown Date' : new Date(ts).toLocaleString();
 
             const h3 = document.createElement('h3');
-            h3.textContent = `Event ID: ${sessionId} | ${date}`;
+            h3.textContent = `Session: ${sessionId} | ${date}`;
             sessionDiv.appendChild(h3);
 
             const grid = document.createElement('div');
