@@ -735,7 +735,7 @@ async function buildTemplateCollage(templateIndex = 0) {
 
   // Generate stable session ID and show QR immediately
   currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}`;
+  const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ""}`;
   const qrSize = CONFIG.qr?.size ?? 300;
   if (qrImg) {
     qrImg.src = generateQRDataURL(qrUrl, qrSize);
