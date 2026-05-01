@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v1";
+const CACHE = "booth-shell-v2";
 
 const SHELL = [
   "/index.html",

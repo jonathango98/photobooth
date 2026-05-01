@@ -123,6 +123,11 @@ async function loadConfig() {
     console.log("[CONFIG] Using static config.json.");
   }
 
+  // Ensure eventId is always populated — fall back to the URL ?event= param
+  if (!CONFIG.eventId && _urlEventId) {
+    CONFIG.eventId = _urlEventId;
+  }
+
   if (CONFIG.siteName) {
     document.title = CONFIG.siteName;
     if (siteNameEl) siteNameEl.textContent = CONFIG.siteName;
@@ -735,6 +740,7 @@ async function buildTemplateCollage(templateIndex = 0) {
 
   // Generate stable session ID and show QR immediately
   currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  if (!CONFIG.eventId) console.warn("[QR] CONFIG.eventId is not set — QR link will use active event fallback");
   const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ""}`;
   const qrSize = CONFIG.qr?.size ?? 300;
   if (qrImg) {
