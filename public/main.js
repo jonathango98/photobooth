@@ -99,6 +99,13 @@ async function loadConfig() {
     throw new Error(`Failed to load config.json: ${staticRes.status}`);
   }
   const staticConfig = await staticRes.json();
+
+  // Merge config.dev.json overrides when present (local dev only — not deployed)
+  const devRes = await fetch("config.dev.json").catch(() => null);
+  if (devRes?.ok) {
+    const devConfig = await devRes.json().catch(() => null);
+    if (devConfig) Object.assign(staticConfig, devConfig);
+  }
   const serverUrl = staticConfig.serverUrl;
 
   let usedServerConfig = false;
@@ -310,6 +317,11 @@ function resetPeaceState() {
 function showScreen(screen) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   screen.classList.add("active");
+  if (screen !== idleScreen) {
+    if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+  } else if (stream && !animationFrameId) {
+    startRenderLoop();
+  }
 }
 
 function triggerFlash() {
@@ -510,7 +522,7 @@ async function startCamera() {
 
       video.play();
       startRenderLoop();
-      startGestureDetection();
+      initHandLandmarker().then(startGestureDetection);
     };
   } catch (e) {
     console.error("[CAM] error:", e);
@@ -757,22 +769,18 @@ async function buildTemplateCollage(templateIndex = 0) {
     photoCtx.drawImage(templateImg, 0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
   }
 
-  // Generate stable session ID and show QR immediately
   currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   if (!CONFIG.eventId) console.warn("[QR] CONFIG.eventId is not set — QR link will use active event fallback");
+  setUploadStatus("Uploading…");
+  await uploadSession(currentSessionId);
+
+  // Show QR only after upload confirmed (success or offline-queued)
   const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ""}`;
   const qrSize = CONFIG.qr?.size ?? 300;
   if (qrImg) {
     qrImg.src = generateQRDataURL(qrUrl, qrSize);
     qrImg.style.width  = `${qrSize}px`;
     qrImg.style.height = `${qrSize}px`;
-  }
-  setUploadStatus("Uploading…");
-
-  try {
-    await uploadSession(currentSessionId);
-  } catch (e) {
-    console.error("[COLLAGE] uploadSession failed:", e);
   }
 }
 
@@ -911,9 +919,12 @@ function attachEventListeners() {
   if (navigator.hid) {
     navigator.hid.getDevices().then(devices => {
       devices.forEach(async device => {
+        const filter = CONFIG?.hidFilter;
+        if (filter?.vendorId != null && device.vendorId !== filter.vendorId) return;
+        if (filter?.productId != null && device.productId !== filter.productId) return;
         try {
           if (!device.opened) await device.open();
-          console.log(`[HID] Auto-connected: "${device.productName}"`);
+          console.log(`[HID] Auto-connected: "${device.productName}" (${device.vendorId}:${device.productId})`);
           device.addEventListener("inputreport", e => {
             const bytes = new Uint8Array(e.data.buffer);
             if (e.reportId === 2 && bytes[0] === 1) {
@@ -991,7 +1002,6 @@ async function init() {
     await loadConfig();
     buildInstructionRules();
     attachEventListeners();
-    await initHandLandmarker();
     startCamera();
     showInstructions();
 

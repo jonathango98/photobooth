@@ -1,4 +1,4 @@
-const API_BASE = 'https://photobooth-server-production.up.railway.app';
+let API_BASE = 'https://photobooth-server-production.up.railway.app';
 
 let collageAspect = '9 / 16';
 let rawAspect = '16 / 9';
@@ -6,6 +6,7 @@ let rawAspect = '16 / 9';
 fetch('config.json')
     .then(r => r.json())
     .then(cfg => {
+        if (cfg.serverUrl) API_BASE = cfg.serverUrl;
         if (cfg.templates?.[0]) {
             collageAspect = `${cfg.templates[0].width} / ${cfg.templates[0].height}`;
         }

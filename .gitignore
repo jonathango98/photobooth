@@ -5,3 +5,4 @@
 .claude
 .vscode/
 todo.md
+public/config.dev.json

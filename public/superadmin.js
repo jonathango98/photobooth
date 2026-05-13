@@ -1,4 +1,9 @@
-const API_BASE = 'https://photobooth-server-production.up.railway.app';
+let API_BASE = 'https://photobooth-server-production.up.railway.app';
+
+fetch('config.json')
+    .then(r => r.json())
+    .then(cfg => { if (cfg.serverUrl) API_BASE = cfg.serverUrl; })
+    .catch(() => {});
 
 function setupPreviewLightbox() {
     const overlay = document.getElementById('preview-overlay');
