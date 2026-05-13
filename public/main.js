@@ -35,6 +35,7 @@ const capturedCanvases = [];
 let selectedTemplateIndex = null;
 let autoResetTimer = null;
 let autoResetCountInterval = null;
+let countdownTimers = [];
 
 // Instruction popup state
 let autoResetTriggered = false;
@@ -628,11 +629,11 @@ function startCountdown() {
       clearInterval(timer);
       showCountdownOverlay("SMILE!", true);
 
-      setTimeout(() => {
+      const t1 = setTimeout(() => {
         captureOneShot();
         hideCountdownOverlay();
 
-        setTimeout(() => {
+        const t2 = setTimeout(() => {
           currentShotIndex++;
           isCountingDown = false;
           updateShotCounter();
@@ -651,9 +652,12 @@ function startCountdown() {
             startGestureDetection();
           }
         }, FREEZE_DURATION_MS);
+        countdownTimers.push(t2);
       }, 250);
+      countdownTimers.push(t1);
     }
   }, intervalMs);
+  countdownTimers.push(timer);
 }
 
 // ---------------------------
@@ -793,14 +797,20 @@ function setUploadStatus(text) {
 async function uploadSession(sessionId) {
   if (!CONFIG) return;
 
+  // Snapshot canvases synchronously before any async gaps to prevent a race
+  // where session reset or a new capture overwrites them mid-upload.
+  const capturedSnapshots = capturedCanvases.map(c => {
+    const s = new OffscreenCanvas(c.width, c.height);
+    s.getContext("2d").drawImage(c, 0, 0);
+    return s;
+  });
+  const collageSnapshot = new OffscreenCanvas(photoCanvas.width, photoCanvas.height);
+  collageSnapshot.getContext("2d").drawImage(photoCanvas, 0, 0);
+
   const rawBlobs = await Promise.all(
-    capturedCanvases.map(canvas =>
-      new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9))
-    )
+    capturedSnapshots.map(c => c.convertToBlob({ type: "image/jpeg", quality: 0.9 }))
   );
-  const collageBlob = await new Promise(resolve =>
-    photoCanvas.toBlob(blob => resolve(blob), "image/jpeg", 0.9)
-  );
+  const collageBlob = await collageSnapshot.convertToBlob({ type: "image/jpeg", quality: 0.9 });
 
   const formData = new FormData();
   formData.append("sessionId", sessionId);
@@ -924,6 +934,8 @@ function attachEventListeners() {
 
   function resetSession() {
     if (!CONFIG) return;
+    countdownTimers.forEach(id => clearTimeout(id));
+    countdownTimers = [];
     clearAutoReset();
     currentShotIndex = 0;
     isCountingDown = false;
