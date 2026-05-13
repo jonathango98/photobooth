@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const moveMoveConfirm = document.getElementById('move-modal-confirm');
     const moveMoveCancel = document.getElementById('move-modal-cancel');
 
-    let password = localStorage.getItem('superadminPassword');
+    let password = sessionStorage.getItem('superadminPassword');
     let currentPrefix = null;
     let currentFiles = [];
     let selectedKeys = new Set();
@@ -158,13 +158,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = document.createElement('div');
                 item.className = 'wallpaper-item';
                 item.innerHTML = `
-                    <img src="${fileUrl}" alt="${name}" loading="lazy">
+                    <img class="wallpaper-img" loading="lazy">
                     <div class="wallpaper-item-info">
-                        <span class="wallpaper-item-name" title="${name}">${name}</span>
+                        <span class="wallpaper-item-name"></span>
                         <button class="wallpaper-copy-btn">Copy URL</button>
                         <button class="wallpaper-delete-btn" title="Delete">🗑</button>
                     </div>
                 `;
+                item.querySelector('.wallpaper-img').src = fileUrl;
+                item.querySelector('.wallpaper-img').alt = name;
+                const nameEl = item.querySelector('.wallpaper-item-name');
+                nameEl.textContent = name;
+                nameEl.title = name;
                 item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
                     navigator.clipboard.writeText(fileUrl).then(() => {
                         const btn = item.querySelector('.wallpaper-copy-btn');
@@ -338,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', () => {
         password = passwordInput.value.trim();
         if (!password) return;
-        localStorage.setItem('superadminPassword', password);
+        sessionStorage.setItem('superadminPassword', password);
         showApp();
     });
 
@@ -347,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     logoutBtn.addEventListener('click', () => {
-        localStorage.removeItem('superadminPassword');
+        sessionStorage.removeItem('superadminPassword');
         location.reload();
     });
 
@@ -356,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handle401() {
-        localStorage.removeItem('superadminPassword');
+        sessionStorage.removeItem('superadminPassword');
         alert('Invalid or expired password.');
         location.reload();
     }
@@ -935,23 +940,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const w = event.capture?.photoWidth ?? '?';
             const h = event.capture?.photoHeight ?? '?';
 
-            const boothUrl = `${BOOTH_ORIGIN}/?event=${event.event_id}`;
-            const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${event.event_id}`;
+            const boothUrl = `${BOOTH_ORIGIN}/?event=${encodeURIComponent(event.event_id)}`;
+            const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${encodeURIComponent(event.event_id)}`;
+
+            // Build card DOM without innerHTML to prevent XSS
             card.innerHTML = `
                 <div class="event-card-header">
-                    <input type="checkbox" class="event-card-checkbox" ${selectedEventIds.has(event.event_id) ? 'checked' : ''}>
-                    <span class="event-card-id">${event.event_id}</span>
+                    <input type="checkbox" class="event-card-checkbox">
+                    <span class="event-card-id"></span>
                     <span class="event-badge ${event.is_active ? 'active' : 'inactive'}">${event.is_active ? 'active' : 'inactive'}</span>
                 </div>
-                <div class="event-card-name">${event.event_name || '—'}</div>
+                <div class="event-card-name"></div>
                 <div class="event-card-meta">
-                    <span>${templateCount} template${templateCount !== 1 ? 's' : ''}</span>
-                    <span>${shots} shots, ${w}×${h}</span>
-                    <span>Created: ${createdAt}</span>
-                    <span>Updated: ${updatedAt}</span>
+                    <span class="meta-templates"></span>
+                    <span class="meta-shots"></span>
+                    <span class="meta-created"></span>
+                    <span class="meta-updated"></span>
                 </div>
                 <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;">${boothUrl}</span>
+                    <span class="booth-url-label" style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;"></span>
                     <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
                     <button class="event-copy-admin-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy admin link</button>
                 </div>
@@ -962,6 +969,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="event-delete-btn">Delete</button>
                 </div>
             `;
+            // Populate all user-supplied text via textContent to prevent XSS
+            card.querySelector('.event-card-checkbox').checked = selectedEventIds.has(event.event_id);
+            card.querySelector('.event-card-id').textContent = event.event_id;
+            card.querySelector('.event-card-name').textContent = event.event_name || '—';
+            card.querySelector('.meta-templates').textContent = `${templateCount} template${templateCount !== 1 ? 's' : ''}`;
+            card.querySelector('.meta-shots').textContent = `${shots} shots, ${w}×${h}`;
+            card.querySelector('.meta-created').textContent = `Created: ${createdAt}`;
+            card.querySelector('.meta-updated').textContent = `Updated: ${updatedAt}`;
+            card.querySelector('.booth-url-label').textContent = boothUrl;
             const checkbox = card.querySelector('.event-card-checkbox');
             checkbox.addEventListener('click', e => {
                 e.stopPropagation();

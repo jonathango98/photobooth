@@ -68,14 +68,28 @@ const PEACE_RING_CIRCUMFERENCE = 339.292;
 const _urlEventId = new URLSearchParams(window.location.search).get('event');
 
 function showEventNotFound(eventId) {
-  document.body.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1714;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;text-align:center;padding:24px;">
-      <div>
-        <div style="font-size:48px;margin-bottom:16px;">404</div>
-        <div style="font-size:18px;margin-bottom:8px;">Event not found</div>
-        <div style="font-size:13px;color:rgba(247,242,213,0.5);">No event with ID <strong>${eventId}</strong> exists.<br>Check the URL and try again.</div>
-      </div>
-    </div>`;
+  const outer = document.createElement("div");
+  outer.setAttribute("style", "display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1714;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;text-align:center;padding:24px;");
+  const inner = document.createElement("div");
+  const h1 = document.createElement("div");
+  h1.setAttribute("style", "font-size:48px;margin-bottom:16px;");
+  h1.textContent = "404";
+  const h2 = document.createElement("div");
+  h2.setAttribute("style", "font-size:18px;margin-bottom:8px;");
+  h2.textContent = "Event not found";
+  const msg = document.createElement("div");
+  msg.setAttribute("style", "font-size:13px;color:rgba(247,242,213,0.5);");
+  msg.textContent = `No event with ID `;
+  const strong = document.createElement("strong");
+  strong.textContent = eventId;
+  msg.appendChild(strong);
+  msg.appendChild(document.createTextNode(" exists. Check the URL and try again."));
+  inner.appendChild(h1);
+  inner.appendChild(h2);
+  inner.appendChild(msg);
+  outer.appendChild(inner);
+  document.body.textContent = "";
+  document.body.appendChild(outer);
 }
 
 async function loadConfig() {

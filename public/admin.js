@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectAllBtn = document.getElementById('select-all-btn');
     const clearSelectionBtn = document.getElementById('clear-selection-btn');
 
-    let adminPassword = localStorage.getItem('adminPassword');
+    let adminPassword = sessionStorage.getItem('adminPassword');
     // photoData: { collages: [...], raws: [...] } — each item: { id, url, uploadedAt }
     let photoData = { collages: [], raws: [] };
     let currentTab = 'collages';
@@ -79,12 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loginBtn.addEventListener('click', () => {
         adminPassword = passwordInput.value;
-        localStorage.setItem('adminPassword', adminPassword);
+        sessionStorage.setItem('adminPassword', adminPassword);
         showAdminContent();
     });
 
     logoutBtn.addEventListener('click', () => {
-        localStorage.removeItem('adminPassword');
+        sessionStorage.removeItem('adminPassword');
         location.reload();
     });
 
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.status === 401) {
-                localStorage.removeItem('adminPassword');
+                sessionStorage.removeItem('adminPassword');
                 alert('Invalid password');
                 location.reload();
                 return;
