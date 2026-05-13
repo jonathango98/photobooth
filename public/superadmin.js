@@ -1055,14 +1055,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const ids = Array.from(selectedEventIds);
         let failed = 0;
         for (const id of ids) {
-            const event = allEvents.find(e => e.event_id === id);
-            if (!event) continue;
-            const { event_id, created_at, updated_at, ...rest } = event;
+            const action = isActive ? 'activate' : 'deactivate';
             try {
-                const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
-                    method: 'PUT',
+                const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(id)}/${action}`, {
+                    method: 'POST',
                     headers: authHeaders(),
-                    body: JSON.stringify({ ...rest, is_active: isActive })
                 });
                 if (res.status === 401) { handle401(); return; }
                 if (!res.ok) failed++;
@@ -1077,12 +1074,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function activateEvent(event) {
-        const { event_id, created_at, updated_at, ...rest } = event;
         try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
-                method: 'PUT',
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/activate`, {
+                method: 'POST',
                 headers: authHeaders(),
-                body: JSON.stringify({ ...rest, is_active: true })
             });
             if (res.status === 401) { handle401(); return; }
             if (!res.ok) { alert('Failed to activate event.'); return; }
@@ -1094,12 +1089,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function deactivateEvent(event) {
-        const { event_id, created_at, updated_at, ...rest } = event;
         try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event_id)}`, {
-                method: 'PUT',
+            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/deactivate`, {
+                method: 'POST',
                 headers: authHeaders(),
-                body: JSON.stringify({ ...rest, is_active: false })
             });
             if (res.status === 401) { handle401(); return; }
             if (!res.ok) { alert('Failed to deactivate event.'); return; }
