@@ -35,14 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCancel = document.getElementById('modal-cancel');
     const moveModalOverlay = document.getElementById('move-modal-overlay');
     const moveDestInput = document.getElementById('move-dest-input');
-    const moveMoveConfirm = document.getElementById('move-modal-confirm');
-    const moveMoveCancel = document.getElementById('move-modal-cancel');
+    const moveConfirm = document.getElementById('move-modal-confirm');
+    const moveCancel = document.getElementById('move-modal-cancel');
 
     let password = sessionStorage.getItem('superadminPassword');
     let currentPrefix = null;
     let currentFiles = [];
     let selectedKeys = new Set();
-    let treeData = null;
     let pendingConfirmCallback = null;
     let pendingMoveSourceKey = null;
     let eventFormMode = null; // 'create' or 'edit'
@@ -239,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Poll gamepads for button presses
     let prevGamepadStates = {};
+    let gamepadRafId;
     function pollGamepads() {
         if (!debugView.classList.contains('hidden')) {
             const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -255,8 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 prevGamepadStates[gp.index] = gp.buttons.map(b => b.pressed);
             }
         }
-        requestAnimationFrame(pollGamepads);
+        if (!document.hidden) gamepadRafId = requestAnimationFrame(pollGamepads);
     }
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            cancelAnimationFrame(gamepadRafId);
+        } else {
+            pollGamepads();
+        }
+    });
     pollGamepads();
 
     // Generic input/change events on the document
@@ -387,8 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             // Server returns { ok, tree: { name: "/", type: "folder", children: [...] } }
             const rawChildren = (data.tree && data.tree.children) || [];
-            treeData = enrichTree(rawChildren, '');
-            renderTree(treeData);
+            renderTree(enrichTree(rawChildren, ''));
         } catch (err) {
             console.error(err);
             treeContainer.innerHTML = '<p style="padding:12px 16px;color:#ff6b6b;font-size:13px;">Failed to load folders.</p>';
@@ -816,7 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
         moveDestInput.select();
     }
 
-    moveMoveConfirm.addEventListener('click', async () => {
+    moveConfirm.addEventListener('click', async () => {
         const destKey = moveDestInput.value.trim();
         if (!destKey || !pendingMoveSourceKey) return;
         if (destKey === pendingMoveSourceKey) { moveModalOverlay.classList.remove('active'); return; }
@@ -825,7 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
         moveModalOverlay.classList.remove('active');
     });
 
-    moveMoveCancel.addEventListener('click', () => {
+    moveCancel.addEventListener('click', () => {
         pendingMoveSourceKey = null;
         moveModalOverlay.classList.remove('active');
     });
@@ -838,8 +844,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     moveDestInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') moveMoveConfirm.click();
-        if (e.key === 'Escape') moveMoveCancel.click();
+        if (e.key === 'Enter') moveConfirm.click();
+        if (e.key === 'Escape') moveCancel.click();
     });
 
     async function doMoveFile(sourceKey, destKey) {

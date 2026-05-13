@@ -165,6 +165,7 @@ function loadTemplateImage(src) {
     const img = new Image();
     img.onload = () => { templateImageCache.set(src, img); resolve(img); };
     img.onerror = () => { console.warn(`[TEMPLATE] Image ${src} failed to load.`); resolve(null); };
+    img.crossOrigin = 'anonymous';
     img.src = src;
   });
 }
@@ -821,11 +822,14 @@ async function uploadSession(sessionId) {
   if (collageBlob) formData.append("collage", collageBlob, "collage.jpg");
 
   try {
+    const uploadCtrl = new AbortController();
+    const uploadTimeout = setTimeout(() => uploadCtrl.abort(), 15000);
     const res = await fetch(`${CONFIG.serverUrl}/api/save`, {
       method: "POST",
       body: formData,
-      signal: AbortSignal.timeout(15000),
+      signal: uploadCtrl.signal,
     });
+    clearTimeout(uploadTimeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     setUploadStatus("Ready! Scan to view.");
     console.log("[UPLOAD] success", sessionId);

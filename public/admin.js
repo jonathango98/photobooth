@@ -246,7 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
             sessions[sessionId].push(photo);
         });
 
-        const sortedSessionIds = Object.keys(sessions).sort((a, b) => b - a);
+        const sortedSessionIds = Object.keys(sessions).sort((a, b) => {
+            const tsA = parseInt(a, 10) || 0;
+            const tsB = parseInt(b, 10) || 0;
+            return tsB - tsA;
+        });
 
         sessionsList.innerHTML = '';
         if (sortedSessionIds.length === 0) {
@@ -295,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const img = document.createElement('img');
                 img.src = item.url;
                 img.alt = 'Photo';
+                img.loading = 'lazy';
 
                 const label = document.createElement('span');
                 label.className = 'label';
