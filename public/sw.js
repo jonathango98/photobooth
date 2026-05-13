@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v3";
+const CACHE = "booth-shell-v4";
 
 const SHELL = [
   "/index.html",
@@ -34,6 +34,12 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
+
+  // Never intercept cross-origin requests — let the browser handle them natively.
+  // Intercepting cross-origin fetches (e.g. Railway API from a Netlify page) causes
+  // the SW's .catch() to synthesize a 503 when the request mode or CORS setup prevents
+  // the SW from completing the fetch successfully.
+  if (url.origin !== self.location.origin) return;
 
   // Always network-first for API calls (never cache stale responses)
   if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
