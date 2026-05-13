@@ -150,7 +150,7 @@ async function loadConfig() {
 
   document.body.style.backgroundImage = CONFIG.background_url
     ? `url('${CONFIG.background_url}')`
-    : `url('assets/background.png')`;
+    : `url('assets/background.webp')`;
 
   if (CONFIG.templates) {
     await Promise.all(CONFIG.templates.map(t => loadTemplateImage(t.file)));

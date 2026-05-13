@@ -30,7 +30,7 @@ body {
   font-family: 'IBM Plex Mono', monospace;
   background-color: var(--bg);
   color: var(--text);
-  background-image: url('assets/background.png');
+  background-image: url('assets/background.webp');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

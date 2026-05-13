@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v2";
+const CACHE = "booth-shell-v3";
 
 const SHELL = [
   "/index.html",
@@ -14,8 +14,8 @@ const SHELL = [
   "/vendor/mediapipe/hand_landmarker.task",
   "/vendor/fonts/IBMPlexMono-Regular.woff2",
   "/config.json",
-  "/assets/background.png",
-  "/assets/background2.png",
+  "/assets/background.webp",
+  "/assets/background2.webp",
 ];
 
 self.addEventListener("install", (e) => {
