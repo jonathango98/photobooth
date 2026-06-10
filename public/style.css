@@ -782,6 +782,10 @@ body::after {
 /* ========================
    LANDING SCREEN
 ======================== */
+.landing-screen[hidden] {
+  display: none;
+}
+
 .landing-screen {
   position: fixed;
   inset: 0;
