@@ -1087,7 +1087,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const idInput = document.getElementById('ef-event-id');
         idInput.value = event ? event.event_id : '';
         idInput.disabled = !!event;
-        idInput.addEventListener('input', updateBoothUrlPreview);
         updateBoothUrlPreview();
 
         document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
@@ -1113,6 +1112,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         eventFormMode = null;
         eventFormEditId = null;
     }
+
+    document.getElementById('ef-event-id').addEventListener('input', updateBoothUrlPreview);
 
     eventFormCancel.addEventListener('click', closeEventForm);
 
