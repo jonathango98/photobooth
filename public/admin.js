@@ -43,13 +43,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const downloadSelectedBtn = document.getElementById('download-selected-btn');
     const selectAllBtn = document.getElementById('select-all-btn');
     const clearSelectionBtn = document.getElementById('clear-selection-btn');
+    const loadMoreWrap = document.getElementById('load-more-wrap');
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const photoCount = document.getElementById('photo-count');
+
+    const PAGE_SIZE = 200;
 
     let adminPassword = sessionStorage.getItem('adminPassword');
-    // photoData: { collages: [...], raws: [...] } — each item: { id, url, uploadedAt }
+    // photoData: { collages: [...], raws: [...] } — each item: { id, url, thumbUrl, uploadedAt }
     let photoData = { collages: [], raws: [] };
     let currentTab = 'collages';
     let selectedIds = new Set();
     let eventId = null;
+    // Pagination state — the server returns photos newest-first across both folders;
+    // "Load more" appends the next page. ZIP/select-all still cover loaded items only,
+    // except "Download All as ZIP" which the server builds over ALL photos server-side.
+    let nextCursor = 0;
+    let totalPhotos = 0;
+    let isLoadingPage = false;
 
     const eventIdDisplay = document.getElementById('event-id-display');
     const urlEventId = new URLSearchParams(window.location.search).get('event');
@@ -164,13 +175,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         URL.revokeObjectURL(a.href);
     }
 
+    loadMoreBtn.addEventListener('click', () => loadPhotosPage(false));
+
     async function showAdminContent() {
         loginForm.style.display = 'none';
         adminContent.style.display = 'block';
+        // Reset pagination and load the first page.
+        photoData = { collages: [], raws: [] };
+        selectedIds.clear();
+        nextCursor = 0;
+        totalPhotos = 0;
+        await loadPhotosPage(true);
+    }
+
+    function updateLoadMoreUI() {
+        const loaded = photoData.collages.length + photoData.raws.length;
+        if (nextCursor !== null && nextCursor !== undefined) {
+            loadMoreWrap.style.display = 'block';
+            loadMoreBtn.disabled = isLoadingPage;
+            loadMoreBtn.textContent = isLoadingPage ? 'Loading…' : 'Load more';
+            photoCount.textContent = `Showing ${loaded} of ${totalPhotos} photos`;
+        } else {
+            // All loaded — keep the count visible but hide the button.
+            loadMoreBtn.style.display = 'none';
+            loadMoreWrap.style.display = loaded > 0 ? 'block' : 'none';
+            photoCount.textContent = loaded > 0 ? `Showing all ${loaded} photos` : '';
+        }
+    }
+
+    // booth-server returns: { ok, photos: [{ id, url, thumbUrl, folder, uploadedAt }],
+    //                         total, cursor, nextCursor }
+    async function loadPhotosPage(reset) {
+        if (isLoadingPage) return;
+        if (!reset && (nextCursor === null || nextCursor === undefined)) return;
+        isLoadingPage = true;
+        updateLoadMoreUI();
 
         try {
-            const qs = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
-            const response = await fetch(`${API_BASE}/api/admin/photos${qs}`, {
+            const cursor = reset ? 0 : nextCursor;
+            const params = new URLSearchParams();
+            if (eventId) params.set('eventId', eventId);
+            params.set('limit', String(PAGE_SIZE));
+            params.set('cursor', String(cursor));
+            const response = await fetch(`${API_BASE}/api/admin/photos?${params}`, {
                 headers: { 'x-admin-password': adminPassword }
             });
 
@@ -185,19 +232,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error('Failed to fetch photos');
             }
 
-            // booth-server returns: { ok, photos: [{ id, url, folder, uploadedAt }] }
             const data = await response.json();
             const photos = data.photos || [];
+            totalPhotos = data.total ?? photos.length;
+            nextCursor = data.nextCursor ?? null;
 
-            photoData = {
-                collages: photos.filter(p => p.folder === 'collage'),
-                raws: photos.filter(p => p.folder === 'raw'),
-            };
+            photoData.collages.push(...photos.filter(p => p.folder === 'collage'));
+            photoData.raws.push(...photos.filter(p => p.folder === 'raw'));
 
             renderPhotos();
         } catch (err) {
             console.error(err);
             alert('Error loading photos');
+        } finally {
+            isLoadingPage = false;
+            updateLoadMoreUI();
+            updateSelectionUI();
         }
     }
 
@@ -291,7 +341,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 actions.appendChild(viewBtn);
 
                 const img = document.createElement('img');
-                img.src = item.url;
+                // Use the lightweight thumbnail for the grid; full-size `url` is used
+                // for the preview lightbox and downloads. Fall back to full-size if an
+                // older server response omits thumbUrl.
+                img.src = item.thumbUrl || item.url;
                 img.alt = 'Photo';
                 img.loading = 'lazy';
 
