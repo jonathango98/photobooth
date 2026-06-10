@@ -845,6 +845,25 @@ body::after {
   opacity: 0.8;
 }
 
+.landing-demo-btn {
+  display: inline-block;
+  background: var(--orange);
+  border-radius: 6px;
+  color: var(--bg);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 12px 28px;
+  margin: 0 0 36px;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: opacity 0.2s;
+}
+
+.landing-demo-btn:hover {
+  opacity: 0.85;
+}
+
 .landing-form-wrap {
   border-top: 1px solid rgba(200, 112, 58, 0.25);
   padding-top: 28px;
