@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v4";
+const CACHE = "booth-shell-v5";
 
 const SHELL = [
   "/index.html",
@@ -44,6 +44,20 @@ self.addEventListener("fetch", (e) => {
   // Always network-first for API calls (never cache stale responses)
   if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
     e.respondWith(fetch(e.request).catch(() => new Response("", { status: 503 })));
+    return;
+  }
+
+  // Network-first for config.json so server/URL changes reach kiosks immediately.
+  // Falls back to the cached copy (pre-populated at install) so offline still works.
+  if (url.pathname === "/config.json") {
+    e.respondWith(
+      fetch(e.request).then(response => {
+        if (response.ok) {
+          caches.open(CACHE).then(c => c.put(e.request, response.clone()));
+        }
+        return response;
+      }).catch(() => caches.match(e.request))
+    );
     return;
   }
 

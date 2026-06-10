@@ -1133,7 +1133,9 @@ document.addEventListener('DOMContentLoaded', () => {
             event_name: document.getElementById('ef-event-name').value.trim(),
             is_active: eventFormMode === 'edit' ? eventFormEditIsActive : false,
             background_url: document.getElementById('ef-background-url').value.trim() || null,
-            admin_password: document.getElementById('ef-admin-password').value.trim() || '',
+            ...(document.getElementById('ef-admin-password').value.trim()
+                ? { admin_password: document.getElementById('ef-admin-password').value.trim() }
+                : {}),
             capture: {
                 totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
                 photoWidth: parseInt(document.getElementById('ef-photo-width').value, 10),

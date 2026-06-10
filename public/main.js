@@ -808,18 +808,40 @@ async function uploadSession(sessionId) {
 
   // Snapshot canvases synchronously before any async gaps to prevent a race
   // where session reset or a new capture overwrites them mid-upload.
-  const capturedSnapshots = capturedCanvases.map(c => {
-    const s = new OffscreenCanvas(c.width, c.height);
-    s.getContext("2d").drawImage(c, 0, 0);
-    return s;
-  });
-  const collageSnapshot = new OffscreenCanvas(photoCanvas.width, photoCanvas.height);
-  collageSnapshot.getContext("2d").drawImage(photoCanvas, 0, 0);
+  // Uses OffscreenCanvas when available (Chrome/modern Safari); falls back to a
+  // regular <canvas> + toBlob() for iPadOS < 16.4 where OffscreenCanvas lacks convertToBlob.
+  const supportsOffscreen =
+    typeof OffscreenCanvas !== "undefined" &&
+    typeof OffscreenCanvas.prototype.convertToBlob === "function";
 
-  const rawBlobs = await Promise.all(
-    capturedSnapshots.map(c => c.convertToBlob({ type: "image/jpeg", quality: 0.9 }))
-  );
-  const collageBlob = await collageSnapshot.convertToBlob({ type: "image/jpeg", quality: 0.9 });
+  function canvasToBlob(sourceCanvas) {
+    if (supportsOffscreen) {
+      const s = new OffscreenCanvas(sourceCanvas.width, sourceCanvas.height);
+      s.getContext("2d").drawImage(sourceCanvas, 0, 0);
+      return s.convertToBlob({ type: "image/jpeg", quality: 0.9 });
+    }
+    // Fallback: copy into a regular <canvas> and use the callback-based toBlob API
+    const el = document.createElement("canvas");
+    el.width = sourceCanvas.width;
+    el.height = sourceCanvas.height;
+    el.getContext("2d").drawImage(sourceCanvas, 0, 0);
+    return new Promise((resolve, reject) => {
+      el.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error("toBlob returned null — canvas may be empty or tainted"));
+      }, "image/jpeg", 0.9);
+    });
+  }
+
+  let rawBlobs, collageBlob;
+  try {
+    rawBlobs = await Promise.all(capturedCanvases.map(c => canvasToBlob(c)));
+    collageBlob = await canvasToBlob(photoCanvas);
+  } catch (err) {
+    console.error("[UPLOAD] canvas snapshot failed — not queuing retry:", err);
+    setUploadStatus("Error: could not capture image. Please retake.");
+    return;
+  }
 
   const formData = new FormData();
   formData.append("sessionId", sessionId);
