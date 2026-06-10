@@ -1,9 +1,12 @@
-let API_BASE = 'https://photobooth-server-production.up.railway.app';
+const FALLBACK_API = 'https://photobooth-server-production.up.railway.app';
+let API_BASE = FALLBACK_API;
 
-fetch('config.json')
-    .then(r => r.json())
-    .then(cfg => { if (cfg.serverUrl) API_BASE = cfg.serverUrl; })
-    .catch(() => {});
+async function loadConfig() {
+    try {
+        const cfg = await fetch('config.json').then(r => r.json());
+        if (cfg.serverUrl) API_BASE = cfg.serverUrl;
+    } catch { /* use fallback */ }
+}
 
 function setupPreviewLightbox() {
     const overlay = document.getElementById('preview-overlay');
@@ -16,7 +19,8 @@ function setupPreviewLightbox() {
     window._showPreview = url => { img.src = url; overlay.classList.add('active'); };
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadConfig();
     setupPreviewLightbox();
     const loginSection = document.getElementById('login-section');
     const appSection = document.getElementById('app-section');

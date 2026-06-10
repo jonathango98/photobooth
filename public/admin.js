@@ -1,11 +1,12 @@
-let API_BASE = 'https://photobooth-server-production.up.railway.app';
+const FALLBACK_API = 'https://photobooth-server-production.up.railway.app';
+let API_BASE = FALLBACK_API;
 
 let collageAspect = '9 / 16';
 let rawAspect = '16 / 9';
 
-fetch('config.json')
-    .then(r => r.json())
-    .then(cfg => {
+async function loadConfig() {
+    try {
+        const cfg = await fetch('config.json').then(r => r.json());
         if (cfg.serverUrl) API_BASE = cfg.serverUrl;
         if (cfg.templates?.[0]) {
             collageAspect = `${cfg.templates[0].width} / ${cfg.templates[0].height}`;
@@ -13,8 +14,8 @@ fetch('config.json')
         if (cfg.capture?.photoWidth && cfg.capture?.photoHeight) {
             rawAspect = `${cfg.capture.photoWidth} / ${cfg.capture.photoHeight}`;
         }
-    })
-    .catch(() => {});
+    } catch { /* use fallback */ }
+}
 
 function setupPreviewLightbox() {
     const overlay = document.getElementById('preview-overlay');
@@ -27,7 +28,8 @@ function setupPreviewLightbox() {
     window._showPreview = url => { img.src = url; overlay.classList.add('active'); };
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadConfig();
     setupPreviewLightbox();
     const loginForm = document.getElementById('login-form');
     const adminContent = document.getElementById('admin-content');

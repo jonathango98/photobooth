@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v6";
+const CACHE = "booth-shell-v7";
 
 const SHELL = [
   "/index.html",
@@ -61,7 +61,18 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Cache-first for shell assets; also populate cache on first fetch for templates
+  // Navigation requests (bare "/" or any HTML page): network-first, fall back to
+  // the pre-cached shell so an offline reload of the origin never blanks the kiosk.
+  if (e.request.mode === "navigate") {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match("/index.html"))
+    );
+    return;
+  }
+
+  // Cache-first for shell assets; also populate cache on first fetch for templates.
+  // The fetch is wrapped in .catch so an uncached miss while offline returns a
+  // synthetic 503 instead of a rejected respondWith (which blanks the page).
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
@@ -71,7 +82,7 @@ self.addEventListener("fetch", (e) => {
           caches.open(CACHE).then(c => c.put(e.request, response.clone()));
         }
         return response;
-      });
+      }).catch(() => new Response("Offline", { status: 503 }));
     })
   );
 });
