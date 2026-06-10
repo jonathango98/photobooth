@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json',
                     'x-admin-password': adminPassword
                 },
-                body: JSON.stringify({ photoIds: Array.from(selectedIds) })
+                body: JSON.stringify({ photoIds: Array.from(selectedIds), eventId })
             });
 
             if (!response.ok) {
