@@ -2,167 +2,193 @@ const FALLBACK_API = 'https://photobooth-server-production.up.railway.app';
 let API_BASE = FALLBACK_API;
 
 async function loadConfig() {
-    try {
-        const cfg = await fetch('config.json').then(r => r.json());
-        if (cfg.serverUrl) API_BASE = cfg.serverUrl;
-    } catch { /* use fallback */ }
+  try {
+    const cfg = await fetch('config.json').then((r) => r.json());
+    if (cfg.serverUrl) API_BASE = cfg.serverUrl;
+  } catch {
+    /* use fallback */
+  }
 }
 
 function setupPreviewLightbox() {
-    const overlay = document.getElementById('preview-overlay');
-    const img = document.getElementById('preview-img');
-    const closeBtn = document.getElementById('preview-close');
-    function close() { overlay.classList.remove('active'); img.src = ''; }
-    closeBtn.addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-    window._showPreview = url => { img.src = url; overlay.classList.add('active'); };
+  const overlay = document.getElementById('preview-overlay');
+  const img = document.getElementById('preview-img');
+  const closeBtn = document.getElementById('preview-close');
+  function close() {
+    overlay.classList.remove('active');
+    img.src = '';
+  }
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+  window._showPreview = (url) => {
+    img.src = url;
+    overlay.classList.add('active');
+  };
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadConfig();
-    setupPreviewLightbox();
-    const loginSection = document.getElementById('login-section');
-    const appSection = document.getElementById('app-section');
-    const passwordInput = document.getElementById('superadmin-password');
-    const loginBtn = document.getElementById('login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const treeContainer = document.getElementById('tree-container');
-    const photoGrid = document.getElementById('photo-grid');
-    const emptyMsg = document.getElementById('empty-msg');
-    const deleteSelectedBtn = document.getElementById('delete-selected-btn');
-    const downloadSelectedBtn = document.getElementById('download-selected-btn');
-    const downloadAllBtn = document.getElementById('download-all-btn');
-    const selectAllBtn = document.getElementById('select-all-btn');
-    const clearSelectionBtn = document.getElementById('clear-selection-btn');
-    const photoCountEl = document.getElementById('photo-count');
-    const breadcrumb = document.getElementById('breadcrumb');
-    const modalOverlay = document.getElementById('modal-overlay');
-    const modalTitle = document.getElementById('modal-title');
-    const modalMessage = document.getElementById('modal-message');
-    const modalConfirm = document.getElementById('modal-confirm');
-    const modalCancel = document.getElementById('modal-cancel');
-    const moveModalOverlay = document.getElementById('move-modal-overlay');
-    const moveDestInput = document.getElementById('move-dest-input');
-    const moveConfirm = document.getElementById('move-modal-confirm');
-    const moveCancel = document.getElementById('move-modal-cancel');
+  await loadConfig();
+  setupPreviewLightbox();
+  const loginSection = document.getElementById('login-section');
+  const appSection = document.getElementById('app-section');
+  const passwordInput = document.getElementById('superadmin-password');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const treeContainer = document.getElementById('tree-container');
+  const photoGrid = document.getElementById('photo-grid');
+  const emptyMsg = document.getElementById('empty-msg');
+  const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+  const downloadSelectedBtn = document.getElementById('download-selected-btn');
+  const downloadAllBtn = document.getElementById('download-all-btn');
+  const selectAllBtn = document.getElementById('select-all-btn');
+  const clearSelectionBtn = document.getElementById('clear-selection-btn');
+  const photoCountEl = document.getElementById('photo-count');
+  const breadcrumb = document.getElementById('breadcrumb');
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalTitle = document.getElementById('modal-title');
+  const modalMessage = document.getElementById('modal-message');
+  const modalConfirm = document.getElementById('modal-confirm');
+  const modalCancel = document.getElementById('modal-cancel');
+  const moveModalOverlay = document.getElementById('move-modal-overlay');
+  const moveDestInput = document.getElementById('move-dest-input');
+  const moveConfirm = document.getElementById('move-modal-confirm');
+  const moveCancel = document.getElementById('move-modal-cancel');
 
-    let password = sessionStorage.getItem('superadminPassword');
-    let currentPrefix = null;
-    let currentFiles = [];
-    let selectedKeys = new Set();
-    let pendingConfirmCallback = null;
-    let pendingMoveSourceKey = null;
-    let eventFormMode = null; // 'create' or 'edit'
-    let eventFormEditId = null;
-    let eventFormEditIsActive = false;
-    let selectedEventIds = new Set();
-    let allEvents = [];
+  let password = sessionStorage.getItem('superadminPassword');
+  let currentPrefix = null;
+  let currentFiles = [];
+  let selectedKeys = new Set();
+  let pendingConfirmCallback = null;
+  let pendingMoveSourceKey = null;
+  let eventFormMode = null; // 'create' or 'edit'
+  let eventFormEditId = null;
+  let eventFormEditIsActive = false;
+  let selectedEventIds = new Set();
+  let allEvents = [];
 
-    // --- Tab Switching ---
+  // --- Tab Switching ---
 
-    const tabButtons = document.querySelectorAll('.sa-tab');
-    const filesView = document.getElementById('files-view');
-    const eventsView = document.getElementById('events-view');
-    const createEventBtn = document.getElementById('create-event-btn');
-    const eventFormOverlay = document.getElementById('event-form-overlay');
-    const eventFormEl = document.getElementById('event-form');
-    const eventFormTitle = document.getElementById('event-form-title');
-    const eventFormCancel = document.getElementById('event-form-cancel');
+  const tabButtons = document.querySelectorAll('.sa-tab');
+  const filesView = document.getElementById('files-view');
+  const eventsView = document.getElementById('events-view');
+  const createEventBtn = document.getElementById('create-event-btn');
+  const eventFormOverlay = document.getElementById('event-form-overlay');
+  const eventFormEl = document.getElementById('event-form');
+  const eventFormTitle = document.getElementById('event-form-title');
+  const eventFormCancel = document.getElementById('event-form-cancel');
 
-    const wallpapersView = document.getElementById('wallpapers-view');
+  const wallpapersView = document.getElementById('wallpapers-view');
 
-    tabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            tabButtons.forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            const tab = btn.dataset.tab;
-            filesView.classList.toggle('hidden', tab !== 'files');
-            eventsView.classList.toggle('hidden', tab !== 'events');
-            wallpapersView.classList.toggle('hidden', tab !== 'wallpapers');
-            if (tab === 'events') loadEvents();
-            if (tab === 'wallpapers') loadWallpapers();
-        });
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach((t) => t.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      filesView.classList.toggle('hidden', tab !== 'files');
+      eventsView.classList.toggle('hidden', tab !== 'events');
+      wallpapersView.classList.toggle('hidden', tab !== 'wallpapers');
+      if (tab === 'events') loadEvents();
+      if (tab === 'wallpapers') loadWallpapers();
     });
+  });
 
-    // --- Wallpapers ---
+  // --- Wallpapers ---
 
-    const wallpaperFileInput = document.getElementById('wallpaper-file-input');
-    const wallpaperChooseBtn = document.getElementById('wallpaper-choose-btn');
-    const wallpaperUploadBtn = document.getElementById('wallpaper-upload-btn');
-    const wallpaperSelectedName = document.getElementById('wallpaper-selected-name');
-    const wallpaperStatus = document.getElementById('wallpaper-status');
-    const wallpaperGrid = document.getElementById('wallpaper-grid');
-    const wallpapersEmpty = document.getElementById('wallpapers-empty');
-    const wallpapersRefreshBtn = document.getElementById('wallpapers-refresh-btn');
+  const wallpaperFileInput = document.getElementById('wallpaper-file-input');
+  const wallpaperChooseBtn = document.getElementById('wallpaper-choose-btn');
+  const wallpaperUploadBtn = document.getElementById('wallpaper-upload-btn');
+  const wallpaperSelectedName = document.getElementById('wallpaper-selected-name');
+  const wallpaperStatus = document.getElementById('wallpaper-status');
+  const wallpaperGrid = document.getElementById('wallpaper-grid');
+  const wallpapersEmpty = document.getElementById('wallpapers-empty');
+  const wallpapersRefreshBtn = document.getElementById('wallpapers-refresh-btn');
 
-    wallpaperChooseBtn.addEventListener('click', () => wallpaperFileInput.click());
+  wallpaperChooseBtn.addEventListener('click', () => wallpaperFileInput.click());
 
-    wallpaperFileInput.addEventListener('change', () => {
-        const file = wallpaperFileInput.files[0];
-        if (file) {
-            wallpaperSelectedName.textContent = file.name;
-            wallpaperUploadBtn.disabled = false;
-            wallpaperStatus.textContent = '';
-        } else {
-            wallpaperSelectedName.textContent = 'No file selected';
-            wallpaperUploadBtn.disabled = true;
-        }
-    });
+  wallpaperFileInput.addEventListener('change', () => {
+    const file = wallpaperFileInput.files[0];
+    if (file) {
+      wallpaperSelectedName.textContent = file.name;
+      wallpaperUploadBtn.disabled = false;
+      wallpaperStatus.textContent = '';
+    } else {
+      wallpaperSelectedName.textContent = 'No file selected';
+      wallpaperUploadBtn.disabled = true;
+    }
+  });
 
-    wallpaperUploadBtn.addEventListener('click', async () => {
-        const file = wallpaperFileInput.files[0];
-        if (!file) return;
-        wallpaperUploadBtn.disabled = true;
-        wallpaperStatus.textContent = 'Uploading...';
-        try {
-            const formData = new FormData();
-            formData.append('wallpaper', file);
-            const res = await fetch(`${API_BASE}/api/superadmin/upload-wallpaper`, {
-                method: 'POST',
-                headers: { 'x-superadmin-password': password },
-                body: formData,
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { wallpaperStatus.textContent = 'Upload failed.'; wallpaperUploadBtn.disabled = false; return; }
-            const data = await res.json();
-            wallpaperStatus.textContent = 'Uploaded!';
-            wallpaperFileInput.value = '';
-            wallpaperSelectedName.textContent = 'No file selected';
-            wallpaperUploadBtn.disabled = true;
-            setTimeout(() => { wallpaperStatus.textContent = ''; }, 3000);
-            await loadWallpapers();
-            navigator.clipboard.writeText(data.url).catch(() => {});
-        } catch (err) {
-            console.error(err);
-            wallpaperStatus.textContent = 'Upload error.';
-            wallpaperUploadBtn.disabled = false;
-        }
-    });
+  wallpaperUploadBtn.addEventListener('click', async () => {
+    const file = wallpaperFileInput.files[0];
+    if (!file) return;
+    wallpaperUploadBtn.disabled = true;
+    wallpaperStatus.textContent = 'Uploading...';
+    try {
+      const formData = new FormData();
+      formData.append('wallpaper', file);
+      const res = await fetch(`${API_BASE}/api/superadmin/upload-wallpaper`, {
+        method: 'POST',
+        headers: { 'x-superadmin-password': password },
+        body: formData,
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        wallpaperStatus.textContent = 'Upload failed.';
+        wallpaperUploadBtn.disabled = false;
+        return;
+      }
+      const data = await res.json();
+      wallpaperStatus.textContent = 'Uploaded!';
+      wallpaperFileInput.value = '';
+      wallpaperSelectedName.textContent = 'No file selected';
+      wallpaperUploadBtn.disabled = true;
+      setTimeout(() => {
+        wallpaperStatus.textContent = '';
+      }, 3000);
+      await loadWallpapers();
+      navigator.clipboard.writeText(data.url).catch(() => {});
+    } catch (err) {
+      console.error(err);
+      wallpaperStatus.textContent = 'Upload error.';
+      wallpaperUploadBtn.disabled = false;
+    }
+  });
 
-    wallpapersRefreshBtn.addEventListener('click', loadWallpapers);
+  wallpapersRefreshBtn.addEventListener('click', loadWallpapers);
 
-    async function loadWallpapers() {
-        wallpaperGrid.innerHTML = '';
-        wallpapersEmpty.classList.add('hidden');
-        try {
-            const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent('wallpapers/')}`;
-            const res = await fetch(url, { headers: authHeaders() });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) throw new Error('Failed');
-            const data = await res.json();
-            const files = (data.files || data.photos || []).filter(f => /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.key || ''));
-            if (files.length === 0) {
-                wallpapersEmpty.classList.remove('hidden');
-                return;
-            }
-            files.forEach(file => {
-                const key = file.key;
-                const fileUrl = file.url;
-                const name = key.split('/').pop();
-                const item = document.createElement('div');
-                item.className = 'wallpaper-item';
-                item.innerHTML = `
+  async function loadWallpapers() {
+    wallpaperGrid.innerHTML = '';
+    wallpapersEmpty.classList.add('hidden');
+    try {
+      const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent('wallpapers/')}`;
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      const files = (data.files || data.photos || []).filter((f) =>
+        /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.key || '')
+      );
+      if (files.length === 0) {
+        wallpapersEmpty.classList.remove('hidden');
+        return;
+      }
+      files.forEach((file) => {
+        const key = file.key;
+        const fileUrl = file.url;
+        const name = key.split('/').pop();
+        const item = document.createElement('div');
+        item.className = 'wallpaper-item';
+        item.innerHTML = `
                     <img class="wallpaper-img" loading="lazy">
                     <div class="wallpaper-item-info">
                         <span class="wallpaper-item-name"></span>
@@ -170,676 +196,754 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <button class="wallpaper-delete-btn" title="Delete">🗑</button>
                     </div>
                 `;
-                item.querySelector('.wallpaper-img').src = fileUrl;
-                item.querySelector('.wallpaper-img').alt = name;
-                const nameEl = item.querySelector('.wallpaper-item-name');
-                nameEl.textContent = name;
-                nameEl.title = name;
-                item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
-                    navigator.clipboard.writeText(fileUrl).then(() => {
-                        const btn = item.querySelector('.wallpaper-copy-btn');
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => { btn.textContent = 'Copy URL'; }, 2000);
-                    });
-                });
-                item.querySelector('.wallpaper-delete-btn').addEventListener('click', () => {
-                    confirmAction('Delete Wallpaper', `Delete "${name}"?`, async () => {
-                        const res = await fetch(`${API_BASE}/api/superadmin/file`, {
-                            method: 'DELETE',
-                            headers: authHeaders(),
-                            body: JSON.stringify({ key }),
-                        });
-                        if (res.status === 401) { handle401(); return; }
-                        if (!res.ok) { alert('Failed to delete wallpaper.'); return; }
-                        await loadWallpapers();
-                    });
-                });
-                wallpaperGrid.appendChild(item);
-            });
-        } catch (err) {
-            console.error(err);
-            wallpapersEmpty.textContent = 'Failed to load wallpapers.';
-            wallpapersEmpty.classList.remove('hidden');
-        }
-    }
-
-    createEventBtn.addEventListener('click', () => openEventForm(null));
-
-    document.getElementById('events-bulk-activate-btn').addEventListener('click', () => bulkSetActive(true));
-    document.getElementById('events-bulk-deactivate-btn').addEventListener('click', () => bulkSetActive(false));
-    document.getElementById('events-bulk-clear-btn').addEventListener('click', () => {
-        selectedEventIds.clear();
-        updateEventsBulkBar();
-        renderEventsList(allEvents);
-    });
-
-    // --- Auth ---
-
-    if (password) {
-        showApp();
-    }
-
-    loginBtn.addEventListener('click', () => {
-        password = passwordInput.value.trim();
-        if (!password) return;
-        sessionStorage.setItem('superadminPassword', password);
-        showApp();
-    });
-
-    passwordInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') loginBtn.click();
-    });
-
-    logoutBtn.addEventListener('click', () => {
-        sessionStorage.removeItem('superadminPassword');
-        location.reload();
-    });
-
-    function authHeaders() {
-        return { 'x-superadmin-password': password, 'Content-Type': 'application/json' };
-    }
-
-    function handle401() {
-        sessionStorage.removeItem('superadminPassword');
-        alert('Invalid or expired password.');
-        location.reload();
-    }
-
-    // --- App Init ---
-
-    async function showApp() {
-        loginSection.classList.add('hidden');
-        appSection.classList.remove('hidden');
-        await loadTree();
-    }
-
-    // --- Tree ---
-
-    async function loadTree() {
-        treeContainer.innerHTML = '<p style="padding:12px 16px;color:#888;font-size:13px;">Loading...</p>';
-        try {
-            // Fetch all pages and merge trees before rendering (#36)
-            const merged = { name: '/', type: 'folder', children: [] };
-            let cursor = null;
-            do {
-                const url = cursor
-                    ? `${API_BASE}/api/superadmin/tree?cursor=${encodeURIComponent(cursor)}`
-                    : `${API_BASE}/api/superadmin/tree`;
-                const res = await fetch(url, { headers: authHeaders() });
-                if (res.status === 401) { handle401(); return; }
-                if (!res.ok) throw new Error('Failed to load tree');
-                const data = await res.json();
-                mergeIntoTree(merged, data.tree || { children: [] });
-                cursor = data.cursor || null;
-            } while (cursor);
-            renderTree(enrichTree(merged.children, ''));
-        } catch (err) {
-            console.error(err);
-            treeContainer.innerHTML = '<p style="padding:12px 16px;color:#ff6b6b;font-size:13px;">Failed to load folders.</p>';
-        }
-    }
-
-    function mergeIntoTree(target, source) {
-        for (const child of (source.children || [])) {
-            const existing = target.children.find(c => c.name === child.name && c.type === child.type);
-            if (existing && child.type === 'folder') {
-                mergeIntoTree(existing, child);
-            } else if (!existing) {
-                target.children.push(child);
-            }
-        }
-    }
-
-    // Enrich raw tree nodes from server with prefix and fileCount
-    function enrichTree(nodes, parentPrefix) {
-        return nodes
-            .filter(n => n.type === 'folder')
-            .map(n => {
-                const prefix = parentPrefix ? `${parentPrefix}${n.name}/` : `${n.name}/`;
-                const fileCount = (n.children || []).filter(c => c.type === 'file').length;
-                const children = enrichTree(n.children || [], prefix);
-                return { name: n.name, prefix, fileCount, children };
-            });
-    }
-
-    function renderTree(nodes, container = treeContainer, depth = 0) {
-        container.innerHTML = '';
-        if (!nodes || nodes.length === 0) {
-            container.innerHTML = '<p style="padding:12px 16px;color:#888;font-size:13px;">No folders found.</p>';
-            return;
-        }
-        nodes.forEach(node => {
-            const nodeEl = document.createElement('div');
-            nodeEl.className = 'tree-node';
-
-            const label = document.createElement('div');
-            label.className = 'tree-node-label';
-            label.style.paddingLeft = `${10 + depth * 14}px`;
-            if (node.prefix === currentPrefix) label.classList.add('selected');
-
-            const toggle = document.createElement('span');
-            toggle.className = 'toggle';
-            toggle.textContent = node.children && node.children.length > 0 ? '▶' : ' ';
-
-            const icon = document.createElement('span');
-            icon.className = 'folder-icon';
-            icon.textContent = '📁';
-
-            const name = document.createElement('span');
-            name.className = 'folder-name';
-            name.textContent = node.name || node.prefix;
-            name.title = node.prefix;
-
-            const count = document.createElement('span');
-            count.className = 'file-count';
-            count.textContent = node.fileCount != null ? `${node.fileCount}` : '';
-
-            const delBtn = document.createElement('span');
-            delBtn.className = 'delete-folder-btn';
-            delBtn.textContent = '🗑';
-            delBtn.title = 'Delete folder';
-            delBtn.addEventListener('click', e => {
-                e.stopPropagation();
-                confirmAction(
-                    'Delete Folder',
-                    `Are you sure you want to delete folder "${node.name || node.prefix}" and all its contents?`,
-                    () => deleteFolder(node.prefix)
-                );
-            });
-
-            label.append(toggle, icon, name, count, delBtn);
-
-            // Expand/collapse children
-            let expanded = false;
-            let childrenEl = null;
-            if (node.children && node.children.length > 0) {
-                childrenEl = document.createElement('div');
-                childrenEl.className = 'tree-node-children hidden';
-                renderTree(node.children, childrenEl, depth + 1);
-
-                toggle.addEventListener('click', e => {
-                    e.stopPropagation();
-                    expanded = !expanded;
-                    toggle.textContent = expanded ? '▼' : '▶';
-                    childrenEl.classList.toggle('hidden', !expanded);
-                });
-            }
-
-            label.addEventListener('click', () => {
-                selectFolder(node.prefix, label);
-            });
-
-            nodeEl.appendChild(label);
-            if (childrenEl) nodeEl.appendChild(childrenEl);
-            container.appendChild(nodeEl);
+        item.querySelector('.wallpaper-img').src = fileUrl;
+        item.querySelector('.wallpaper-img').alt = name;
+        const nameEl = item.querySelector('.wallpaper-item-name');
+        nameEl.textContent = name;
+        nameEl.title = name;
+        item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
+          navigator.clipboard.writeText(fileUrl).then(() => {
+            const btn = item.querySelector('.wallpaper-copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => {
+              btn.textContent = 'Copy URL';
+            }, 2000);
+          });
         });
-    }
-
-    function selectFolder(prefix, labelEl) {
-        // Deselect previous
-        document.querySelectorAll('.tree-node-label.selected').forEach(el => el.classList.remove('selected'));
-        if (labelEl) labelEl.classList.add('selected');
-        currentPrefix = prefix;
-        updateBreadcrumb(prefix);
-        loadPhotos(prefix);
-    }
-
-    function updateBreadcrumb(prefix) {
-        const parts = prefix ? prefix.replace(/\/$/, '').split('/') : [];
-        breadcrumb.innerHTML = '';
-
-        const root = document.createElement('span');
-        root.textContent = 'root';
-        root.dataset.prefix = '';
-        root.addEventListener('click', () => selectFolder('', null));
-        breadcrumb.appendChild(root);
-
-        let accumulated = '';
-        parts.forEach((part, i) => {
-            accumulated += (i === 0 ? '' : '/') + part;
-            const acc = accumulated + '/';
-            breadcrumb.appendChild(document.createTextNode(' / '));
-            const span = document.createElement('span');
-            span.textContent = part;
-            span.dataset.prefix = acc;
-            span.addEventListener('click', () => selectFolder(acc, null));
-            breadcrumb.appendChild(span);
+        item.querySelector('.wallpaper-delete-btn').addEventListener('click', () => {
+          confirmAction('Delete Wallpaper', `Delete "${name}"?`, async () => {
+            const res = await fetch(`${API_BASE}/api/superadmin/file`, {
+              method: 'DELETE',
+              headers: authHeaders(),
+              body: JSON.stringify({ key }),
+            });
+            if (res.status === 401) {
+              handle401();
+              return;
+            }
+            if (!res.ok) {
+              alert('Failed to delete wallpaper.');
+              return;
+            }
+            await loadWallpapers();
+          });
         });
+        wallpaperGrid.appendChild(item);
+      });
+    } catch (err) {
+      console.error(err);
+      wallpapersEmpty.textContent = 'Failed to load wallpapers.';
+      wallpapersEmpty.classList.remove('hidden');
+    }
+  }
+
+  createEventBtn.addEventListener('click', () => openEventForm(null));
+
+  document
+    .getElementById('events-bulk-activate-btn')
+    .addEventListener('click', () => bulkSetActive(true));
+  document
+    .getElementById('events-bulk-deactivate-btn')
+    .addEventListener('click', () => bulkSetActive(false));
+  document.getElementById('events-bulk-clear-btn').addEventListener('click', () => {
+    selectedEventIds.clear();
+    updateEventsBulkBar();
+    renderEventsList(allEvents);
+  });
+
+  // --- Auth ---
+
+  if (password) {
+    showApp();
+  }
+
+  loginBtn.addEventListener('click', () => {
+    password = passwordInput.value.trim();
+    if (!password) return;
+    sessionStorage.setItem('superadminPassword', password);
+    showApp();
+  });
+
+  passwordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    sessionStorage.removeItem('superadminPassword');
+    location.reload();
+  });
+
+  function authHeaders() {
+    return { 'x-superadmin-password': password, 'Content-Type': 'application/json' };
+  }
+
+  function handle401() {
+    sessionStorage.removeItem('superadminPassword');
+    alert('Invalid or expired password.');
+    location.reload();
+  }
+
+  // --- App Init ---
+
+  async function showApp() {
+    loginSection.classList.add('hidden');
+    appSection.classList.remove('hidden');
+    await loadTree();
+  }
+
+  // --- Tree ---
+
+  async function loadTree() {
+    treeContainer.innerHTML =
+      '<p style="padding:12px 16px;color:#888;font-size:13px;">Loading...</p>';
+    try {
+      // Fetch all pages and merge trees before rendering (#36)
+      const merged = { name: '/', type: 'folder', children: [] };
+      let cursor = null;
+      do {
+        const url = cursor
+          ? `${API_BASE}/api/superadmin/tree?cursor=${encodeURIComponent(cursor)}`
+          : `${API_BASE}/api/superadmin/tree`;
+        const res = await fetch(url, { headers: authHeaders() });
+        if (res.status === 401) {
+          handle401();
+          return;
+        }
+        if (!res.ok) throw new Error('Failed to load tree');
+        const data = await res.json();
+        mergeIntoTree(merged, data.tree || { children: [] });
+        cursor = data.cursor || null;
+      } while (cursor);
+      renderTree(enrichTree(merged.children, ''));
+    } catch (err) {
+      console.error(err);
+      treeContainer.innerHTML =
+        '<p style="padding:12px 16px;color:#ff6b6b;font-size:13px;">Failed to load folders.</p>';
+    }
+  }
+
+  function mergeIntoTree(target, source) {
+    for (const child of source.children || []) {
+      const existing = target.children.find((c) => c.name === child.name && c.type === child.type);
+      if (existing && child.type === 'folder') {
+        mergeIntoTree(existing, child);
+      } else if (!existing) {
+        target.children.push(child);
+      }
+    }
+  }
+
+  // Enrich raw tree nodes from server with prefix and fileCount
+  function enrichTree(nodes, parentPrefix) {
+    return nodes
+      .filter((n) => n.type === 'folder')
+      .map((n) => {
+        const prefix = parentPrefix ? `${parentPrefix}${n.name}/` : `${n.name}/`;
+        const fileCount = (n.children || []).filter((c) => c.type === 'file').length;
+        const children = enrichTree(n.children || [], prefix);
+        return { name: n.name, prefix, fileCount, children };
+      });
+  }
+
+  function renderTree(nodes, container = treeContainer, depth = 0) {
+    container.innerHTML = '';
+    if (!nodes || nodes.length === 0) {
+      container.innerHTML =
+        '<p style="padding:12px 16px;color:#888;font-size:13px;">No folders found.</p>';
+      return;
+    }
+    nodes.forEach((node) => {
+      const nodeEl = document.createElement('div');
+      nodeEl.className = 'tree-node';
+
+      const label = document.createElement('div');
+      label.className = 'tree-node-label';
+      label.style.paddingLeft = `${10 + depth * 14}px`;
+      if (node.prefix === currentPrefix) label.classList.add('selected');
+
+      const toggle = document.createElement('span');
+      toggle.className = 'toggle';
+      toggle.textContent = node.children && node.children.length > 0 ? '▶' : ' ';
+
+      const icon = document.createElement('span');
+      icon.className = 'folder-icon';
+      icon.textContent = '📁';
+
+      const name = document.createElement('span');
+      name.className = 'folder-name';
+      name.textContent = node.name || node.prefix;
+      name.title = node.prefix;
+
+      const count = document.createElement('span');
+      count.className = 'file-count';
+      count.textContent = node.fileCount != null ? `${node.fileCount}` : '';
+
+      const delBtn = document.createElement('span');
+      delBtn.className = 'delete-folder-btn';
+      delBtn.textContent = '🗑';
+      delBtn.title = 'Delete folder';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        confirmAction(
+          'Delete Folder',
+          `Are you sure you want to delete folder "${node.name || node.prefix}" and all its contents?`,
+          () => deleteFolder(node.prefix)
+        );
+      });
+
+      label.append(toggle, icon, name, count, delBtn);
+
+      // Expand/collapse children
+      let expanded = false;
+      let childrenEl = null;
+      if (node.children && node.children.length > 0) {
+        childrenEl = document.createElement('div');
+        childrenEl.className = 'tree-node-children hidden';
+        renderTree(node.children, childrenEl, depth + 1);
+
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          expanded = !expanded;
+          toggle.textContent = expanded ? '▼' : '▶';
+          childrenEl.classList.toggle('hidden', !expanded);
+        });
+      }
+
+      label.addEventListener('click', () => {
+        selectFolder(node.prefix, label);
+      });
+
+      nodeEl.appendChild(label);
+      if (childrenEl) nodeEl.appendChild(childrenEl);
+      container.appendChild(nodeEl);
+    });
+  }
+
+  function selectFolder(prefix, labelEl) {
+    // Deselect previous
+    document
+      .querySelectorAll('.tree-node-label.selected')
+      .forEach((el) => el.classList.remove('selected'));
+    if (labelEl) labelEl.classList.add('selected');
+    currentPrefix = prefix;
+    updateBreadcrumb(prefix);
+    loadPhotos(prefix);
+  }
+
+  function updateBreadcrumb(prefix) {
+    const parts = prefix ? prefix.replace(/\/$/, '').split('/') : [];
+    breadcrumb.innerHTML = '';
+
+    const root = document.createElement('span');
+    root.textContent = 'root';
+    root.dataset.prefix = '';
+    root.addEventListener('click', () => selectFolder('', null));
+    breadcrumb.appendChild(root);
+
+    let accumulated = '';
+    parts.forEach((part, i) => {
+      accumulated += (i === 0 ? '' : '/') + part;
+      const acc = accumulated + '/';
+      breadcrumb.appendChild(document.createTextNode(' / '));
+      const span = document.createElement('span');
+      span.textContent = part;
+      span.dataset.prefix = acc;
+      span.addEventListener('click', () => selectFolder(acc, null));
+      breadcrumb.appendChild(span);
+    });
+  }
+
+  // --- Photos ---
+
+  async function loadPhotos(prefix) {
+    selectedKeys.clear();
+    currentFiles = [];
+    updateDeleteBtn();
+    photoGrid.classList.add('hidden');
+    emptyMsg.textContent = 'Loading...';
+    emptyMsg.classList.remove('hidden');
+    photoCountEl.textContent = '';
+
+    try {
+      const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent(prefix || '')}`;
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) throw new Error('Failed to load photos');
+      const data = await res.json();
+      currentFiles = data.files || data.photos || [];
+      renderPhotos();
+    } catch (err) {
+      console.error(err);
+      emptyMsg.textContent = 'Failed to load files.';
+    }
+  }
+
+  function renderPhotos() {
+    photoGrid.innerHTML = '';
+    currentFiles.sort((a, b) => {
+      const ta =
+        a.lastModified || a.last_modified
+          ? new Date(a.lastModified || a.last_modified).getTime()
+          : 0;
+      const tb =
+        b.lastModified || b.last_modified
+          ? new Date(b.lastModified || b.last_modified).getTime()
+          : 0;
+      if (ta !== tb) return tb - ta;
+      return (b.key || '').localeCompare(a.key || '');
+    });
+    if (currentFiles.length === 0) {
+      emptyMsg.textContent = 'No files in this folder.';
+      emptyMsg.classList.remove('hidden');
+      photoGrid.classList.add('hidden');
+      photoCountEl.textContent = '';
+      return;
     }
 
-    // --- Photos ---
+    emptyMsg.classList.add('hidden');
+    photoGrid.classList.remove('hidden');
+    photoCountEl.textContent = `${currentFiles.length} file${currentFiles.length !== 1 ? 's' : ''}`;
 
-    async function loadPhotos(prefix) {
-        selectedKeys.clear();
+    currentFiles.forEach((file) => {
+      const key = file.key || file.id;
+      const url = file.url;
+      const filename = key.split('/').pop();
+      const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(filename);
+      const isSelected = selectedKeys.has(key);
+
+      const item = document.createElement('div');
+      item.className = `photo-item${isSelected ? ' selected' : ''}${!isImage ? ' file-icon-item' : ''}`;
+
+      const checkbox = document.createElement('div');
+      checkbox.className = 'checkbox-overlay';
+
+      if (isImage && url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = filename;
+        img.loading = 'lazy';
+        item.appendChild(img);
+      } else {
+        const iconEl = document.createElement('div');
+        iconEl.className = 'file-icon-big';
+        iconEl.textContent = '📄';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'file-icon-name';
+        nameEl.textContent = filename;
+        item.append(iconEl, nameEl);
+      }
+
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = filename;
+
+      // Per-file action buttons
+      const actions = document.createElement('div');
+      actions.className = 'item-actions';
+
+      if (isImage && url) {
+        const previewBtn = document.createElement('button');
+        previewBtn.className = 'item-action-btn';
+        previewBtn.textContent = '👁';
+        previewBtn.title = 'Preview';
+        previewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window._showPreview(url);
+        });
+        actions.appendChild(previewBtn);
+      }
+
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'item-action-btn';
+      dlBtn.textContent = '⬇';
+      dlBtn.title = 'Download';
+      dlBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (url) {
+          downloadFileDirect(url, filename);
+        } else {
+          downloadSelectedZipForKey(key);
+        }
+      });
+
+      const mvBtn = document.createElement('button');
+      mvBtn.className = 'item-action-btn';
+      mvBtn.textContent = '✏';
+      mvBtn.title = 'Move / Rename';
+      mvBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openMoveModal(key);
+      });
+
+      actions.append(dlBtn, mvBtn);
+      item.append(checkbox, actions, label);
+
+      item.addEventListener('click', () => toggleFileSelection(key));
+
+      photoGrid.appendChild(item);
+    });
+  }
+
+  function toggleFileSelection(key) {
+    if (selectedKeys.has(key)) {
+      selectedKeys.delete(key);
+    } else {
+      selectedKeys.add(key);
+    }
+    updateDeleteBtn();
+    renderPhotos();
+  }
+
+  function updateDeleteBtn() {
+    deleteSelectedBtn.disabled = selectedKeys.size === 0;
+    deleteSelectedBtn.textContent = `Delete Selected (${selectedKeys.size})`;
+    downloadSelectedBtn.disabled = selectedKeys.size === 0;
+    downloadSelectedBtn.textContent = `Download Selected (${selectedKeys.size})`;
+  }
+
+  selectAllBtn.addEventListener('click', () => {
+    currentFiles.forEach((f) => selectedKeys.add(f.key || f.id));
+    updateDeleteBtn();
+    renderPhotos();
+  });
+
+  clearSelectionBtn.addEventListener('click', () => {
+    selectedKeys.clear();
+    updateDeleteBtn();
+    renderPhotos();
+  });
+
+  // --- Delete ---
+
+  deleteSelectedBtn.addEventListener('click', () => {
+    if (selectedKeys.size === 0) return;
+    confirmAction(
+      'Delete Files',
+      `Are you sure you want to delete ${selectedKeys.size} selected file${selectedKeys.size !== 1 ? 's' : ''}?`,
+      () => deleteSelectedFiles()
+    );
+  });
+
+  async function deleteSelectedFiles() {
+    const keys = Array.from(selectedKeys);
+    let failed = 0;
+    for (const key of keys) {
+      try {
+        const res = await fetch(`${API_BASE}/api/superadmin/file`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+          body: JSON.stringify({ key }),
+        });
+        if (res.status === 401) {
+          handle401();
+          return;
+        }
+        if (!res.ok) failed++;
+        else selectedKeys.delete(key);
+      } catch {
+        failed++;
+      }
+    }
+    if (failed > 0) alert(`${failed} file(s) could not be deleted.`);
+    currentFiles = currentFiles.filter(
+      (f) => !keys.includes(f.key || f.id) || selectedKeys.has(f.key || f.id)
+    );
+    updateDeleteBtn();
+    renderPhotos();
+    await loadTree();
+  }
+
+  async function deleteFolder(prefix) {
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/folder`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ prefix }),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Failed to delete folder.');
+        return;
+      }
+      if (currentPrefix === prefix) {
+        currentPrefix = null;
         currentFiles = [];
+        selectedKeys.clear();
         updateDeleteBtn();
         photoGrid.classList.add('hidden');
-        emptyMsg.textContent = 'Loading...';
+        emptyMsg.textContent = 'Select a folder to view its contents.';
         emptyMsg.classList.remove('hidden');
-        photoCountEl.textContent = '';
+        breadcrumb.innerHTML = '<span>root</span>';
+      }
+      await loadTree();
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting folder.');
+    }
+  }
 
-        try {
-            const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent(prefix || '')}`;
-            const res = await fetch(url, { headers: authHeaders() });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) throw new Error('Failed to load photos');
-            const data = await res.json();
-            currentFiles = data.files || data.photos || [];
-            renderPhotos();
-        } catch (err) {
-            console.error(err);
-            emptyMsg.textContent = 'Failed to load files.';
-        }
+  // --- Download ---
+
+  downloadAllBtn.addEventListener('click', () => downloadZip(currentPrefix));
+
+  downloadSelectedBtn.addEventListener('click', () => {
+    if (selectedKeys.size === 0) return;
+    downloadSelectedZip();
+  });
+
+  async function downloadZip(prefix) {
+    const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/download-zip${qs}`, {
+        headers: authHeaders(),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Download failed.');
+        return;
+      }
+      const blob = await res.blob();
+      triggerBlobDownload(
+        blob,
+        prefix ? `${prefix.replace(/\//g, '_').replace(/_$/, '')}.zip` : 'all.zip'
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Download error.');
+    }
+  }
+
+  async function downloadSelectedZip() {
+    const keys = Array.from(selectedKeys);
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ keys }),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Download failed.');
+        return;
+      }
+      const blob = await res.blob();
+      triggerBlobDownload(blob, 'selected.zip');
+    } catch (err) {
+      console.error(err);
+      alert('Download error.');
+    }
+  }
+
+  async function downloadSelectedZipForKey(key) {
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ keys: [key] }),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Download failed.');
+        return;
+      }
+      const blob = await res.blob();
+      triggerBlobDownload(blob, key.split('/').pop());
+    } catch (err) {
+      console.error(err);
+      alert('Download error.');
+    }
+  }
+
+  function downloadFileDirect(url, filename) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function triggerBlobDownload(blob, filename) {
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objUrl);
+  }
+
+  // --- Move / Rename ---
+
+  function openMoveModal(sourceKey) {
+    pendingMoveSourceKey = sourceKey;
+    moveDestInput.value = sourceKey;
+    moveModalOverlay.classList.add('active');
+    moveDestInput.focus();
+    moveDestInput.select();
+  }
+
+  moveConfirm.addEventListener('click', async () => {
+    const destKey = moveDestInput.value.trim();
+    if (!destKey || !pendingMoveSourceKey) return;
+    if (destKey === pendingMoveSourceKey) {
+      moveModalOverlay.classList.remove('active');
+      return;
+    }
+    await doMoveFile(pendingMoveSourceKey, destKey);
+    pendingMoveSourceKey = null;
+    moveModalOverlay.classList.remove('active');
+  });
+
+  moveCancel.addEventListener('click', () => {
+    pendingMoveSourceKey = null;
+    moveModalOverlay.classList.remove('active');
+  });
+
+  moveModalOverlay.addEventListener('click', (e) => {
+    if (e.target === moveModalOverlay) {
+      pendingMoveSourceKey = null;
+      moveModalOverlay.classList.remove('active');
+    }
+  });
+
+  moveDestInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') moveConfirm.click();
+    if (e.key === 'Escape') moveCancel.click();
+  });
+
+  async function doMoveFile(sourceKey, destKey) {
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/move`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ sourceKey, destKey }),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Move failed.');
+        return;
+      }
+      await loadPhotos(currentPrefix);
+      await loadTree();
+    } catch (err) {
+      console.error(err);
+      alert('Move error.');
+    }
+  }
+
+  // --- Modal ---
+
+  function confirmAction(title, message, onConfirm) {
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    pendingConfirmCallback = onConfirm;
+    modalOverlay.classList.add('active');
+  }
+
+  modalConfirm.addEventListener('click', () => {
+    modalOverlay.classList.remove('active');
+    if (pendingConfirmCallback) {
+      pendingConfirmCallback();
+      pendingConfirmCallback = null;
+    }
+  });
+
+  modalCancel.addEventListener('click', () => {
+    modalOverlay.classList.remove('active');
+    pendingConfirmCallback = null;
+  });
+
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) {
+      modalOverlay.classList.remove('active');
+      pendingConfirmCallback = null;
+    }
+  });
+
+  // --- Events ---
+
+  async function loadEvents() {
+    const listEl = document.getElementById('events-list');
+    listEl.innerHTML = '<p style="color:#888;font-size:13px;">Loading...</p>';
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/events`, { headers: authHeaders() });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) throw new Error('Failed to load events');
+      const data = await res.json();
+      allEvents = data.events || data;
+      renderEventsList(allEvents);
+    } catch (err) {
+      console.error(err);
+      listEl.innerHTML = '<p style="color:#ff6b6b;font-size:13px;">Failed to load events.</p>';
+    }
+  }
+
+  function updateEventsBulkBar() {
+    const bar = document.getElementById('events-bulk-bar');
+    const countEl = document.getElementById('events-bulk-count');
+    const n = selectedEventIds.size;
+    bar.classList.toggle('visible', n > 0);
+    countEl.textContent = `${n} selected`;
+  }
+
+  function renderEventsList(events) {
+    const listEl = document.getElementById('events-list');
+    listEl.innerHTML = '';
+
+    if (!events || events.length === 0) {
+      listEl.innerHTML = '<div id="events-empty">No events found. Create one to get started.</div>';
+      return;
     }
 
-    function renderPhotos() {
-        photoGrid.innerHTML = '';
-        currentFiles.sort((a, b) => {
-            const ta = a.lastModified || a.last_modified ? new Date(a.lastModified || a.last_modified).getTime() : 0;
-            const tb = b.lastModified || b.last_modified ? new Date(b.lastModified || b.last_modified).getTime() : 0;
-            if (ta !== tb) return tb - ta;
-            return (b.key || '').localeCompare(a.key || '');
-        });
-        if (currentFiles.length === 0) {
-            emptyMsg.textContent = 'No files in this folder.';
-            emptyMsg.classList.remove('hidden');
-            photoGrid.classList.add('hidden');
-            photoCountEl.textContent = '';
-            return;
-        }
-
-        emptyMsg.classList.add('hidden');
-        photoGrid.classList.remove('hidden');
-        photoCountEl.textContent = `${currentFiles.length} file${currentFiles.length !== 1 ? 's' : ''}`;
-
-        currentFiles.forEach(file => {
-            const key = file.key || file.id;
-            const url = file.url;
-            const filename = key.split('/').pop();
-            const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(filename);
-            const isSelected = selectedKeys.has(key);
-
-            const item = document.createElement('div');
-            item.className = `photo-item${isSelected ? ' selected' : ''}${!isImage ? ' file-icon-item' : ''}`;
-
-            const checkbox = document.createElement('div');
-            checkbox.className = 'checkbox-overlay';
-
-            if (isImage && url) {
-                const img = document.createElement('img');
-                img.src = url;
-                img.alt = filename;
-                img.loading = 'lazy';
-                item.appendChild(img);
-            } else {
-                const iconEl = document.createElement('div');
-                iconEl.className = 'file-icon-big';
-                iconEl.textContent = '📄';
-                const nameEl = document.createElement('div');
-                nameEl.className = 'file-icon-name';
-                nameEl.textContent = filename;
-                item.append(iconEl, nameEl);
-            }
-
-            const label = document.createElement('span');
-            label.className = 'label';
-            label.textContent = filename;
-
-            // Per-file action buttons
-            const actions = document.createElement('div');
-            actions.className = 'item-actions';
-
-            if (isImage && url) {
-                const previewBtn = document.createElement('button');
-                previewBtn.className = 'item-action-btn';
-                previewBtn.textContent = '👁';
-                previewBtn.title = 'Preview';
-                previewBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    window._showPreview(url);
-                });
-                actions.appendChild(previewBtn);
-            }
-
-            const dlBtn = document.createElement('button');
-            dlBtn.className = 'item-action-btn';
-            dlBtn.textContent = '⬇';
-            dlBtn.title = 'Download';
-            dlBtn.addEventListener('click', e => {
-                e.stopPropagation();
-                if (url) {
-                    downloadFileDirect(url, filename);
-                } else {
-                    downloadSelectedZipForKey(key);
-                }
-            });
-
-            const mvBtn = document.createElement('button');
-            mvBtn.className = 'item-action-btn';
-            mvBtn.textContent = '✏';
-            mvBtn.title = 'Move / Rename';
-            mvBtn.addEventListener('click', e => {
-                e.stopPropagation();
-                openMoveModal(key);
-            });
-
-            actions.append(dlBtn, mvBtn);
-            item.append(checkbox, actions, label);
-
-            item.addEventListener('click', () => toggleFileSelection(key));
-
-            photoGrid.appendChild(item);
-        });
-    }
-
-    function toggleFileSelection(key) {
-        if (selectedKeys.has(key)) {
-            selectedKeys.delete(key);
-        } else {
-            selectedKeys.add(key);
-        }
-        updateDeleteBtn();
-        renderPhotos();
-    }
-
-    function updateDeleteBtn() {
-        deleteSelectedBtn.disabled = selectedKeys.size === 0;
-        deleteSelectedBtn.textContent = `Delete Selected (${selectedKeys.size})`;
-        downloadSelectedBtn.disabled = selectedKeys.size === 0;
-        downloadSelectedBtn.textContent = `Download Selected (${selectedKeys.size})`;
-    }
-
-    selectAllBtn.addEventListener('click', () => {
-        currentFiles.forEach(f => selectedKeys.add(f.key || f.id));
-        updateDeleteBtn();
-        renderPhotos();
+    const sorted = [...events].sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
     });
 
-    clearSelectionBtn.addEventListener('click', () => {
-        selectedKeys.clear();
-        updateDeleteBtn();
-        renderPhotos();
-    });
+    sorted.forEach((event) => {
+      const card = document.createElement('div');
+      card.className = `event-card${selectedEventIds.has(event.event_id) ? ' selected' : ''}`;
 
-    // --- Delete ---
+      const createdAt = event.created_at ? new Date(event.created_at).toLocaleString() : '—';
+      const updatedAt = event.updated_at ? new Date(event.updated_at).toLocaleString() : '—';
+      const templateCount = (event.templates || []).length;
+      const shots = event.capture?.totalShots ?? '?';
+      const w = event.capture?.photoWidth ?? '?';
+      const h = event.capture?.photoHeight ?? '?';
 
-    deleteSelectedBtn.addEventListener('click', () => {
-        if (selectedKeys.size === 0) return;
-        confirmAction(
-            'Delete Files',
-            `Are you sure you want to delete ${selectedKeys.size} selected file${selectedKeys.size !== 1 ? 's' : ''}?`,
-            () => deleteSelectedFiles()
-        );
-    });
+      const boothUrl = `${BOOTH_ORIGIN}/?event=${encodeURIComponent(event.event_id)}`;
+      const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${encodeURIComponent(event.event_id)}`;
+      const slideshowUrl = event.slideshow_token
+        ? `${BOOTH_ORIGIN}/preview/?event=${encodeURIComponent(event.event_id)}&token=${encodeURIComponent(event.slideshow_token)}`
+        : null;
 
-    async function deleteSelectedFiles() {
-        const keys = Array.from(selectedKeys);
-        let failed = 0;
-        for (const key of keys) {
-            try {
-                const res = await fetch(`${API_BASE}/api/superadmin/file`, {
-                    method: 'DELETE',
-                    headers: authHeaders(),
-                    body: JSON.stringify({ key })
-                });
-                if (res.status === 401) { handle401(); return; }
-                if (!res.ok) failed++;
-                else selectedKeys.delete(key);
-            } catch {
-                failed++;
-            }
-        }
-        if (failed > 0) alert(`${failed} file(s) could not be deleted.`);
-        currentFiles = currentFiles.filter(f => !keys.includes(f.key || f.id) || selectedKeys.has(f.key || f.id));
-        updateDeleteBtn();
-        renderPhotos();
-        await loadTree();
-    }
-
-    async function deleteFolder(prefix) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/folder`, {
-                method: 'DELETE',
-                headers: authHeaders(),
-                body: JSON.stringify({ prefix })
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Failed to delete folder.'); return; }
-            if (currentPrefix === prefix) {
-                currentPrefix = null;
-                currentFiles = [];
-                selectedKeys.clear();
-                updateDeleteBtn();
-                photoGrid.classList.add('hidden');
-                emptyMsg.textContent = 'Select a folder to view its contents.';
-                emptyMsg.classList.remove('hidden');
-                breadcrumb.innerHTML = '<span>root</span>';
-            }
-            await loadTree();
-        } catch (err) {
-            console.error(err);
-            alert('Error deleting folder.');
-        }
-    }
-
-    // --- Download ---
-
-    downloadAllBtn.addEventListener('click', () => downloadZip(currentPrefix));
-
-    downloadSelectedBtn.addEventListener('click', () => {
-        if (selectedKeys.size === 0) return;
-        downloadSelectedZip();
-    });
-
-    async function downloadZip(prefix) {
-        const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/download-zip${qs}`, { headers: authHeaders() });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Download failed.'); return; }
-            const blob = await res.blob();
-            triggerBlobDownload(blob, prefix ? `${prefix.replace(/\//g, '_').replace(/_$/, '')}.zip` : 'all.zip');
-        } catch (err) {
-            console.error(err);
-            alert('Download error.');
-        }
-    }
-
-    async function downloadSelectedZip() {
-        const keys = Array.from(selectedKeys);
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify({ keys })
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Download failed.'); return; }
-            const blob = await res.blob();
-            triggerBlobDownload(blob, 'selected.zip');
-        } catch (err) {
-            console.error(err);
-            alert('Download error.');
-        }
-    }
-
-    async function downloadSelectedZipForKey(key) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify({ keys: [key] })
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Download failed.'); return; }
-            const blob = await res.blob();
-            triggerBlobDownload(blob, key.split('/').pop());
-        } catch (err) {
-            console.error(err);
-            alert('Download error.');
-        }
-    }
-
-    function downloadFileDirect(url, filename) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }
-
-    function triggerBlobDownload(blob, filename) {
-        const objUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = objUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(objUrl);
-    }
-
-    // --- Move / Rename ---
-
-    function openMoveModal(sourceKey) {
-        pendingMoveSourceKey = sourceKey;
-        moveDestInput.value = sourceKey;
-        moveModalOverlay.classList.add('active');
-        moveDestInput.focus();
-        moveDestInput.select();
-    }
-
-    moveConfirm.addEventListener('click', async () => {
-        const destKey = moveDestInput.value.trim();
-        if (!destKey || !pendingMoveSourceKey) return;
-        if (destKey === pendingMoveSourceKey) { moveModalOverlay.classList.remove('active'); return; }
-        await doMoveFile(pendingMoveSourceKey, destKey);
-        pendingMoveSourceKey = null;
-        moveModalOverlay.classList.remove('active');
-    });
-
-    moveCancel.addEventListener('click', () => {
-        pendingMoveSourceKey = null;
-        moveModalOverlay.classList.remove('active');
-    });
-
-    moveModalOverlay.addEventListener('click', e => {
-        if (e.target === moveModalOverlay) {
-            pendingMoveSourceKey = null;
-            moveModalOverlay.classList.remove('active');
-        }
-    });
-
-    moveDestInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') moveConfirm.click();
-        if (e.key === 'Escape') moveCancel.click();
-    });
-
-    async function doMoveFile(sourceKey, destKey) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/move`, {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify({ sourceKey, destKey })
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Move failed.'); return; }
-            await loadPhotos(currentPrefix);
-            await loadTree();
-        } catch (err) {
-            console.error(err);
-            alert('Move error.');
-        }
-    }
-
-    // --- Modal ---
-
-    function confirmAction(title, message, onConfirm) {
-        modalTitle.textContent = title;
-        modalMessage.textContent = message;
-        pendingConfirmCallback = onConfirm;
-        modalOverlay.classList.add('active');
-    }
-
-    modalConfirm.addEventListener('click', () => {
-        modalOverlay.classList.remove('active');
-        if (pendingConfirmCallback) {
-            pendingConfirmCallback();
-            pendingConfirmCallback = null;
-        }
-    });
-
-    modalCancel.addEventListener('click', () => {
-        modalOverlay.classList.remove('active');
-        pendingConfirmCallback = null;
-    });
-
-    modalOverlay.addEventListener('click', e => {
-        if (e.target === modalOverlay) {
-            modalOverlay.classList.remove('active');
-            pendingConfirmCallback = null;
-        }
-    });
-
-    // --- Events ---
-
-    async function loadEvents() {
-        const listEl = document.getElementById('events-list');
-        listEl.innerHTML = '<p style="color:#888;font-size:13px;">Loading...</p>';
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events`, { headers: authHeaders() });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) throw new Error('Failed to load events');
-            const data = await res.json();
-            allEvents = data.events || data;
-            renderEventsList(allEvents);
-        } catch (err) {
-            console.error(err);
-            listEl.innerHTML = '<p style="color:#ff6b6b;font-size:13px;">Failed to load events.</p>';
-        }
-    }
-
-    function updateEventsBulkBar() {
-        const bar = document.getElementById('events-bulk-bar');
-        const countEl = document.getElementById('events-bulk-count');
-        const n = selectedEventIds.size;
-        bar.classList.toggle('visible', n > 0);
-        countEl.textContent = `${n} selected`;
-    }
-
-    function renderEventsList(events) {
-        const listEl = document.getElementById('events-list');
-        listEl.innerHTML = '';
-
-        if (!events || events.length === 0) {
-            listEl.innerHTML = '<div id="events-empty">No events found. Create one to get started.</div>';
-            return;
-        }
-
-        const sorted = [...events].sort((a, b) => {
-            const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-            const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-            return tb - ta;
-        });
-
-        sorted.forEach(event => {
-            const card = document.createElement('div');
-            card.className = `event-card${selectedEventIds.has(event.event_id) ? ' selected' : ''}`;
-
-            const createdAt = event.created_at ? new Date(event.created_at).toLocaleString() : '—';
-            const updatedAt = event.updated_at ? new Date(event.updated_at).toLocaleString() : '—';
-            const templateCount = (event.templates || []).length;
-            const shots = event.capture?.totalShots ?? '?';
-            const w = event.capture?.photoWidth ?? '?';
-            const h = event.capture?.photoHeight ?? '?';
-
-            const boothUrl = `${BOOTH_ORIGIN}/?event=${encodeURIComponent(event.event_id)}`;
-            const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${encodeURIComponent(event.event_id)}`;
-
-            // Build card DOM without innerHTML to prevent XSS
-            card.innerHTML = `
+      // Build card DOM without innerHTML to prevent XSS
+      card.innerHTML = `
                 <div class="event-card-header">
                     <input type="checkbox" class="event-card-checkbox">
                     <span class="event-card-id"></span>
@@ -852,10 +956,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="meta-created"></span>
                     <span class="meta-updated"></span>
                 </div>
-                <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span class="booth-url-label" style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;"></span>
                     <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
                     <button class="event-copy-admin-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy admin link</button>
+                </div>
+                <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span class="slideshow-url-label" style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;"></span>
+                    <button class="event-copy-slideshow-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;" ${slideshowUrl ? '' : 'disabled'}>Copy slideshow</button>
+                    <button class="event-regen-token-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.5);border:1px solid rgba(247,242,213,0.15);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Regen token</button>
                 </div>
                 <div class="event-card-actions">
                     ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-deactivate-btn">Deactivate</button>`}
@@ -864,305 +973,407 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <button class="event-delete-btn">Delete</button>
                 </div>
             `;
-            // Populate all user-supplied text via textContent to prevent XSS
-            card.querySelector('.event-card-checkbox').checked = selectedEventIds.has(event.event_id);
-            card.querySelector('.event-card-id').textContent = event.event_id;
-            card.querySelector('.event-card-name').textContent = event.event_name || '—';
-            card.querySelector('.meta-templates').textContent = `${templateCount} template${templateCount !== 1 ? 's' : ''}`;
-            card.querySelector('.meta-shots').textContent = `${shots} shots, ${w}×${h}`;
-            card.querySelector('.meta-created').textContent = `Created: ${createdAt}`;
-            card.querySelector('.meta-updated').textContent = `Updated: ${updatedAt}`;
-            card.querySelector('.booth-url-label').textContent = boothUrl;
-            const checkbox = card.querySelector('.event-card-checkbox');
-            checkbox.addEventListener('click', e => {
-                e.stopPropagation();
-                if (checkbox.checked) {
-                    selectedEventIds.add(event.event_id);
-                } else {
-                    selectedEventIds.delete(event.event_id);
-                }
-                card.classList.toggle('selected', checkbox.checked);
-                updateEventsBulkBar();
-            });
-
-            card.addEventListener('click', e => {
-                if (e.target.closest('button') || e.target === checkbox) return;
-                const nowSelected = !selectedEventIds.has(event.event_id);
-                if (nowSelected) {
-                    selectedEventIds.add(event.event_id);
-                } else {
-                    selectedEventIds.delete(event.event_id);
-                }
-                checkbox.checked = nowSelected;
-                card.classList.toggle('selected', nowSelected);
-                updateEventsBulkBar();
-            });
-
-            card.querySelector('.event-copy-link-btn').addEventListener('click', e => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(boothUrl).then(() => {
-                    const btn = card.querySelector('.event-copy-link-btn');
-                    btn.textContent = 'Copied!';
-                    setTimeout(() => { btn.textContent = 'Copy link'; }, 2000);
-                });
-            });
-
-            card.querySelector('.event-copy-admin-link-btn').addEventListener('click', e => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(adminUrl).then(() => {
-                    const btn = card.querySelector('.event-copy-admin-link-btn');
-                    btn.textContent = 'Copied!';
-                    setTimeout(() => { btn.textContent = 'Copy admin link'; }, 2000);
-                });
-            });
-
-            const activateBtn = card.querySelector('.event-activate-btn');
-            if (activateBtn) {
-                activateBtn.addEventListener('click', () => activateEvent(event));
-            }
-
-            const deactivateBtn = card.querySelector('.event-deactivate-btn');
-            if (deactivateBtn) {
-                deactivateBtn.addEventListener('click', () => deactivateEvent(event));
-            }
-
-            card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
-            card.querySelector('.event-duplicate-btn').addEventListener('click', () => {
-                const copy = { ...event };
-                delete copy.event_id;
-                delete copy.created_at;
-                delete copy.updated_at;
-                openEventForm(null, copy);
-            });
-            card.querySelector('.event-delete-btn').addEventListener('click', () => {
-                confirmAction(
-                    'Delete Event',
-                    `Are you sure you want to delete event "${event.event_id}"? This only removes the config, not any photos.`,
-                    () => deleteEvent(event.event_id)
-                );
-            });
-
-            listEl.appendChild(card);
-        });
-    }
-
-    async function bulkSetActive(isActive) {
-        const ids = Array.from(selectedEventIds);
-        let failed = 0;
-        for (const id of ids) {
-            const action = isActive ? 'activate' : 'deactivate';
-            try {
-                const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(id)}/${action}`, {
-                    method: 'POST',
-                    headers: authHeaders(),
-                });
-                if (res.status === 401) { handle401(); return; }
-                if (!res.ok) failed++;
-            } catch {
-                failed++;
-            }
-        }
-        if (failed > 0) alert(`${failed} event(s) could not be updated.`);
-        selectedEventIds.clear();
-        updateEventsBulkBar();
-        loadEvents();
-    }
-
-    async function activateEvent(event) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/activate`, {
-                method: 'POST',
-                headers: authHeaders(),
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Failed to activate event.'); return; }
-            loadEvents();
-        } catch (err) {
-            console.error(err);
-            alert('Error activating event.');
-        }
-    }
-
-    async function deactivateEvent(event) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/deactivate`, {
-                method: 'POST',
-                headers: authHeaders(),
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Failed to deactivate event.'); return; }
-            loadEvents();
-        } catch (err) {
-            console.error(err);
-            alert('Error deactivating event.');
-        }
-    }
-
-    async function createEvent(eventData) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events`, {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify(eventData)
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) {
-                const text = await res.text();
-                alert('Failed to create event: ' + text);
-                return;
-            }
-            closeEventForm();
-            loadEvents();
-        } catch (err) {
-            console.error(err);
-            alert('Error creating event.');
-        }
-    }
-
-    async function updateEvent(eventId, eventData) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}`, {
-                method: 'PUT',
-                headers: authHeaders(),
-                body: JSON.stringify(eventData)
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) {
-                const text = await res.text();
-                alert('Failed to update event: ' + text);
-                return;
-            }
-            closeEventForm();
-            loadEvents();
-        } catch (err) {
-            console.error(err);
-            alert('Error updating event.');
-        }
-    }
-
-    async function deleteEvent(eventId) {
-        try {
-            const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}`, {
-                method: 'DELETE',
-                headers: authHeaders()
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) { alert('Failed to delete event.'); return; }
-            loadEvents();
-        } catch (err) {
-            console.error(err);
-            alert('Error deleting event.');
-        }
-    }
-
-    const DEFAULT_TEMPLATES = JSON.stringify([
-        {
-            "file": "template1.png",
-            "width": 880,
-            "height": 495,
-            "slots": [
-                { "x": 0, "y": 0 },
-                { "x": 0, "y": 0 },
-                { "x": 0, "y": 0 }
-            ]
-        }
-    ], null, 2);
-
-    const BOOTH_ORIGIN = window.location.origin;
-
-    function updateBoothUrlPreview() {
-        const preview = document.getElementById('ef-booth-url-preview');
-        if (!preview) return;
-        const id = document.getElementById('ef-event-id').value.trim();
-        preview.textContent = id ? `${BOOTH_ORIGIN}/?event=${id}` : '';
-    }
-
-    function openEventForm(event, prefill = null) {
-        const src = event || prefill;
-        eventFormMode = event ? 'edit' : 'create';
-        eventFormEditId = event ? event.event_id : null;
-        eventFormEditIsActive = event ? (event.is_active ?? false) : false;
-        eventFormTitle.textContent = event ? 'Edit Event' : (prefill ? 'Duplicate Event' : 'New Event');
-
-        const idInput = document.getElementById('ef-event-id');
-        idInput.value = event ? event.event_id : '';
-        idInput.disabled = !!event;
-        updateBoothUrlPreview();
-
-        document.getElementById('ef-event-name').value = src ? (src.event_name || '') : '';
-        document.getElementById('ef-background-url').value = src ? (src.background_url || '') : '';
-        document.getElementById('ef-admin-password').value = src ? (src.admin_password || '') : '';
-        document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
-        document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
-        document.getElementById('ef-photo-height').value = src ? (src.capture?.photoHeight ?? 495) : 495;
-        document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
-        document.getElementById('ef-countdown-step-ms').value = src ? (src.countdown?.stepMs ?? 500) : 500;
-        document.getElementById('ef-gesture-enabled').checked = src ? (src.gestureTrigger?.enabled ?? false) : false;
-        const gestureTypeVal = src ? (src.gestureTrigger?.gestureType ?? 'peace') : 'peace';
-        document.querySelector(`input[name="ef-gesture-type"][value="${gestureTypeVal}"]`).checked = true;
-        document.getElementById('ef-gesture-hold-duration').value = src ? (src.gestureTrigger?.holdDuration ?? 2000) : 2000;
-        document.getElementById('ef-gesture-fps').value = src ? (src.gestureTrigger?.detectionFps ?? 10) : 10;
-        document.getElementById('ef-templates').value = src ? JSON.stringify(src.templates, null, 2) : DEFAULT_TEMPLATES;
-
-        eventFormOverlay.classList.add('active');
-    }
-
-    function closeEventForm() {
-        eventFormOverlay.classList.remove('active');
-        eventFormMode = null;
-        eventFormEditId = null;
-    }
-
-    document.getElementById('ef-event-id').addEventListener('input', updateBoothUrlPreview);
-
-    eventFormCancel.addEventListener('click', closeEventForm);
-
-    eventFormOverlay.addEventListener('click', e => {
-        if (e.target === eventFormOverlay) closeEventForm();
-    });
-
-    eventFormEl.addEventListener('submit', async e => {
-        e.preventDefault();
-
-        let templates;
-        try {
-            const raw = JSON.parse(document.getElementById('ef-templates').value);
-            templates = raw.map(({ name, preview, ...rest }) => rest);
-        } catch {
-            alert('Templates field is not valid JSON.');
-            return;
-        }
-
-        const eventData = {
-            event_id: document.getElementById('ef-event-id').value.trim(),
-            event_name: document.getElementById('ef-event-name').value.trim(),
-            is_active: eventFormMode === 'edit' ? eventFormEditIsActive : false,
-            background_url: document.getElementById('ef-background-url').value.trim() || null,
-            ...(document.getElementById('ef-admin-password').value.trim()
-                ? { admin_password: document.getElementById('ef-admin-password').value.trim() }
-                : {}),
-            capture: {
-                totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
-                photoWidth: parseInt(document.getElementById('ef-photo-width').value, 10),
-                photoHeight: parseInt(document.getElementById('ef-photo-height').value, 10),
-            },
-            countdown: {
-                seconds: parseInt(document.getElementById('ef-countdown-seconds').value, 10),
-                stepMs: parseInt(document.getElementById('ef-countdown-step-ms').value, 10),
-            },
-            gestureTrigger: {
-                enabled: document.getElementById('ef-gesture-enabled').checked,
-                gestureType: document.querySelector('input[name="ef-gesture-type"]:checked')?.value ?? 'peace',
-                holdDuration: parseInt(document.getElementById('ef-gesture-hold-duration').value, 10),
-                detectionFps: parseInt(document.getElementById('ef-gesture-fps').value, 10),
-            },
-            templates,
-        };
-
-        if (eventFormMode === 'create') {
-            await createEvent(eventData);
+      // Populate all user-supplied text via textContent to prevent XSS
+      card.querySelector('.event-card-checkbox').checked = selectedEventIds.has(event.event_id);
+      card.querySelector('.event-card-id').textContent = event.event_id;
+      card.querySelector('.event-card-name').textContent = event.event_name || '—';
+      card.querySelector('.meta-templates').textContent =
+        `${templateCount} template${templateCount !== 1 ? 's' : ''}`;
+      card.querySelector('.meta-shots').textContent = `${shots} shots, ${w}×${h}`;
+      card.querySelector('.meta-created').textContent = `Created: ${createdAt}`;
+      card.querySelector('.meta-updated').textContent = `Updated: ${updatedAt}`;
+      card.querySelector('.booth-url-label').textContent = boothUrl;
+      card.querySelector('.slideshow-url-label').textContent = slideshowUrl
+        ? slideshowUrl
+        : 'No slideshow token — click Regen token to generate one';
+      const checkbox = card.querySelector('.event-card-checkbox');
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (checkbox.checked) {
+          selectedEventIds.add(event.event_id);
         } else {
-            await updateEvent(eventFormEditId, eventData);
+          selectedEventIds.delete(event.event_id);
         }
+        card.classList.toggle('selected', checkbox.checked);
+        updateEventsBulkBar();
+      });
+
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target === checkbox) return;
+        const nowSelected = !selectedEventIds.has(event.event_id);
+        if (nowSelected) {
+          selectedEventIds.add(event.event_id);
+        } else {
+          selectedEventIds.delete(event.event_id);
+        }
+        checkbox.checked = nowSelected;
+        card.classList.toggle('selected', nowSelected);
+        updateEventsBulkBar();
+      });
+
+      card.querySelector('.event-copy-link-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(boothUrl).then(() => {
+          const btn = card.querySelector('.event-copy-link-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = 'Copy link';
+          }, 2000);
+        });
+      });
+
+      card.querySelector('.event-copy-admin-link-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(adminUrl).then(() => {
+          const btn = card.querySelector('.event-copy-admin-link-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = 'Copy admin link';
+          }, 2000);
+        });
+      });
+
+      card.querySelector('.event-copy-slideshow-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!slideshowUrl) return;
+        navigator.clipboard.writeText(slideshowUrl).then(() => {
+          const btn = card.querySelector('.event-copy-slideshow-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = 'Copy slideshow';
+          }, 2000);
+        });
+      });
+
+      card.querySelector('.event-regen-token-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const btn = card.querySelector('.event-regen-token-btn');
+        btn.textContent = 'Regenerating…';
+        btn.disabled = true;
+        try {
+          const res = await fetch(
+            `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/regenerate-slideshow-token`,
+            { method: 'POST', headers: authHeaders() }
+          );
+          if (res.status === 401) {
+            handle401();
+            return;
+          }
+          if (!res.ok) {
+            alert('Failed to regenerate token.');
+            return;
+          }
+          loadEvents();
+        } catch (err) {
+          console.error(err);
+          alert('Error regenerating token.');
+        } finally {
+          btn.textContent = 'Regen token';
+          btn.disabled = false;
+        }
+      });
+
+      const activateBtn = card.querySelector('.event-activate-btn');
+      if (activateBtn) {
+        activateBtn.addEventListener('click', () => activateEvent(event));
+      }
+
+      const deactivateBtn = card.querySelector('.event-deactivate-btn');
+      if (deactivateBtn) {
+        deactivateBtn.addEventListener('click', () => deactivateEvent(event));
+      }
+
+      card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
+      card.querySelector('.event-duplicate-btn').addEventListener('click', () => {
+        const copy = { ...event };
+        delete copy.event_id;
+        delete copy.created_at;
+        delete copy.updated_at;
+        openEventForm(null, copy);
+      });
+      card.querySelector('.event-delete-btn').addEventListener('click', () => {
+        confirmAction(
+          'Delete Event',
+          `Are you sure you want to delete event "${event.event_id}"? This only removes the config, not any photos.`,
+          () => deleteEvent(event.event_id)
+        );
+      });
+
+      listEl.appendChild(card);
     });
+  }
+
+  async function bulkSetActive(isActive) {
+    const ids = Array.from(selectedEventIds);
+    let failed = 0;
+    for (const id of ids) {
+      const action = isActive ? 'activate' : 'deactivate';
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/superadmin/events/${encodeURIComponent(id)}/${action}`,
+          {
+            method: 'POST',
+            headers: authHeaders(),
+          }
+        );
+        if (res.status === 401) {
+          handle401();
+          return;
+        }
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    if (failed > 0) alert(`${failed} event(s) could not be updated.`);
+    selectedEventIds.clear();
+    updateEventsBulkBar();
+    loadEvents();
+  }
+
+  async function activateEvent(event) {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/activate`,
+        {
+          method: 'POST',
+          headers: authHeaders(),
+        }
+      );
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Failed to activate event.');
+        return;
+      }
+      loadEvents();
+    } catch (err) {
+      console.error(err);
+      alert('Error activating event.');
+    }
+  }
+
+  async function deactivateEvent(event) {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/deactivate`,
+        {
+          method: 'POST',
+          headers: authHeaders(),
+        }
+      );
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Failed to deactivate event.');
+        return;
+      }
+      loadEvents();
+    } catch (err) {
+      console.error(err);
+      alert('Error deactivating event.');
+    }
+  }
+
+  async function createEvent(eventData) {
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/events`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(eventData),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        alert('Failed to create event: ' + text);
+        return;
+      }
+      closeEventForm();
+      loadEvents();
+    } catch (err) {
+      console.error(err);
+      alert('Error creating event.');
+    }
+  }
+
+  async function updateEvent(eventId, eventData) {
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(eventData),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        alert('Failed to update event: ' + text);
+        return;
+      }
+      closeEventForm();
+      loadEvents();
+    } catch (err) {
+      console.error(err);
+      alert('Error updating event.');
+    }
+  }
+
+  async function deleteEvent(eventId) {
+    try {
+      const res = await fetch(`${API_BASE}/api/superadmin/events/${encodeURIComponent(eventId)}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Failed to delete event.');
+        return;
+      }
+      loadEvents();
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting event.');
+    }
+  }
+
+  const DEFAULT_TEMPLATES = JSON.stringify(
+    [
+      {
+        file: 'template1.png',
+        width: 880,
+        height: 495,
+        slots: [
+          { x: 0, y: 0 },
+          { x: 0, y: 0 },
+          { x: 0, y: 0 },
+        ],
+      },
+    ],
+    null,
+    2
+  );
+
+  const BOOTH_ORIGIN = window.location.origin;
+
+  function updateBoothUrlPreview() {
+    const preview = document.getElementById('ef-booth-url-preview');
+    if (!preview) return;
+    const id = document.getElementById('ef-event-id').value.trim();
+    preview.textContent = id ? `${BOOTH_ORIGIN}/?event=${id}` : '';
+  }
+
+  function openEventForm(event, prefill = null) {
+    const src = event || prefill;
+    eventFormMode = event ? 'edit' : 'create';
+    eventFormEditId = event ? event.event_id : null;
+    eventFormEditIsActive = event ? (event.is_active ?? false) : false;
+    eventFormTitle.textContent = event ? 'Edit Event' : prefill ? 'Duplicate Event' : 'New Event';
+
+    const idInput = document.getElementById('ef-event-id');
+    idInput.value = event ? event.event_id : '';
+    idInput.disabled = !!event;
+    updateBoothUrlPreview();
+
+    document.getElementById('ef-event-name').value = src ? src.event_name || '' : '';
+    document.getElementById('ef-background-url').value = src ? src.background_url || '' : '';
+    document.getElementById('ef-admin-password').value = src ? src.admin_password || '' : '';
+    document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
+    document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
+    document.getElementById('ef-photo-height').value = src
+      ? (src.capture?.photoHeight ?? 495)
+      : 495;
+    document.getElementById('ef-countdown-seconds').value = src ? (src.countdown?.seconds ?? 3) : 3;
+    document.getElementById('ef-countdown-step-ms').value = src
+      ? (src.countdown?.stepMs ?? 500)
+      : 500;
+    document.getElementById('ef-gesture-enabled').checked = src
+      ? (src.gestureTrigger?.enabled ?? false)
+      : false;
+    const gestureTypeVal = src ? (src.gestureTrigger?.gestureType ?? 'peace') : 'peace';
+    document.querySelector(`input[name="ef-gesture-type"][value="${gestureTypeVal}"]`).checked =
+      true;
+    document.getElementById('ef-gesture-hold-duration').value = src
+      ? (src.gestureTrigger?.holdDuration ?? 2000)
+      : 2000;
+    document.getElementById('ef-gesture-fps').value = src
+      ? (src.gestureTrigger?.detectionFps ?? 10)
+      : 10;
+    document.getElementById('ef-templates').value = src
+      ? JSON.stringify(src.templates, null, 2)
+      : DEFAULT_TEMPLATES;
+
+    eventFormOverlay.classList.add('active');
+  }
+
+  function closeEventForm() {
+    eventFormOverlay.classList.remove('active');
+    eventFormMode = null;
+    eventFormEditId = null;
+  }
+
+  document.getElementById('ef-event-id').addEventListener('input', updateBoothUrlPreview);
+
+  eventFormCancel.addEventListener('click', closeEventForm);
+
+  eventFormOverlay.addEventListener('click', (e) => {
+    if (e.target === eventFormOverlay) closeEventForm();
+  });
+
+  eventFormEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    let templates;
+    try {
+      const raw = JSON.parse(document.getElementById('ef-templates').value);
+      templates = raw.map(({ name, preview, ...rest }) => rest);
+    } catch {
+      alert('Templates field is not valid JSON.');
+      return;
+    }
+
+    const eventData = {
+      event_id: document.getElementById('ef-event-id').value.trim(),
+      event_name: document.getElementById('ef-event-name').value.trim(),
+      is_active: eventFormMode === 'edit' ? eventFormEditIsActive : false,
+      background_url: document.getElementById('ef-background-url').value.trim() || null,
+      ...(document.getElementById('ef-admin-password').value.trim()
+        ? { admin_password: document.getElementById('ef-admin-password').value.trim() }
+        : {}),
+      capture: {
+        totalShots: parseInt(document.getElementById('ef-total-shots').value, 10),
+        photoWidth: parseInt(document.getElementById('ef-photo-width').value, 10),
+        photoHeight: parseInt(document.getElementById('ef-photo-height').value, 10),
+      },
+      countdown: {
+        seconds: parseInt(document.getElementById('ef-countdown-seconds').value, 10),
+        stepMs: parseInt(document.getElementById('ef-countdown-step-ms').value, 10),
+      },
+      gestureTrigger: {
+        enabled: document.getElementById('ef-gesture-enabled').checked,
+        gestureType:
+          document.querySelector('input[name="ef-gesture-type"]:checked')?.value ?? 'peace',
+        holdDuration: parseInt(document.getElementById('ef-gesture-hold-duration').value, 10),
+        detectionFps: parseInt(document.getElementById('ef-gesture-fps').value, 10),
+      },
+      templates,
+    };
+
+    if (eventFormMode === 'create') {
+      await createEvent(eventData);
+    } else {
+      await updateEvent(eventFormEditId, eventData);
+    }
+  });
 });

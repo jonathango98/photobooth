@@ -1,9 +1,9 @@
 async function loadServerUrl() {
   try {
-    const cfg = await fetch("../config.json").then((r) => r.json());
-    return cfg.serverUrl || "https://photobooth-server-production.up.railway.app";
+    const cfg = await fetch('../config.json').then((r) => r.json());
+    return cfg.serverUrl || 'https://photobooth-server-production.up.railway.app';
   } catch {
-    return "https://photobooth-server-production.up.railway.app";
+    return 'https://photobooth-server-production.up.railway.app';
   }
 }
 
@@ -17,7 +17,7 @@ function shuffle(arr) {
 }
 
 async function crossfade(slot, layerState, url) {
-  const nextActive = layerState.active === "a" ? "b" : "a";
+  const nextActive = layerState.active === 'a' ? 'b' : 'a';
   const incoming = slot.querySelector(`.layer.${nextActive}`);
   const outgoing = slot.querySelector(`.layer.${layerState.active}`);
   await new Promise((resolve) => {
@@ -25,27 +25,36 @@ async function crossfade(slot, layerState, url) {
     incoming.onerror = resolve;
     incoming.src = url;
   });
-  incoming.classList.add("visible");
-  outgoing.classList.remove("visible");
+  incoming.classList.add('visible');
+  outgoing.classList.remove('visible');
   layerState.active = nextActive;
 }
 
 async function main() {
-  // The event in the URL is the source of truth — there is no "active event" fallback
-  const eventId = new URLSearchParams(window.location.search).get("event");
+  // The event and slideshow token in the URL are the source of truth
+  const params = new URLSearchParams(window.location.search);
+  const eventId = params.get('event');
+  const slideshowToken = params.get('token');
+
   if (!eventId) {
-    document.body.textContent = "Missing event — open this page with ?event=your-event-id in the link.";
+    document.body.textContent =
+      'Missing event — open this page with ?event=your-event-id&token=... in the link.';
+    return;
+  }
+  if (!slideshowToken) {
+    document.body.textContent =
+      'Missing slideshow token — use the link from the superadmin panel which includes ?event=...&token=...';
     return;
   }
 
   const serverUrl = await loadServerUrl();
-  document.documentElement.style.setProperty("--fade", "800ms");
+  document.documentElement.style.setProperty('--fade', '800ms');
 
   const SLOT_INTERVAL_MS = 3000;
   const POLL_INTERVAL_MS = 60000;
 
-  const slots = [...document.querySelectorAll(".slot")];
-  const layerState = slots.map(() => ({ active: "a" }));
+  const slots = [...document.querySelectorAll('.slot')];
+  const layerState = slots.map(() => ({ active: 'a' }));
 
   let photosById = new Map();
   let queue = [];
@@ -53,7 +62,16 @@ async function main() {
 
   async function refreshList() {
     try {
-      const { photos } = await fetch(`${serverUrl}/api/public/photos?eventId=${encodeURIComponent(eventId)}`).then((r) => r.json());
+      const url =
+        `${serverUrl}/api/public/photos` +
+        `?eventId=${encodeURIComponent(eventId)}&token=${encodeURIComponent(slideshowToken)}`;
+      const res = await fetch(url);
+      if (res.status === 401 || res.status === 403) {
+        document.body.textContent =
+          'Invalid slideshow token — this link may have expired. Ask the event organiser for a new slideshow link.';
+        return;
+      }
+      const { photos } = await res.json();
       photosById = new Map(photos.map((p) => [p.id, p.url]));
       const knownInQueue = new Set(queue);
       const visible = new Set(slots.map((s) => s.dataset.currentId).filter(Boolean));
@@ -62,7 +80,7 @@ async function main() {
         .filter((id) => !knownInQueue.has(id) && !visible.has(id));
       if (fresh.length > 0) queue.push(...shuffle(fresh));
     } catch (err) {
-      console.error("Failed to refresh photo list:", err);
+      console.error('Failed to refresh photo list:', err);
     }
   }
 
@@ -70,10 +88,7 @@ async function main() {
     if (queue.length === 0) {
       const visible = new Set(slots.map((s) => s.dataset.currentId).filter(Boolean));
       const all = shuffle([...photosById.keys()]);
-      queue = [
-        ...all.filter((id) => !visible.has(id)),
-        ...all.filter((id) => visible.has(id)),
-      ];
+      queue = [...all.filter((id) => !visible.has(id)), ...all.filter((id) => visible.has(id))];
     }
     return queue.shift() ?? null;
   }
