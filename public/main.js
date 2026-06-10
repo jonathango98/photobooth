@@ -103,13 +103,53 @@ function showEventNotFound(eventId) {
 }
 
 function showMissingEventId() {
-  const strong = document.createElement("strong");
-  strong.textContent = "?event=your-event-id";
-  showEventError("No event specified", [
-    document.createTextNode("Open the booth with "),
-    strong,
-    document.createTextNode(" in the link."),
-  ]);
+  // Show landing page instead of an error — the bare root URL is public-facing
+  document.title = "Photo Booth";
+
+  const idleScreen = document.getElementById("idle-screen");
+  if (idleScreen) {
+    idleScreen.classList.remove("active");
+    idleScreen.hidden = true;
+  }
+
+  const landingScreen = document.getElementById("landing-screen");
+  if (landingScreen) {
+    landingScreen.hidden = false;
+  }
+
+  // AJAX form submission so visitors get an inline thank-you
+  const form = document.getElementById("inquiry-form");
+  const statusEl = document.getElementById("landing-form-status");
+  if (form && statusEl) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitBtn = form.querySelector("button[type=submit]");
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const res = await fetch("/", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(new FormData(form)).toString(),
+        });
+        if (res.ok) {
+          form.hidden = true;
+          statusEl.textContent = "Thanks — I'll get back to you soon.";
+          statusEl.className = "landing-form-success";
+          statusEl.hidden = false;
+        } else {
+          statusEl.textContent = "Something went wrong — please try again or email directly.";
+          statusEl.className = "landing-form-error";
+          statusEl.hidden = false;
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      } catch (_err) {
+        statusEl.textContent = "Something went wrong — please try again or email directly.";
+        statusEl.className = "landing-form-error";
+        statusEl.hidden = false;
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
 }
 
 // ---------------------------

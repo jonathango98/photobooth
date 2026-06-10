@@ -33,6 +33,9 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // Never intercept non-GET requests (e.g. Netlify form POSTs) — pass them through.
+  if (e.request.method !== "GET") return;
+
   const url = new URL(e.request.url);
 
   // Never intercept cross-origin requests — let the browser handle them natively.

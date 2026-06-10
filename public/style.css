@@ -741,3 +741,154 @@ body::after {
     gap: 12px;
   }
 }
+
+/* ========================
+   LANDING SCREEN
+======================== */
+.landing-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg);
+  overflow-y: auto;
+  z-index: 20;
+  padding: 40px 20px;
+}
+
+.landing-card {
+  width: 100%;
+  max-width: 520px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text);
+}
+
+.landing-heading {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--orange);
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.landing-tagline {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  opacity: 0.8;
+  margin: 0 0 20px;
+}
+
+.landing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-features li {
+  font-size: 0.82rem;
+  opacity: 0.7;
+  padding-left: 1.2em;
+  position: relative;
+}
+
+.landing-features li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--orange);
+  opacity: 0.8;
+}
+
+.landing-form-wrap {
+  border-top: 1px solid rgba(200, 112, 58, 0.25);
+  padding-top: 28px;
+}
+
+.landing-form-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin: 0 0 18px;
+}
+
+#inquiry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#inquiry-form input,
+#inquiry-form textarea {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(200, 112, 58, 0.3);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#inquiry-form input:focus,
+#inquiry-form textarea:focus {
+  border-color: var(--orange);
+}
+
+#inquiry-form input::placeholder,
+#inquiry-form textarea::placeholder {
+  opacity: 0.45;
+  color: var(--text);
+}
+
+#inquiry-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+#inquiry-form button[type=submit] {
+  align-self: flex-start;
+  background: var(--orange);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg);
+  cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 10px 24px;
+  text-transform: uppercase;
+  transition: opacity 0.2s;
+}
+
+#inquiry-form button[type=submit]:hover {
+  opacity: 0.85;
+}
+
+#inquiry-form button[type=submit]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#landing-form-status {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.landing-form-success {
+  color: var(--teal);
+}
+
+.landing-form-error {
+  color: #e07060;
+}
