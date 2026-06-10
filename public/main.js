@@ -25,6 +25,7 @@ const confirmBtn       = document.getElementById("confirm-btn");
 const resetBar         = document.getElementById("reset-bar");
 const resetBtn         = document.getElementById("reset-btn");
 const templateResetBtn = document.getElementById("template-reset-btn");
+const queueBadge       = document.getElementById("queue-badge");
 
 // State
 let stream = null;
@@ -996,8 +997,43 @@ async function uploadSession(sessionId) {
       rawBlobs,
       collageBlob,
     });
+    refreshQueueBadge();
     setUploadStatus("Saved — will sync when internet returns.");
   }
+}
+
+// ---------------------------
+// Offline queue UI / draining
+// ---------------------------
+// Latest known queue depth, kept in sync so the synchronous beforeunload
+// handler can read it without awaiting IndexedDB.
+let lastQueueDepth = 0;
+
+async function refreshQueueBadge() {
+  if (!queueBadge || !window.OfflineQueue) return;
+  try {
+    const depth = await window.OfflineQueue.getQueueDepth();
+    lastQueueDepth = depth;
+    if (depth > 0) {
+      queueBadge.textContent = `${depth} photo${depth === 1 ? "" : "s"} pending upload`;
+      queueBadge.classList.remove("hidden");
+    } else {
+      queueBadge.classList.add("hidden");
+    }
+  } catch (err) {
+    console.warn("[OfflineQueue] badge refresh failed:", err);
+  }
+}
+
+// Drain the queue then refresh the on-screen badge.
+async function drainAndRefresh() {
+  if (!CONFIG?.serverUrl || !window.OfflineQueue) return;
+  try {
+    await window.OfflineQueue.drainQueue(CONFIG.serverUrl);
+  } catch (err) {
+    console.warn("[OfflineQueue] drain failed:", err);
+  }
+  refreshQueueBadge();
 }
 
 // ---------------------------
@@ -1160,11 +1196,31 @@ async function init() {
       );
     }
 
+    // Ask the browser to keep IndexedDB storage durable (reduces eviction
+    // risk for queued full-res blobs). Feature-detected; best-effort.
+    if (navigator.storage?.persist) {
+      navigator.storage.persist()
+        .then(granted => console.log("[OfflineQueue] persistent storage:", granted))
+        .catch(() => {});
+    }
+
+    // Warn staff if they try to close the booth with un-uploaded sessions.
+    window.addEventListener("beforeunload", (e) => {
+      if (lastQueueDepth > 0) {
+        e.preventDefault();
+        e.returnValue = `${lastQueueDepth} session${lastQueueDepth === 1 ? "" : "s"} pending upload.`;
+        return e.returnValue;
+      }
+    });
+
     if (CONFIG?.serverUrl) {
-      window.OfflineQueue.drainQueue(CONFIG.serverUrl);
+      refreshQueueBadge();
+      drainAndRefresh();
+      // Drain as soon as connectivity returns.
+      window.addEventListener("online", drainAndRefresh);
       setInterval(() => {
         if (idleScreen.classList.contains("active")) {
-          window.OfflineQueue.drainQueue(CONFIG.serverUrl);
+          drainAndRefresh();
         }
       }, 60_000);
     }

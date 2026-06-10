@@ -579,6 +579,43 @@ body::after {
   box-shadow: 0 0 16px rgba(201, 164, 83, 0.3);
 }
 
+/* Offline upload queue depth badge (bottom-left of idle screen) */
+.queue-badge {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 164, 83, 0.35);
+  background: rgba(20, 17, 14, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--cream);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.queue-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 6px var(--gold);
+}
+
+.queue-badge.hidden {
+  display: none;
+}
+
 .instruction-overlay {
   position: absolute;
   inset: 0;
