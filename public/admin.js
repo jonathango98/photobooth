@@ -52,22 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventIdDisplay = document.getElementById('event-id-display');
     const urlEventId = new URLSearchParams(window.location.search).get('event');
 
+    // The event in the URL is the source of truth — multiple events can be
+    // active at once, so there is no "active event" to fall back to.
     if (urlEventId) {
         eventId = urlEventId;
         if (eventIdDisplay) eventIdDisplay.textContent = eventId;
     } else {
-        // Fetch active event ID (read-only, defaults to "test")
-        fetch(`${API_BASE}/api/event`)
-            .then(res => res.json())
-            .then(data => {
-                eventId = data.eventId || data.event_id || 'test';
-                if (eventIdDisplay) eventIdDisplay.textContent = eventId;
-            })
-            .catch(err => {
-                console.warn('Failed to fetch event ID:', err);
-                eventId = 'test';
-                if (eventIdDisplay) eventIdDisplay.textContent = 'test (default)';
-            });
+        if (eventIdDisplay) eventIdDisplay.textContent = 'missing — add ?event=your-event-id to the URL';
     }
 
     if (adminPassword) {

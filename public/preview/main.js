@@ -31,6 +31,13 @@ async function crossfade(slot, layerState, url) {
 }
 
 async function main() {
+  // The event in the URL is the source of truth — there is no "active event" fallback
+  const eventId = new URLSearchParams(window.location.search).get("event");
+  if (!eventId) {
+    document.body.textContent = "Missing event — open this page with ?event=your-event-id in the link.";
+    return;
+  }
+
   const serverUrl = await loadServerUrl();
   document.documentElement.style.setProperty("--fade", "800ms");
 
@@ -46,7 +53,7 @@ async function main() {
 
   async function refreshList() {
     try {
-      const { photos } = await fetch(`${serverUrl}/api/public/photos`).then((r) => r.json());
+      const { photos } = await fetch(`${serverUrl}/api/public/photos?eventId=${encodeURIComponent(eventId)}`).then((r) => r.json());
       photosById = new Map(photos.map((p) => [p.id, p.url]));
       const knownInQueue = new Set(queue);
       const visible = new Set(slots.map((s) => s.dataset.currentId).filter(Boolean));

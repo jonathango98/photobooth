@@ -68,7 +68,7 @@ const PEACE_RING_CIRCUMFERENCE = 339.292;
 // ---------------------------
 const _urlEventId = new URLSearchParams(window.location.search).get('event');
 
-function showEventNotFound(eventId) {
+function showEventError(title, msgNodes) {
   const outer = document.createElement("div");
   outer.setAttribute("style", "display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1714;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;text-align:center;padding:24px;");
   const inner = document.createElement("div");
@@ -77,14 +77,10 @@ function showEventNotFound(eventId) {
   h1.textContent = "404";
   const h2 = document.createElement("div");
   h2.setAttribute("style", "font-size:18px;margin-bottom:8px;");
-  h2.textContent = "Event not found";
+  h2.textContent = title;
   const msg = document.createElement("div");
   msg.setAttribute("style", "font-size:13px;color:rgba(247,242,213,0.5);");
-  msg.textContent = `No event with ID `;
-  const strong = document.createElement("strong");
-  strong.textContent = eventId;
-  msg.appendChild(strong);
-  msg.appendChild(document.createTextNode(" exists. Check the URL and try again."));
+  for (const node of msgNodes) msg.appendChild(node);
   inner.appendChild(h1);
   inner.appendChild(h2);
   inner.appendChild(msg);
@@ -93,7 +89,34 @@ function showEventNotFound(eventId) {
   document.body.appendChild(outer);
 }
 
+function showEventNotFound(eventId) {
+  const strong = document.createElement("strong");
+  strong.textContent = eventId;
+  showEventError("Event not found", [
+    document.createTextNode("No event with ID "),
+    strong,
+    document.createTextNode(" exists. Check the URL and try again."),
+  ]);
+}
+
+function showMissingEventId() {
+  const strong = document.createElement("strong");
+  strong.textContent = "?event=your-event-id";
+  showEventError("No event specified", [
+    document.createTextNode("Open the booth with "),
+    strong,
+    document.createTextNode(" in the link."),
+  ]);
+}
+
 async function loadConfig() {
+  // The event in the URL is the source of truth — multiple events can run at
+  // once on different kiosks, so there is no "active event" fallback.
+  if (!_urlEventId) {
+    showMissingEventId();
+    return false;
+  }
+
   const staticRes = await fetch("config.json");
   if (!staticRes.ok) {
     throw new Error(`Failed to load config.json: ${staticRes.status}`);
@@ -111,13 +134,11 @@ async function loadConfig() {
   let usedServerConfig = false;
   if (serverUrl) {
     try {
-      const configEndpoint = _urlEventId
-        ? `${serverUrl}/api/event/${encodeURIComponent(_urlEventId)}/config`
-        : `${serverUrl}/api/event/config`;
+      const configEndpoint = `${serverUrl}/api/event/${encodeURIComponent(_urlEventId)}/config`;
       const eventRes = await fetch(configEndpoint);
-      if (eventRes.status === 404 && _urlEventId) {
+      if (eventRes.status === 404) {
         showEventNotFound(_urlEventId);
-        return;
+        return false;
       }
       if (eventRes.ok) {
         const eventConfig = await eventRes.json();
@@ -770,7 +791,7 @@ async function buildTemplateCollage(templateIndex = 0) {
   }
 
   currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  if (!CONFIG.eventId) console.warn("[QR] CONFIG.eventId is not set — QR link will use active event fallback");
+  if (!CONFIG.eventId) console.warn("[QR] CONFIG.eventId is not set — upload will be rejected by the server");
   setUploadStatus("Uploading…");
   await uploadSession(currentSessionId);
 
@@ -1021,7 +1042,8 @@ function attachEventListeners() {
 
 async function init() {
   try {
-    await loadConfig();
+    // loadConfig returns false when the page was replaced with an event error screen
+    if (await loadConfig() === false) return;
     buildInstructionRules();
     attachEventListeners();
     startCamera();
