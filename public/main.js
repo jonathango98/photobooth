@@ -37,6 +37,9 @@ let autoResetTimer = null;
 let autoResetCountInterval = null;
 let countdownTimers = [];
 
+// Error overlay state
+let cameraRetryTimer = null;
+
 // Instruction popup state
 let autoResetTriggered = false;
 let idleInactivityTimer = null;
@@ -109,6 +112,53 @@ function showMissingEventId() {
   ]);
 }
 
+// ---------------------------
+// Error overlay (camera / config failures)
+// ---------------------------
+const _errorOverlay  = document.getElementById("error-overlay");
+const _errorTitle    = document.getElementById("error-title");
+const _errorMsg      = document.getElementById("error-msg");
+const _errorRetryLbl = document.getElementById("error-retry-label");
+
+function showErrorOverlay(title, msg, retrySeconds) {
+  if (_errorTitle) _errorTitle.textContent = title;
+  if (_errorMsg) _errorMsg.textContent = msg;
+  if (_errorRetryLbl) {
+    _errorRetryLbl.textContent = retrySeconds
+      ? `Retrying in ${retrySeconds}s…`
+      : "Retrying…";
+  }
+  if (_errorOverlay) _errorOverlay.classList.add("visible");
+}
+
+function hideErrorOverlay() {
+  if (_errorOverlay) _errorOverlay.classList.remove("visible");
+}
+
+// ---------------------------
+// Screen Wake Lock (H6)
+// ---------------------------
+let _wakeLock = null;
+
+async function acquireWakeLock() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request("screen");
+    _wakeLock.addEventListener("release", () => {
+      _wakeLock = null;
+      // Re-acquire if the document is still visible
+      if (document.visibilityState === "visible") acquireWakeLock();
+    });
+    console.log("[WAKE] Screen wake lock acquired.");
+  } catch (e) {
+    console.warn("[WAKE] Wake lock request failed:", e);
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !_wakeLock) acquireWakeLock();
+});
+
 async function loadConfig() {
   // The event in the URL is the source of truth — multiple events can run at
   // once on different kiosks, so there is no "active event" fallback.
@@ -152,6 +202,7 @@ async function loadConfig() {
           autoResetSeconds: staticConfig.autoResetSeconds ?? 30,
           gestureTrigger: eventConfig.gestureTrigger ?? staticConfig.gestureTrigger,
           background_url: eventConfig.background_url || null,
+          qr: eventConfig.qr ?? staticConfig.qr,
         };
         usedServerConfig = true;
         console.log("[CONFIG] Loaded from server API:", CONFIG.eventId);
@@ -547,7 +598,18 @@ async function startCamera() {
     };
   } catch (e) {
     console.error("[CAM] error:", e);
-    alert("Camera failed: " + e.message);
+    const RETRY_SECONDS = 5;
+    showErrorOverlay(
+      "Camera unavailable",
+      `Could not access the camera. Please check that camera permission is granted.\n\n${e.message}`,
+      RETRY_SECONDS
+    );
+    clearTimeout(cameraRetryTimer);
+    cameraRetryTimer = setTimeout(async () => {
+      hideErrorOverlay();
+      stream = null; // allow a fresh getUserMedia request
+      await startCamera();
+    }, RETRY_SECONDS * 1000);
   }
 }
 
@@ -797,9 +859,10 @@ async function buildTemplateCollage(templateIndex = 0) {
 
   // Show QR only after upload confirmed (success or offline-queued)
   const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ""}`;
-  const qrSize = CONFIG.qr?.size ?? 300;
+  const qrSize   = CONFIG.qr?.size   ?? 300;
+  const qrMargin = CONFIG.qr?.margin ?? null;
   if (qrImg) {
-    qrImg.src = generateQRDataURL(qrUrl, qrSize);
+    qrImg.src = generateQRDataURL(qrUrl, qrSize, qrMargin);
     qrImg.style.width  = `${qrSize}px`;
     qrImg.style.height = `${qrSize}px`;
   }
@@ -808,12 +871,13 @@ async function buildTemplateCollage(templateIndex = 0) {
 // ---------------------------
 // QR code helpers
 // ---------------------------
-function generateQRDataURL(url, targetSize) {
+function generateQRDataURL(url, targetSize, margin) {
   const qr = qrcode(0, "M");
   qr.addData(url);
   qr.make();
-  const cellSize = Math.max(2, Math.floor(targetSize / (qr.getModuleCount() + 8)));
-  return qr.createDataURL(cellSize, Math.ceil(cellSize * 4));
+  const cellSize   = Math.max(2, Math.floor(targetSize / (qr.getModuleCount() + 8)));
+  const marginPx   = margin != null ? margin : Math.ceil(cellSize * 4);
+  return qr.createDataURL(cellSize, marginPx);
 }
 
 function setUploadStatus(text) {
@@ -1046,6 +1110,7 @@ async function init() {
     if (await loadConfig() === false) return;
     buildInstructionRules();
     attachEventListeners();
+    acquireWakeLock();
     startCamera();
     showInstructions();
 
@@ -1065,7 +1130,13 @@ async function init() {
     }
   } catch (err) {
     console.error("[INIT] Failed to initialize:", err);
-    alert("Failed to load photobooth configuration.");
+    const RETRY_SECONDS = 10;
+    showErrorOverlay(
+      "Configuration error",
+      `Failed to load the photobooth configuration. Please check the network connection.`,
+      RETRY_SECONDS
+    );
+    setTimeout(() => location.reload(), RETRY_SECONDS * 1000);
   }
 }
 

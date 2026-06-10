@@ -677,6 +677,61 @@ body::after {
   box-shadow: 0 0 20px rgba(201, 164, 83, 0.3);
 }
 
+/* Error overlay (camera / config failures with auto-retry) */
+.error-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 23, 20, 0.97);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 700; /* above flash-overlay (600) */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.error-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.error-card {
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--cream);
+  padding: 40px;
+  max-width: 480px;
+}
+
+.error-icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+  color: var(--gold);
+}
+
+.error-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.error-msg {
+  font-size: 0.9rem;
+  color: rgba(247, 242, 213, 0.6);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.error-retry-label {
+  font-size: 0.8rem;
+  color: rgba(247, 242, 213, 0.4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* Landscape tablet adjustments */
 @media (max-height: 800px) and (orientation: landscape) {
   .template-layout h2 {

@@ -12,6 +12,16 @@
   <!-- White flash on capture -->
   <div id="flash-overlay"></div>
 
+  <!-- Full-screen error overlay (camera / config failures) -->
+  <div id="error-overlay" class="error-overlay">
+    <div class="error-card">
+      <div class="error-icon">&#9888;</div>
+      <div class="error-title" id="error-title">Error</div>
+      <div class="error-msg" id="error-msg"></div>
+      <div class="error-retry-label" id="error-retry-label">Retrying&hellip;</div>
+    </div>
+  </div>
+
   <!-- CAMERA / IDLE SCREEN -->
   <div id="idle-screen" class="screen active">
     <div class="camera-wrap">
