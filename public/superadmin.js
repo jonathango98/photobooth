@@ -254,18 +254,35 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadTree() {
         treeContainer.innerHTML = '<p style="padding:12px 16px;color:#888;font-size:13px;">Loading...</p>';
         try {
-            const res = await fetch(`${API_BASE}/api/superadmin/tree`, {
-                headers: authHeaders()
-            });
-            if (res.status === 401) { handle401(); return; }
-            if (!res.ok) throw new Error('Failed to load tree');
-            const data = await res.json();
-            // Server returns { ok, tree: { name: "/", type: "folder", children: [...] } }
-            const rawChildren = (data.tree && data.tree.children) || [];
-            renderTree(enrichTree(rawChildren, ''));
+            // Fetch all pages and merge trees before rendering (#36)
+            const merged = { name: '/', type: 'folder', children: [] };
+            let cursor = null;
+            do {
+                const url = cursor
+                    ? `${API_BASE}/api/superadmin/tree?cursor=${encodeURIComponent(cursor)}`
+                    : `${API_BASE}/api/superadmin/tree`;
+                const res = await fetch(url, { headers: authHeaders() });
+                if (res.status === 401) { handle401(); return; }
+                if (!res.ok) throw new Error('Failed to load tree');
+                const data = await res.json();
+                mergeIntoTree(merged, data.tree || { children: [] });
+                cursor = data.cursor || null;
+            } while (cursor);
+            renderTree(enrichTree(merged.children, ''));
         } catch (err) {
             console.error(err);
             treeContainer.innerHTML = '<p style="padding:12px 16px;color:#ff6b6b;font-size:13px;">Failed to load folders.</p>';
+        }
+    }
+
+    function mergeIntoTree(target, source) {
+        for (const child of (source.children || [])) {
+            const existing = target.children.find(c => c.name === child.name && c.type === child.type);
+            if (existing && child.type === 'folder') {
+                mergeIntoTree(existing, child);
+            } else if (!existing) {
+                target.children.push(child);
+            }
         }
     }
 
