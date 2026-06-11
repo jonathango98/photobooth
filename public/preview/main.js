@@ -48,6 +48,7 @@ async function main() {
   }
 
   const serverUrl = await loadServerUrl();
+  if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(serverUrl);
   document.documentElement.style.setProperty('--fade', '800ms');
 
   const SLOT_INTERVAL_MS = 3000;
