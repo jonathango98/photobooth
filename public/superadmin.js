@@ -1262,7 +1262,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     card.innerHTML = `
       <div class="tpl-card-head">
         <span class="tpl-card-title">Template ${idx}</span>
-        <button type="button" class="tpl-remove-btn tpl-remove-card-btn">Remove</button>
+        <div class="tpl-card-actions">
+          <button type="button" class="tpl-mini-btn tpl-duplicate-card-btn">Duplicate</button>
+          <button type="button" class="tpl-remove-btn tpl-remove-card-btn">Remove</button>
+        </div>
       </div>
       <div class="tpl-upload-row">
         <input type="text" class="tpl-file" placeholder="file URL or path" value="${tpl.file || ''}" style="flex:1;padding:5px 8px;background:#1a1a1a;border:1px solid rgba(247,242,213,0.2);border-radius:4px;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;font-size:12px;" />
@@ -1293,6 +1296,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     card.querySelector('.tpl-remove-card-btn').addEventListener('click', () => {
       card.remove();
+      refreshSlotWarnings();
+    });
+
+    card.querySelector('.tpl-duplicate-card-btn').addEventListener('click', () => {
+      const copy = {
+        file: card.querySelector('.tpl-file').value,
+        width: parseFloat(card.querySelector('.tpl-width').value) || 880,
+        height: parseFloat(card.querySelector('.tpl-height').value) || 495,
+        slots: [...card.querySelectorAll('.tpl-slot-row')].map((row) => ({
+          x: parseFloat(row.querySelector('.tpl-slot-x').value) || 0,
+          y: parseFloat(row.querySelector('.tpl-slot-y').value) || 0,
+        })),
+      };
+      card.after(buildTemplateCard(copy));
       refreshSlotWarnings();
     });
 
@@ -1398,7 +1415,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function refreshSlotWarnings() {
     const totalShots = parseInt(document.getElementById('ef-total-shots').value, 10) || 0;
-    document.querySelectorAll('#ef-templates-cards .tpl-card').forEach((card) => {
+    document.querySelectorAll('#ef-templates-cards .tpl-card').forEach((card, i) => {
+      card.querySelector('.tpl-card-title').textContent = `Template ${i + 1}`;
       const slotCount = card.querySelectorAll('.tpl-slot-row').length;
       const warning = card.querySelector('.tpl-warning');
       if (totalShots > 0 && slotCount !== totalShots) {
