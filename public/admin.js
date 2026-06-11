@@ -118,62 +118,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     downloadSelectedBtn.addEventListener('click', async () => {
-        if (selectedIds.size === 0) {
-            alert('Please select some photos first');
-            return;
-        }
-
+        if (selectedIds.size === 0) { alert('Please select some photos first'); return; }
+        downloadSelectedBtn.disabled = true;
+        downloadSelectedBtn.textContent = 'Preparing…';
         try {
-            const response = await fetch(`${API_BASE}/api/admin/download-selected`, {
+            const res = await fetch(`${API_BASE}/api/admin/mint-download-token`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-admin-password': adminPassword
-                },
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
                 body: JSON.stringify({ photoIds: Array.from(selectedIds), eventId })
             });
-
-            if (!response.ok) {
-                alert('Error generating ZIP for selected photos');
-                return;
-            }
-
-            await downloadBlob(response, 'selected-photos.zip');
+            if (!res.ok) { alert('Error preparing download for selected photos'); return; }
+            const { token } = await res.json();
+            window.location = `${API_BASE}/api/admin/zip/${token}`;
         } catch (err) {
             console.error(err);
             alert('Error connecting to server');
+        } finally {
+            downloadSelectedBtn.disabled = false;
+            downloadSelectedBtn.textContent = selectedIds.size > 0 ? `Download Selected (${selectedIds.size})` : 'Download Selected';
         }
     });
 
     downloadZipBtn.addEventListener('click', async () => {
+        if (!eventId) { alert('No event selected'); return; }
+        downloadZipBtn.disabled = true;
+        downloadZipBtn.textContent = 'Preparing…';
         try {
-            const qs = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
-            const response = await fetch(`${API_BASE}/api/admin/download-zip${qs}`, {
-                headers: { 'x-admin-password': adminPassword }
+            const res = await fetch(`${API_BASE}/api/admin/mint-download-token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                body: JSON.stringify({ eventId })
             });
-
-            if (!response.ok) {
-                alert('Error generating ZIP');
-                return;
-            }
-
-            await downloadBlob(response, 'all-photos.zip');
+            if (!res.ok) { alert('Error preparing download'); return; }
+            const { token } = await res.json();
+            window.location = `${API_BASE}/api/admin/zip/${token}`;
         } catch (err) {
             console.error(err);
             alert('Error connecting to server');
+        } finally {
+            downloadZipBtn.disabled = false;
+            downloadZipBtn.textContent = 'Download All as ZIP';
         }
     });
-
-    async function downloadBlob(response, filename) {
-        const blob = await response.blob();
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-    }
 
     loadMoreBtn.addEventListener('click', () => loadPhotosPage(false));
 
