@@ -767,6 +767,106 @@
         color: #f7f2d5;
         background: rgba(247, 242, 213, 0.08);
       }
+      /* Template card editor */
+      .tpl-card {
+        background: #161616;
+        border: 1px solid rgba(247, 242, 213, 0.15);
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .tpl-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .tpl-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(247, 242, 213, 0.7);
+      }
+      .tpl-slot-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+      .tpl-slot-row input {
+        width: 70px;
+        padding: 5px 8px;
+        background: #1a1a1a;
+        border: 1px solid rgba(247, 242, 213, 0.2);
+        border-radius: 4px;
+        color: #f7f2d5;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+      }
+      .tpl-slot-row label {
+        font-size: 11px;
+        color: rgba(247, 242, 213, 0.5);
+        min-width: 14px;
+      }
+      .tpl-mini-btn {
+        padding: 5px 10px;
+        background: transparent;
+        border: 1px solid rgba(247, 242, 213, 0.25);
+        border-radius: 4px;
+        color: rgba(247, 242, 213, 0.7);
+        cursor: pointer;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .tpl-mini-btn:hover {
+        border-color: rgba(247, 242, 213, 0.5);
+        background: rgba(247, 242, 213, 0.05);
+      }
+      .tpl-mini-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .tpl-remove-btn {
+        padding: 5px 10px;
+        background: transparent;
+        border: 1px solid rgba(220, 80, 80, 0.35);
+        border-radius: 4px;
+        color: rgba(220, 80, 80, 0.8);
+        cursor: pointer;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .tpl-remove-btn:hover {
+        border-color: rgba(220, 80, 80, 0.6);
+        background: rgba(220, 80, 80, 0.06);
+      }
+      .tpl-warning {
+        font-size: 11px;
+        color: #c9a227;
+        margin-top: 6px;
+      }
+      .tpl-upload-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+      .tpl-upload-status {
+        font-size: 11px;
+        color: rgba(247, 242, 213, 0.5);
+      }
+      .tpl-slots-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 10px 0 6px;
+      }
+      .tpl-slots-label {
+        font-size: 11px;
+        color: rgba(247, 242, 213, 0.5);
+      }
       #event-form-cancel {
         padding: 8px 18px;
         background: transparent;
@@ -1352,13 +1452,14 @@
             </div>
           </div>
 
-          <div class="form-section-title">Templates (JSON)</div>
-          <div class="form-row">
-            <textarea
-              id="ef-templates"
-              rows="14"
-              placeholder='[{"file":"...","width":880,"height":495,"slots":[...]}]'
-            ></textarea>
+          <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+            Templates
+            <button type="button" id="ef-templates-json-toggle" class="tpl-mini-btn">Edit as JSON</button>
+          </div>
+          <div id="ef-templates-cards"></div>
+          <button type="button" id="ef-add-template" class="tpl-mini-btn">+ Add Template</button>
+          <div class="form-row hidden" id="ef-templates-json-row">
+            <textarea id="ef-templates" rows="14" placeholder='[{"file":"...","width":880,"height":495,"slots":[...]}]'></textarea>
           </div>
 
           <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px">

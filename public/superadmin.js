@@ -1215,22 +1215,243 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  const DEFAULT_TEMPLATES = JSON.stringify(
-    [
-      {
-        file: 'template1.png',
-        width: 880,
-        height: 495,
-        slots: [
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-        ],
-      },
-    ],
-    null,
-    2
-  );
+  const DEFAULT_TEMPLATES = [
+    {
+      file: 'template1.png',
+      width: 880,
+      height: 495,
+      slots: [
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+      ],
+    },
+  ];
+
+  // 'cards' | 'json'
+  let templatesEditMode = 'cards';
+
+  // -------------------------
+  // Template card builder
+  // -------------------------
+  let tplCardCounter = 0;
+
+  function buildSlotRow(x, y) {
+    const row = document.createElement('div');
+    row.className = 'tpl-slot-row';
+    row.innerHTML = `
+      <label>x</label>
+      <input type="number" class="tpl-slot-x" value="${x}" step="1" />
+      <label>y</label>
+      <input type="number" class="tpl-slot-y" value="${y}" step="1" />
+      <button type="button" class="tpl-mini-btn tpl-remove-slot-btn">×</button>
+    `;
+    row.querySelector('.tpl-remove-slot-btn').addEventListener('click', () => {
+      row.remove();
+      refreshSlotWarnings();
+    });
+    return row;
+  }
+
+  function buildTemplateCard(tpl) {
+    tplCardCounter += 1;
+    const idx = tplCardCounter;
+    const card = document.createElement('div');
+    card.className = 'tpl-card';
+
+    card.innerHTML = `
+      <div class="tpl-card-head">
+        <span class="tpl-card-title">Template ${idx}</span>
+        <button type="button" class="tpl-remove-btn tpl-remove-card-btn">Remove</button>
+      </div>
+      <div class="tpl-upload-row">
+        <input type="text" class="tpl-file" placeholder="file URL or path" value="${tpl.file || ''}" style="flex:1;padding:5px 8px;background:#1a1a1a;border:1px solid rgba(247,242,213,0.2);border-radius:4px;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;font-size:12px;" />
+        <button type="button" class="tpl-mini-btn tpl-upload-btn">Upload PNG</button>
+        <input type="file" class="tpl-file-input" accept="image/png,image/jpeg,image/webp" style="display:none" />
+        <span class="tpl-upload-status"></span>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-row">
+          <label>Width (px)</label>
+          <input type="number" class="tpl-width" value="${tpl.width || 880}" min="1" step="1" />
+        </div>
+        <div class="form-row">
+          <label>Height (px)</label>
+          <input type="number" class="tpl-height" value="${tpl.height || 495}" min="1" step="1" />
+        </div>
+      </div>
+      <div class="tpl-slots-header">
+        <span class="tpl-slots-label">Slots</span>
+        <button type="button" class="tpl-mini-btn tpl-add-slot-btn">+ Add Slot</button>
+      </div>
+      <div class="tpl-slots-container"></div>
+      <div class="tpl-warning"></div>
+    `;
+
+    const slotsContainer = card.querySelector('.tpl-slots-container');
+    (tpl.slots || []).forEach(({ x, y }) => slotsContainer.appendChild(buildSlotRow(x, y)));
+
+    card.querySelector('.tpl-remove-card-btn').addEventListener('click', () => {
+      card.remove();
+      refreshSlotWarnings();
+    });
+
+    card.querySelector('.tpl-add-slot-btn').addEventListener('click', () => {
+      slotsContainer.appendChild(buildSlotRow(0, 0));
+      refreshSlotWarnings();
+    });
+
+    // Upload button wiring
+    const uploadBtn = card.querySelector('.tpl-upload-btn');
+    const fileInput = card.querySelector('.tpl-file-input');
+    const statusSpan = card.querySelector('.tpl-upload-status');
+    const fileField = card.querySelector('.tpl-file');
+
+    uploadBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      uploadBtn.disabled = true;
+      statusSpan.textContent = 'Uploading…';
+      try {
+        const formData = new FormData();
+        formData.append('template', file);
+        const res = await fetch(`${API_BASE}/api/superadmin/upload-template`, {
+          method: 'POST',
+          headers: { 'x-superadmin-password': password },
+          body: formData,
+        });
+        if (res.status === 401) {
+          handle401();
+          return;
+        }
+        if (!res.ok) {
+          statusSpan.textContent = 'Upload failed.';
+          uploadBtn.disabled = false;
+          return;
+        }
+        const data = await res.json();
+        fileField.value = data.url;
+        statusSpan.textContent = 'Uploaded!';
+        fileInput.value = '';
+        setTimeout(() => {
+          statusSpan.textContent = '';
+        }, 3000);
+      } catch (err) {
+        console.error(err);
+        statusSpan.textContent = 'Upload error.';
+      } finally {
+        uploadBtn.disabled = false;
+      }
+    });
+
+    return card;
+  }
+
+  function renderTemplateCards(templates) {
+    tplCardCounter = 0;
+    const container = document.getElementById('ef-templates-cards');
+    container.innerHTML = '';
+    (templates || []).forEach((tpl) => container.appendChild(buildTemplateCard(tpl)));
+    refreshSlotWarnings();
+  }
+
+  function readTemplateCards() {
+    const cards = document.querySelectorAll('#ef-templates-cards .tpl-card');
+    const templates = [];
+    const errors = [];
+
+    if (cards.length === 0) {
+      errors.push('At least one template is required.');
+      return { templates, errors };
+    }
+
+    cards.forEach((card, i) => {
+      const label = `Template ${i + 1}`;
+      const file = card.querySelector('.tpl-file').value.trim();
+      const width = parseFloat(card.querySelector('.tpl-width').value);
+      const height = parseFloat(card.querySelector('.tpl-height').value);
+      const slotRows = card.querySelectorAll('.tpl-slot-row');
+
+      if (!file) errors.push(`${label}: file is required.`);
+      if (!isFinite(width) || width <= 0) errors.push(`${label}: width must be a positive number.`);
+      if (!isFinite(height) || height <= 0) errors.push(`${label}: height must be a positive number.`);
+      if (slotRows.length === 0) errors.push(`${label}: at least one slot is required.`);
+
+      const slots = [];
+      slotRows.forEach((row, si) => {
+        const x = parseFloat(row.querySelector('.tpl-slot-x').value);
+        const y = parseFloat(row.querySelector('.tpl-slot-y').value);
+        if (!isFinite(x) || !isFinite(y)) {
+          errors.push(`${label} slot ${si + 1}: x and y must be numbers.`);
+        } else {
+          slots.push({ x, y });
+        }
+      });
+
+      templates.push({ file, width, height, slots });
+    });
+
+    return { templates, errors };
+  }
+
+  function refreshSlotWarnings() {
+    const totalShots = parseInt(document.getElementById('ef-total-shots').value, 10) || 0;
+    document.querySelectorAll('#ef-templates-cards .tpl-card').forEach((card) => {
+      const slotCount = card.querySelectorAll('.tpl-slot-row').length;
+      const warning = card.querySelector('.tpl-warning');
+      if (totalShots > 0 && slotCount !== totalShots) {
+        warning.textContent = `${slotCount} slot${slotCount !== 1 ? 's' : ''} but Total Shots is ${totalShots} — extra shots won't appear`;
+      } else {
+        warning.textContent = '';
+      }
+    });
+  }
+
+  // JSON toggle
+  const jsonToggleBtn = document.getElementById('ef-templates-json-toggle');
+  const jsonRow = document.getElementById('ef-templates-json-row');
+  const addTemplateBtn = document.getElementById('ef-add-template');
+
+  jsonToggleBtn.addEventListener('click', () => {
+    if (templatesEditMode === 'cards') {
+      // Switch to JSON: serialize cards into textarea
+      const { templates } = readTemplateCards();
+      document.getElementById('ef-templates').value = JSON.stringify(templates, null, 2);
+      jsonRow.classList.remove('hidden');
+      addTemplateBtn.classList.add('hidden');
+      document.getElementById('ef-templates-cards').classList.add('hidden');
+      jsonToggleBtn.textContent = 'Edit as Cards';
+      templatesEditMode = 'json';
+    } else {
+      // Switch to cards: parse JSON back
+      try {
+        const raw = JSON.parse(document.getElementById('ef-templates').value);
+        renderTemplateCards(raw);
+        jsonRow.classList.add('hidden');
+        addTemplateBtn.classList.remove('hidden');
+        document.getElementById('ef-templates-cards').classList.remove('hidden');
+        jsonToggleBtn.textContent = 'Edit as JSON';
+        templatesEditMode = 'cards';
+      } catch {
+        alert('JSON is not valid — fix it before switching back to cards mode.');
+      }
+    }
+  });
+
+  addTemplateBtn.addEventListener('click', () => {
+    const container = document.getElementById('ef-templates-cards');
+    container.appendChild(
+      buildTemplateCard({ file: '', width: 880, height: 495, slots: [{ x: 0, y: 0 }] })
+    );
+    refreshSlotWarnings();
+  });
+
+  // Refresh slot warnings whenever Total Shots changes
+  document.getElementById('ef-total-shots').addEventListener('input', refreshSlotWarnings);
+
+  // -------------------------
 
   const BOOTH_ORIGIN = window.location.origin;
 
@@ -1276,9 +1497,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('ef-gesture-fps').value = src
       ? (src.gestureTrigger?.detectionFps ?? 10)
       : 10;
-    document.getElementById('ef-templates').value = src
-      ? JSON.stringify(src.templates, null, 2)
-      : DEFAULT_TEMPLATES;
+
+    // Render template cards; reset to cards mode
+    templatesEditMode = 'cards';
+    jsonToggleBtn.textContent = 'Edit as JSON';
+    jsonRow.classList.add('hidden');
+    addTemplateBtn.classList.remove('hidden');
+    document.getElementById('ef-templates-cards').classList.remove('hidden');
+    renderTemplateCards(src ? src.templates : DEFAULT_TEMPLATES);
 
     eventFormOverlay.classList.add('active');
   }
@@ -1301,12 +1527,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
 
     let templates;
-    try {
-      const raw = JSON.parse(document.getElementById('ef-templates').value);
-      templates = raw.map(({ name, preview, ...rest }) => rest);
-    } catch {
-      alert('Templates field is not valid JSON.');
-      return;
+    if (templatesEditMode === 'json') {
+      try {
+        const raw = JSON.parse(document.getElementById('ef-templates').value);
+        templates = raw.map(({ name, preview, ...rest }) => rest);
+      } catch {
+        alert('Templates field is not valid JSON.');
+        return;
+      }
+    } else {
+      const { templates: parsed, errors } = readTemplateCards();
+      if (errors.length > 0) {
+        alert(errors.join('\n'));
+        return;
+      }
+      templates = parsed.map(({ name, preview, ...rest }) => rest);
     }
 
     const eventData = {
