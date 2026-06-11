@@ -1,203 +1,428 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin - Photobooth</title>
     <style>
-        @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('./vendor/fonts/IBMPlexMono-Regular.woff2') format('woff2'); }
-        body { font-family: 'IBM Plex Mono', monospace; background: #000; color: #f7f2d5; margin: 0; padding: 24px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { margin-bottom: 24px; font-size: 18px; letter-spacing: 0.1em; }
-        .login-box { background: #111; padding: 24px; border-radius: 8px; border: 1px solid rgba(247,242,213,0.12); max-width: 400px; margin: 80px auto; }
-        .login-box h2 { margin-top: 0; letter-spacing: 0.05em; }
-        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; box-sizing: border-box; background: #1a1a1a; color: #f7f2d5; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
-        .login-box input::placeholder { color: rgba(247,242,213,0.35); }
-        .login-box button { width: 100%; padding: 10px; background: #f7f2d5; color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.05em; }
-        .login-box button:hover { background: #ede8c4; }
-        .admin-controls { display: none; }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('./vendor/fonts/IBMPlexMono-Regular.woff2') format('woff2');
+      }
+      body {
+        font-family: 'IBM Plex Mono', monospace;
+        background: #000;
+        color: #f7f2d5;
+        margin: 0;
+        padding: 24px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin-bottom: 24px;
+        font-size: 18px;
+        letter-spacing: 0.1em;
+      }
+      .login-box {
+        background: #111;
+        padding: 24px;
+        border-radius: 8px;
+        border: 1px solid rgba(247, 242, 213, 0.12);
+        max-width: 400px;
+        margin: 80px auto;
+      }
+      .login-box h2 {
+        margin-top: 0;
+        letter-spacing: 0.05em;
+      }
+      .login-box input {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid rgba(247, 242, 213, 0.2);
+        border-radius: 4px;
+        box-sizing: border-box;
+        background: #1a1a1a;
+        color: #f7f2d5;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+      }
+      .login-box input::placeholder {
+        color: rgba(247, 242, 213, 0.35);
+      }
+      .login-box button {
+        width: 100%;
+        padding: 10px;
+        background: #f7f2d5;
+        color: #000;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.05em;
+      }
+      .login-box button:hover {
+        background: #ede8c4;
+      }
+      .admin-controls {
+        display: none;
+      }
 
-        /* Sessions List as a Grid */
-        #sessions-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-            align-items: start;
-        }
+      /* Sessions List as a Grid */
+      #sessions-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+        align-items: start;
+      }
 
-        .session {
-            background: #111;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid rgba(247,242,213,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        .session h3 {
-            margin-top: 0;
-            font-size: 12px;
-            color: rgba(247,242,213,0.5);
-            border-bottom: 1px solid rgba(247,242,213,0.08);
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-            letter-spacing: 0.05em;
-        }
+      .session {
+        background: #111;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(247, 242, 213, 0.1);
+        display: flex;
+        flex-direction: column;
+      }
+      .session h3 {
+        margin-top: 0;
+        font-size: 12px;
+        color: rgba(247, 242, 213, 0.5);
+        border-bottom: 1px solid rgba(247, 242, 213, 0.08);
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+        letter-spacing: 0.05em;
+      }
 
-        .photo-grid {
-            display: grid;
-            gap: 8px;
-        }
+      .photo-grid {
+        display: grid;
+        gap: 8px;
+      }
 
-        /* Raw Tab: narrower columns for landscape photos */
-        .tab-raws .photo-grid {
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        }
+      /* Raw Tab: narrower columns for landscape photos */
+      .tab-raws .photo-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
 
-        /* Collage Tab: narrower columns for portrait photos */
-        .tab-collages .photo-grid {
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        }
+      /* Collage Tab: narrower columns for portrait photos */
+      .tab-collages .photo-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      }
 
-        /* Collages display at natural image aspect ratio */
-        .tab-collages .photo-item {
-            height: auto;
-        }
-        .tab-collages .photo-item img {
-            height: auto;
-            object-fit: unset;
-        }
+      /* Collages display at natural image aspect ratio */
+      .tab-collages .photo-item {
+        height: auto;
+      }
+      .tab-collages .photo-item img {
+        height: auto;
+        object-fit: unset;
+      }
 
-        .photo-item {
-            position: relative;
-            background: #1a1a1a;
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            transition: transform 0.2s, border 0.2s;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-        .photo-item.selected {
-            border-color: #f7f2d5;
-        }
-        .photo-item:hover {
-            transform: scale(1.02);
-        }
-        .photo-item .checkbox-overlay {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 20px;
-            height: 20px;
-            background: rgba(0,0,0,0.7);
-            border: 2px solid rgba(247,242,213,0.6);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-        .photo-item.selected .checkbox-overlay {
-            border-color: #f7f2d5;
-            background: rgba(247,242,213,0.15);
-        }
-        .photo-item.selected .checkbox-overlay::after {
-            content: "✓";
-            color: #f7f2d5;
-            font-weight: bold;
-        }
+      .photo-item {
+        position: relative;
+        background: #1a1a1a;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        transition:
+          transform 0.2s,
+          border 0.2s;
+        cursor: pointer;
+        border: 2px solid transparent;
+      }
+      .photo-item.selected {
+        border-color: #f7f2d5;
+      }
+      .photo-item:hover {
+        transform: scale(1.02);
+      }
+      .photo-item .checkbox-overlay {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 2px solid rgba(247, 242, 213, 0.6);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+      }
+      .photo-item.selected .checkbox-overlay {
+        border-color: #f7f2d5;
+        background: rgba(247, 242, 213, 0.15);
+      }
+      .photo-item.selected .checkbox-overlay::after {
+        content: '✓';
+        color: #f7f2d5;
+        font-weight: bold;
+      }
 
-        .selection-controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .photo-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        .photo-item .label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #f7f2d5; font-size: 10px; padding: 2px 4px; border-radius: 2px; }
+      .selection-controls {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .photo-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .photo-item .label {
+        position: absolute;
+        bottom: 5px;
+        left: 5px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #f7f2d5;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 2px;
+      }
 
-        /* Hover action buttons */
-        .item-actions { position: absolute; top: 8px; left: 8px; display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; z-index: 10; }
-        .photo-item:hover .item-actions { opacity: 1; }
-        .item-action-btn { background: rgba(0,0,0,0.8); color: #f7f2d5; border: 1px solid rgba(247,242,213,0.2); border-radius: 3px; padding: 2px 7px; cursor: pointer; font-size: 13px; line-height: 1.6; font-family: 'IBM Plex Mono', monospace; }
-        .item-action-btn:hover { background: rgba(247,242,213,0.15); }
+      /* Hover action buttons */
+      .item-actions {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        display: flex;
+        gap: 3px;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 10;
+      }
+      .photo-item:hover .item-actions {
+        opacity: 1;
+      }
+      .item-action-btn {
+        background: rgba(0, 0, 0, 0.8);
+        color: #f7f2d5;
+        border: 1px solid rgba(247, 242, 213, 0.2);
+        border-radius: 3px;
+        padding: 2px 7px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1.6;
+        font-family: 'IBM Plex Mono', monospace;
+      }
+      .item-action-btn:hover {
+        background: rgba(247, 242, 213, 0.15);
+      }
 
-        /* Lightbox */
-        #preview-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 2000; align-items: center; justify-content: center; }
-        #preview-overlay.active { display: flex; }
-        #preview-inner { position: relative; max-width: 96vw; max-height: 96vh; display: flex; align-items: center; justify-content: center; }
-        #preview-img { max-width: 96vw; max-height: 96vh; border-radius: 8px; box-shadow: 0 8px 48px rgba(0,0,0,0.8); display: block; }
-        #preview-close { position: fixed; top: 20px; right: 24px; background: transparent; border: 1px solid rgba(247,242,213,0.3); color: #f7f2d5; font-size: 22px; line-height: 1; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: monospace; }
-        #preview-close:hover { background: rgba(247,242,213,0.1); }
+      /* Lightbox */
+      #preview-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.88);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+      }
+      #preview-overlay.active {
+        display: flex;
+      }
+      #preview-inner {
+        position: relative;
+        max-width: 96vw;
+        max-height: 96vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #preview-img {
+        max-width: 96vw;
+        max-height: 96vh;
+        border-radius: 8px;
+        box-shadow: 0 8px 48px rgba(0, 0, 0, 0.8);
+        display: block;
+      }
+      #preview-close {
+        position: fixed;
+        top: 20px;
+        right: 24px;
+        background: transparent;
+        border: 1px solid rgba(247, 242, 213, 0.3);
+        color: #f7f2d5;
+        font-size: 22px;
+        line-height: 1;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: monospace;
+      }
+      #preview-close:hover {
+        background: rgba(247, 242, 213, 0.1);
+      }
 
-        .btn { padding: 7px 14px; background: transparent; color: rgba(247,242,213,0.8); border: 1px solid rgba(247,242,213,0.2); border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
-        .btn:hover { background: rgba(247,242,213,0.08); color: #f7f2d5; }
-        .btn-download-all { margin-bottom: 20px; }
-        #logout-btn { float: right; margin-top: -46px; }
+      .btn {
+        padding: 7px 14px;
+        background: transparent;
+        color: rgba(247, 242, 213, 0.8);
+        border: 1px solid rgba(247, 242, 213, 0.2);
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+      }
+      .btn:hover {
+        background: rgba(247, 242, 213, 0.08);
+        color: #f7f2d5;
+      }
+      .btn-download-all {
+        margin-bottom: 20px;
+      }
+      #logout-btn {
+        float: right;
+        margin-top: -46px;
+      }
 
-        /* Event bar */
-        #event-bar { background: #0d0d0d; border: 1px solid rgba(247,242,213,0.1); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-        #event-bar label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(247,242,213,0.4); white-space: nowrap; }
-        #event-id-display { font-size: 13px; color: #f7f2d5; }
+      /* Event bar */
+      #event-bar {
+        background: #0d0d0d;
+        border: 1px solid rgba(247, 242, 213, 0.1);
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #event-bar label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(247, 242, 213, 0.4);
+        white-space: nowrap;
+      }
+      #event-id-display {
+        font-size: 13px;
+        color: #f7f2d5;
+      }
 
-        /* Tabs Styling */
-        .tabs { border-bottom: 1px solid rgba(247,242,213,0.15); margin-bottom: 20px; display: flex; gap: 4px; }
-        .tab-btn { padding: 8px 18px; border: none; background: transparent; color: rgba(247,242,213,0.5); border-top-left-radius: 4px; border-top-right-radius: 4px; cursor: pointer; transition: 0.2s; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.05em; }
-        .tab-btn:hover { color: rgba(247,242,213,0.8); background: rgba(247,242,213,0.04); }
-        .tab-btn.active { background: rgba(247,242,213,0.08); color: #f7f2d5; border: 1px solid rgba(247,242,213,0.15); border-bottom: 1px solid #000; margin-bottom: -1px; }
+      /* Tabs Styling */
+      .tabs {
+        border-bottom: 1px solid rgba(247, 242, 213, 0.15);
+        margin-bottom: 20px;
+        display: flex;
+        gap: 4px;
+      }
+      .tab-btn {
+        padding: 8px 18px;
+        border: none;
+        background: transparent;
+        color: rgba(247, 242, 213, 0.5);
+        border-top-left-radius: 4px;
+        border-top-right-radius: 4px;
+        cursor: pointer;
+        transition: 0.2s;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+      }
+      .tab-btn:hover {
+        color: rgba(247, 242, 213, 0.8);
+        background: rgba(247, 242, 213, 0.04);
+      }
+      .tab-btn.active {
+        background: rgba(247, 242, 213, 0.08);
+        color: #f7f2d5;
+        border: 1px solid rgba(247, 242, 213, 0.15);
+        border-bottom: 1px solid #000;
+        margin-bottom: -1px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>Admin Panel</h1>
+      <h1>Admin Panel</h1>
 
-        <div id="login-form" class="login-box">
-            <h2>Enter Password</h2>
-            <input type="password" id="admin-password" placeholder="Password">
-            <button id="login-btn">Login</button>
+      <div id="login-form" class="login-box">
+        <h2>Enter Password</h2>
+        <input type="password" id="admin-password" placeholder="Password" />
+        <button id="login-btn">Login</button>
+      </div>
+
+      <div id="admin-content" class="admin-controls">
+        <button id="logout-btn" class="btn">Logout</button>
+
+        <div id="event-bar">
+          <label>Active Event</label>
+          <span id="event-id-display">Loading...</span>
         </div>
 
-        <div id="admin-content" class="admin-controls">
-            <button id="logout-btn" class="btn">Logout</button>
+        <button id="download-zip-btn" class="btn btn-download-all">Download All as ZIP</button>
 
-            <div id="event-bar">
-                <label>Active Event</label>
-                <span id="event-id-display">Loading...</span>
-            </div>
-
-            <button id="download-zip-btn" class="btn btn-download-all">Download All as ZIP</button>
-
-            <div class="selection-controls">
-                <button id="download-selected-btn" class="btn" style="background: #6c757d;">Download Selected</button>
-                <button id="select-all-btn" class="btn" style="background: #fff; color: #333; border: 1px solid #ccc;">Select All</button>
-                <button id="clear-selection-btn" class="btn" style="background: #fff; color: #333; border: 1px solid #ccc;">Clear Selection</button>
-            </div>
-
-            <div class="tabs">
-                <button class="tab-btn active" data-tab="collages">Collages</button>
-                <button class="tab-btn" data-tab="raws">Raw Images</button>
-            </div>
-
-            <div id="sessions-list"></div>
-
-            <div id="load-more-wrap" style="display: none; text-align: center; margin: 24px 0;">
-                <button id="load-more-btn" class="btn">Load more</button>
-                <div id="photo-count" style="margin-top: 10px; font-size: 12px; color: rgba(247,242,213,0.5); font-family: 'IBM Plex Mono', monospace;"></div>
-            </div>
+        <div class="selection-controls">
+          <button id="download-selected-btn" class="btn" style="background: #6c757d">
+            Download Selected
+          </button>
+          <button
+            id="select-all-btn"
+            class="btn"
+            style="background: #fff; color: #333; border: 1px solid #ccc"
+          >
+            Select All
+          </button>
+          <button
+            id="clear-selection-btn"
+            class="btn"
+            style="background: #fff; color: #333; border: 1px solid #ccc"
+          >
+            Clear Selection
+          </button>
         </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="collages">Collages</button>
+          <button class="tab-btn" data-tab="raws">Raw Images</button>
+        </div>
+
+        <div id="sessions-list"></div>
+
+        <div id="load-more-wrap" style="display: none; text-align: center; margin: 24px 0">
+          <button id="load-more-btn" class="btn">Load more</button>
+          <div
+            id="photo-count"
+            style="
+              margin-top: 10px;
+              font-size: 12px;
+              color: rgba(247, 242, 213, 0.5);
+              font-family: 'IBM Plex Mono', monospace;
+            "
+          ></div>
+        </div>
+      </div>
     </div>
 
     <!-- Lightbox -->
     <div id="preview-overlay">
-        <div id="preview-inner">
-            <img id="preview-img" src="" alt="">
-        </div>
-        <button id="preview-close" aria-label="Close preview">×</button>
+      <div id="preview-inner">
+        <img id="preview-img" src="" alt="" />
+      </div>
+      <button id="preview-close" aria-label="Close preview">×</button>
     </div>
 
+    <script src="error-reporter.js"></script>
     <script src="admin.js"></script>
-</body>
+  </body>
 </html>

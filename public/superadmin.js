@@ -8,6 +8,7 @@ async function loadConfig() {
   } catch {
     /* use fallback */
   }
+  if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(API_BASE);
 }
 
 function setupPreviewLightbox() {

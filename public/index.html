@@ -1,137 +1,171 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Photobooth</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="style.css" />
-  <link rel="manifest" href="/manifest.json" />
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Photobooth</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="/manifest.json" />
+  </head>
+  <body>
+    <!-- White flash on capture -->
+    <div id="flash-overlay"></div>
 
-  <!-- White flash on capture -->
-  <div id="flash-overlay"></div>
-
-  <!-- Full-screen error overlay (camera / config failures) -->
-  <div id="error-overlay" class="error-overlay">
-    <div class="error-card">
-      <div class="error-icon">&#9888;</div>
-      <div class="error-title" id="error-title">Error</div>
-      <div class="error-msg" id="error-msg"></div>
-      <div class="error-retry-label" id="error-retry-label">Retrying&hellip;</div>
-    </div>
-  </div>
-
-  <!-- CAMERA / IDLE SCREEN -->
-  <div id="idle-screen" class="screen active">
-    <div class="camera-wrap">
-      <canvas id="camera-canvas"></canvas>
-      <div class="camera-overlay">
-        <div id="shot-counter" class="shot-counter"></div>
-        <div id="countdown-overlay" class="countdown-overlay"></div>
-        <div id="press-hint" class="press-hint hidden">PRESS TO START</div>
+    <!-- Full-screen error overlay (camera / config failures) -->
+    <div id="error-overlay" class="error-overlay">
+      <div class="error-card">
+        <div class="error-icon">&#9888;</div>
+        <div class="error-title" id="error-title">Error</div>
+        <div class="error-msg" id="error-msg"></div>
+        <div class="error-retry-label" id="error-retry-label">Retrying&hellip;</div>
       </div>
     </div>
-    <!-- Shown before camera permission granted -->
-    <h1 id="idle-text">PRESS TO START</h1>
 
-    <!-- Peace sign progress ring -->
-    <svg id="peace-progress" viewBox="0 0 120 120">
-      <circle cx="60" cy="60" r="54" stroke-width="6" fill="none"
-              stroke="rgba(255,255,255,0.2)" />
-      <circle id="peace-ring" cx="60" cy="60" r="54" stroke-width="6" fill="none"
-              stroke="gold" stroke-linecap="round"
-              stroke-dasharray="339.292" stroke-dashoffset="339.292" />
-      <text id="gesture-emoji" x="60" y="68" text-anchor="middle" font-size="32" fill="white">✌️</text>
-    </svg>
-
-    <video id="video" autoplay playsinline style="display:none;"></video>
-
-    <!-- Reset session button (visible once shots are in progress) -->
-    <button id="reset-btn" class="reset-session-btn hidden">↩ Reset</button>
-
-    <!-- Info button to reopen instructions -->
-    <button id="info-btn" class="info-btn" aria-label="How it works">i</button>
-
-    <!-- Offline upload queue depth indicator (shown only when > 0) -->
-    <div id="queue-badge" class="queue-badge hidden" aria-live="polite"></div>
-
-    <!-- Instruction popup -->
-    <div id="instruction-overlay" class="instruction-overlay">
-      <div class="instruction-card">
-        <h2>How It Works</h2>
-        <ol id="instruction-rules"></ol>
-        <p class="instruction-disclaimer" id="instruction-disclaimer"></p>
-        <button id="instruction-close-btn" class="instruction-close-btn">Got It</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- TEMPLATE SELECTION SCREEN -->
-  <div id="template-screen" class="screen">
-    <div class="template-layout">
-      <h2>CHOOSE A TEMPLATE<span>select your style</span></h2>
-      <div id="template-grid" class="template-grid"></div>
-      <div class="template-actions">
-        <button id="template-reset-btn" class="reset-session-btn">↩ Start Over</button>
-        <button id="confirm-btn">Confirm Selection</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- RESULT SCREEN -->
-  <div id="result-screen" class="screen">
-    <div class="result-layout">
-      <div class="result-photo-wrap">
-        <canvas id="photo-canvas"></canvas>
-      </div>
-      <div class="result-qr-wrap">
-        <div class="qr-card">
-          <p id="scan-to-download-text">Scan to Download</p>
-          <img id="qr-img" alt="QR Code" />
-          <p id="upload-status" style="font-size:12px;opacity:0.6;margin:4px 0 0;text-align:center;"></p>
+    <!-- CAMERA / IDLE SCREEN -->
+    <div id="idle-screen" class="screen active">
+      <div class="camera-wrap">
+        <canvas id="camera-canvas"></canvas>
+        <div class="camera-overlay">
+          <div id="shot-counter" class="shot-counter"></div>
+          <div id="countdown-overlay" class="countdown-overlay"></div>
+          <div id="press-hint" class="press-hint hidden">PRESS TO START</div>
         </div>
-        <div class="result-actions">
-          <button id="back-btn">Start Over</button>
-          <div class="reset-countdown">
-            <span id="reset-label">Restarting in <span id="reset-seconds"></span>s</span>
-            <div class="reset-bar-wrap">
-              <div id="reset-bar"></div>
+      </div>
+      <!-- Shown before camera permission granted -->
+      <h1 id="idle-text">PRESS TO START</h1>
+
+      <!-- Peace sign progress ring -->
+      <svg id="peace-progress" viewBox="0 0 120 120">
+        <circle
+          cx="60"
+          cy="60"
+          r="54"
+          stroke-width="6"
+          fill="none"
+          stroke="rgba(255,255,255,0.2)"
+        />
+        <circle
+          id="peace-ring"
+          cx="60"
+          cy="60"
+          r="54"
+          stroke-width="6"
+          fill="none"
+          stroke="gold"
+          stroke-linecap="round"
+          stroke-dasharray="339.292"
+          stroke-dashoffset="339.292"
+        />
+        <text id="gesture-emoji" x="60" y="68" text-anchor="middle" font-size="32" fill="white">
+          ✌️
+        </text>
+      </svg>
+
+      <video id="video" autoplay playsinline style="display: none"></video>
+
+      <!-- Reset session button (visible once shots are in progress) -->
+      <button id="reset-btn" class="reset-session-btn hidden">↩ Reset</button>
+
+      <!-- Info button to reopen instructions -->
+      <button id="info-btn" class="info-btn" aria-label="How it works">i</button>
+
+      <!-- Offline upload queue depth indicator (shown only when > 0) -->
+      <div id="queue-badge" class="queue-badge hidden" aria-live="polite"></div>
+
+      <!-- Instruction popup -->
+      <div id="instruction-overlay" class="instruction-overlay">
+        <div class="instruction-card">
+          <h2>How It Works</h2>
+          <ol id="instruction-rules"></ol>
+          <p class="instruction-disclaimer" id="instruction-disclaimer"></p>
+          <button id="instruction-close-btn" class="instruction-close-btn">Got It</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPLATE SELECTION SCREEN -->
+    <div id="template-screen" class="screen">
+      <div class="template-layout">
+        <h2>CHOOSE A TEMPLATE<span>select your style</span></h2>
+        <div id="template-grid" class="template-grid"></div>
+        <div class="template-actions">
+          <button id="template-reset-btn" class="reset-session-btn">↩ Start Over</button>
+          <button id="confirm-btn">Confirm Selection</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT SCREEN -->
+    <div id="result-screen" class="screen">
+      <div class="result-layout">
+        <div class="result-photo-wrap">
+          <canvas id="photo-canvas"></canvas>
+        </div>
+        <div class="result-qr-wrap">
+          <div class="qr-card">
+            <p id="scan-to-download-text">Scan to Download</p>
+            <img id="qr-img" alt="QR Code" />
+            <p
+              id="upload-status"
+              style="font-size: 12px; opacity: 0.6; margin: 4px 0 0; text-align: center"
+            ></p>
+          </div>
+          <div class="result-actions">
+            <button id="back-btn">Start Over</button>
+            <div class="reset-countdown">
+              <span id="reset-label">Restarting in <span id="reset-seconds"></span>s</span>
+              <div class="reset-bar-wrap">
+                <div id="reset-bar"></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- LANDING SCREEN (shown when no ?event= param is present) -->
-  <div id="landing-screen" class="landing-screen" hidden>
-    <div class="landing-card">
-      <h1 class="landing-heading">Photo Booth</h1>
-      <p class="landing-tagline">A self-serve photo booth for your event — guests snap, pick a template, and download their collage by QR code.</p>
-      <ul class="landing-features">
-        <li>Instant collages composed from multiple shots</li>
-        <li>QR code download — no app, no login required</li>
-        <li>Live slideshow display for the room</li>
-      </ul>
-      <a class="landing-demo-btn" href="/?event=test">Try the demo booth</a>
-      <div class="landing-form-wrap">
-        <h2 class="landing-form-heading">Get in touch</h2>
-        <form name="inquiry" method="POST" data-netlify="true" netlify-honeypot="bot-field" id="inquiry-form">
-          <input type="hidden" name="form-name" value="inquiry" />
-          <p class="hp" hidden><label>Don't fill this out: <input name="bot-field" /></label></p>
-          <input name="name" type="text" placeholder="Your name" required />
-          <input name="email" type="email" placeholder="Email" required />
-          <textarea name="message" placeholder="Tell me about your event…" required></textarea>
-          <button type="submit">Send Inquiry</button>
-        </form>
-        <p id="landing-form-status" hidden></p>
+    <!-- LANDING SCREEN (shown when no ?event= param is present) -->
+    <div id="landing-screen" class="landing-screen" hidden>
+      <div class="landing-card">
+        <h1 class="landing-heading">Photo Booth</h1>
+        <p class="landing-tagline">
+          A self-serve photo booth for your event — guests snap, pick a template, and download their
+          collage by QR code.
+        </p>
+        <ul class="landing-features">
+          <li>Instant collages composed from multiple shots</li>
+          <li>QR code download — no app, no login required</li>
+          <li>Live slideshow display for the room</li>
+        </ul>
+        <a class="landing-demo-btn" href="/?event=test">Try the demo booth</a>
+        <div class="landing-form-wrap">
+          <h2 class="landing-form-heading">Get in touch</h2>
+          <form
+            name="inquiry"
+            method="POST"
+            data-netlify="true"
+            netlify-honeypot="bot-field"
+            id="inquiry-form"
+          >
+            <input type="hidden" name="form-name" value="inquiry" />
+            <p class="hp" hidden>
+              <label>Don't fill this out: <input name="bot-field" /></label>
+            </p>
+            <input name="name" type="text" placeholder="Your name" required />
+            <input name="email" type="email" placeholder="Email" required />
+            <textarea name="message" placeholder="Tell me about your event…" required></textarea>
+            <button type="submit">Send Inquiry</button>
+          </form>
+          <p id="landing-form-status" hidden></p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script src="vendor/qrcode.min.js"></script>
-  <script src="offline-queue.js"></script>
-  <script src="main.js"></script>
-</body>
+    <script src="error-reporter.js"></script>
+    <script src="vendor/qrcode.min.js"></script>
+    <script src="offline-queue.js"></script>
+    <script src="main.js"></script>
+  </body>
 </html>
