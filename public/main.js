@@ -1128,13 +1128,12 @@ function attachEventListeners() {
     }
   });
 
-  // WebHID — AB Shutter3 trigger (reportId=2, data[0]=1 on press)
+  // WebHID — AB Shutter3 trigger (reportId=2, data[0]=1 on press).
+  // Auto-connects to every granted device; granting access via the browser
+  // permission prompt is the filter.
   if (navigator.hid) {
     navigator.hid.getDevices().then((devices) => {
       devices.forEach(async (device) => {
-        const filter = CONFIG?.hidFilter;
-        if (filter?.vendorId != null && device.vendorId !== filter.vendorId) return;
-        if (filter?.productId != null && device.productId !== filter.productId) return;
         try {
           if (!device.opened) await device.open();
           console.log(

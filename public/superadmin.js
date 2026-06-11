@@ -1,36 +1,4 @@
-const FALLBACK_API = 'https://photobooth-server-production.up.railway.app';
-let API_BASE = FALLBACK_API;
-
-async function loadConfig() {
-  try {
-    const cfg = await fetch('config.json').then((r) => r.json());
-    if (cfg.serverUrl) API_BASE = cfg.serverUrl;
-  } catch {
-    /* use fallback */
-  }
-  if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(API_BASE);
-}
-
-function setupPreviewLightbox() {
-  const overlay = document.getElementById('preview-overlay');
-  const img = document.getElementById('preview-img');
-  const closeBtn = document.getElementById('preview-close');
-  function close() {
-    overlay.classList.remove('active');
-    img.src = '';
-  }
-  closeBtn.addEventListener('click', close);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') close();
-  });
-  window._showPreview = (url) => {
-    img.src = url;
-    overlay.classList.add('active');
-  };
-}
+// FALLBACK_API / API_BASE / loadConfig / setupPreviewLightbox come from panel-common.js
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
@@ -707,8 +675,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         headers: authHeaders(),
         body: JSON.stringify({ prefix: prefix || undefined }),
       });
-      if (res.status === 401) { handle401(); return; }
-      if (!res.ok) { alert('Download failed.'); return; }
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Download failed.');
+        return;
+      }
       const { token } = await res.json();
       window.location = `${API_BASE}/api/superadmin/zip/${token}`;
     } catch (err) {
@@ -731,8 +705,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         headers: authHeaders(),
         body: JSON.stringify({ keys }),
       });
-      if (res.status === 401) { handle401(); return; }
-      if (!res.ok) { alert('Download failed.'); return; }
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Download failed.');
+        return;
+      }
       const { token } = await res.json();
       window.location = `${API_BASE}/api/superadmin/zip/${token}`;
     } catch (err) {
@@ -751,8 +731,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         headers: authHeaders(),
         body: JSON.stringify({ keys: [key] }),
       });
-      if (res.status === 401) { handle401(); return; }
-      if (!res.ok) { alert('Download failed.'); return; }
+      if (res.status === 401) {
+        handle401();
+        return;
+      }
+      if (!res.ok) {
+        alert('Download failed.');
+        return;
+      }
       const { token } = await res.json();
       window.location = `${API_BASE}/api/superadmin/zip/${token}`;
     } catch (err) {

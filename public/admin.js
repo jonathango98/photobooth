@@ -1,48 +1,17 @@
-const FALLBACK_API = 'https://photobooth-server-production.up.railway.app';
-let API_BASE = FALLBACK_API;
+// FALLBACK_API / API_BASE / loadConfig / setupPreviewLightbox come from panel-common.js
 
 let collageAspect = '9 / 16';
 let rawAspect = '16 / 9';
 
-async function loadConfig() {
-  try {
-    const cfg = await fetch('config.json').then((r) => r.json());
-    if (cfg.serverUrl) API_BASE = cfg.serverUrl;
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig((cfg) => {
     if (cfg.templates?.[0]) {
       collageAspect = `${cfg.templates[0].width} / ${cfg.templates[0].height}`;
     }
     if (cfg.capture?.photoWidth && cfg.capture?.photoHeight) {
       rawAspect = `${cfg.capture.photoWidth} / ${cfg.capture.photoHeight}`;
     }
-  } catch {
-    /* use fallback */
-  }
-  if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(API_BASE);
-}
-
-function setupPreviewLightbox() {
-  const overlay = document.getElementById('preview-overlay');
-  const img = document.getElementById('preview-img');
-  const closeBtn = document.getElementById('preview-close');
-  function close() {
-    overlay.classList.remove('active');
-    img.src = '';
-  }
-  closeBtn.addEventListener('click', close);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close();
   });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') close();
-  });
-  window._showPreview = (url) => {
-    img.src = url;
-    overlay.classList.add('active');
-  };
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadConfig();
   setupPreviewLightbox();
   const loginForm = document.getElementById('login-form');
   const adminContent = document.getElementById('admin-content');

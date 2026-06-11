@@ -1,9 +1,9 @@
 async function loadServerUrl() {
   try {
     const cfg = await fetch('../config.json').then((r) => r.json());
-    return cfg.serverUrl || 'https://photobooth-server-production.up.railway.app';
+    return cfg.serverUrl || window.PANEL_FALLBACK_API;
   } catch {
-    return 'https://photobooth-server-production.up.railway.app';
+    return window.PANEL_FALLBACK_API;
   }
 }
 
