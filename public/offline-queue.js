@@ -61,11 +61,6 @@ window.OfflineQueue = {
     });
   },
 
-  async peekQueue() {
-    const store = await tx("readonly");
-    return idbAll(store);
-  },
-
   async drainQueue(serverUrl) {
     const depth = await this.getQueueDepth();
     if (depth === 0) return;

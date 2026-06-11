@@ -1,11 +1,11 @@
 {
-  "siteName": "IFGF NextGen Photo Booth",
+  "siteName": "Photo Booth",
 
   "serverUrl": "https://photobooth-server-production.up.railway.app",
 
   "templates": [
     {
-      "file": "templates/template-1.png",
+      "file": "templates/nextgen/1.png",
       "width": 1080,
       "height": 1920,
       "slots": [
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "file": "templates/template-2.png",
+      "file": "templates/nextgen/2.png",
       "width": 1080,
       "height": 1920,
       "slots": [
@@ -25,7 +25,7 @@
       ]
     },
     {
-      "file": "templates/template-3.png",
+      "file": "templates/nextgen/3.png",
       "width": 1080,
       "height": 1920,
       "slots": [
