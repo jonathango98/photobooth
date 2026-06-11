@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v9";
+const CACHE = "booth-shell-v10";
 
 const SHELL = [
   "/index.html",
@@ -15,7 +15,6 @@ const SHELL = [
   "/vendor/fonts/IBMPlexMono-Regular.woff2",
   "/config.json",
   "/assets/background.webp",
-  "/assets/background2.webp",
 ];
 
 self.addEventListener("install", (e) => {

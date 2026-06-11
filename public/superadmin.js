@@ -68,7 +68,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pendingMoveSourceKey = null;
   let eventFormMode = null; // 'create' or 'edit'
   let eventFormEditId = null;
-  let eventFormEditIsActive = false;
   let selectedEventIds = new Set();
   let allEvents = [];
 
@@ -1260,7 +1259,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const src = event || prefill;
     eventFormMode = event ? 'edit' : 'create';
     eventFormEditId = event ? event.event_id : null;
-    eventFormEditIsActive = event ? (event.is_active ?? false) : false;
     eventFormTitle.textContent = event ? 'Edit Event' : prefill ? 'Duplicate Event' : 'New Event';
 
     const idInput = document.getElementById('ef-event-id');
@@ -1328,7 +1326,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const eventData = {
       event_id: document.getElementById('ef-event-id').value.trim(),
       event_name: document.getElementById('ef-event-name').value.trim(),
-      is_active: eventFormMode === 'edit' ? eventFormEditIsActive : false,
       background_url: document.getElementById('ef-background-url').value.trim() || null,
       ...(document.getElementById('ef-admin-password').value.trim()
         ? { admin_password: document.getElementById('ef-admin-password').value.trim() }
