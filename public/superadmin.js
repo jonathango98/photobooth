@@ -698,71 +698,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   async function downloadZip(prefix) {
-    const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
+    const prevText = downloadAllBtn.textContent;
+    downloadAllBtn.disabled = true;
+    downloadAllBtn.textContent = 'Preparing…';
     try {
-      const res = await fetch(`${API_BASE}/api/superadmin/download-zip${qs}`, {
+      const res = await fetch(`${API_BASE}/api/superadmin/mint-download-token`, {
+        method: 'POST',
         headers: authHeaders(),
+        body: JSON.stringify({ prefix: prefix || undefined }),
       });
-      if (res.status === 401) {
-        handle401();
-        return;
-      }
-      if (!res.ok) {
-        alert('Download failed.');
-        return;
-      }
-      const blob = await res.blob();
-      triggerBlobDownload(
-        blob,
-        prefix ? `${prefix.replace(/\//g, '_').replace(/_$/, '')}.zip` : 'all.zip'
-      );
+      if (res.status === 401) { handle401(); return; }
+      if (!res.ok) { alert('Download failed.'); return; }
+      const { token } = await res.json();
+      window.location = `${API_BASE}/api/superadmin/zip/${token}`;
     } catch (err) {
       console.error(err);
       alert('Download error.');
+    } finally {
+      downloadAllBtn.disabled = false;
+      downloadAllBtn.textContent = prevText;
     }
   }
 
   async function downloadSelectedZip() {
     const keys = Array.from(selectedKeys);
+    const prevText = downloadSelectedBtn.textContent;
+    downloadSelectedBtn.disabled = true;
+    downloadSelectedBtn.textContent = 'Preparing…';
     try {
-      const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
+      const res = await fetch(`${API_BASE}/api/superadmin/mint-download-token`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ keys }),
       });
-      if (res.status === 401) {
-        handle401();
-        return;
-      }
-      if (!res.ok) {
-        alert('Download failed.');
-        return;
-      }
-      const blob = await res.blob();
-      triggerBlobDownload(blob, 'selected.zip');
+      if (res.status === 401) { handle401(); return; }
+      if (!res.ok) { alert('Download failed.'); return; }
+      const { token } = await res.json();
+      window.location = `${API_BASE}/api/superadmin/zip/${token}`;
     } catch (err) {
       console.error(err);
       alert('Download error.');
+    } finally {
+      downloadSelectedBtn.disabled = false;
+      downloadSelectedBtn.textContent = prevText;
     }
   }
 
   async function downloadSelectedZipForKey(key) {
     try {
-      const res = await fetch(`${API_BASE}/api/superadmin/download-selected`, {
+      const res = await fetch(`${API_BASE}/api/superadmin/mint-download-token`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ keys: [key] }),
       });
-      if (res.status === 401) {
-        handle401();
-        return;
-      }
-      if (!res.ok) {
-        alert('Download failed.');
-        return;
-      }
-      const blob = await res.blob();
-      triggerBlobDownload(blob, key.split('/').pop());
+      if (res.status === 401) { handle401(); return; }
+      if (!res.ok) { alert('Download failed.'); return; }
+      const { token } = await res.json();
+      window.location = `${API_BASE}/api/superadmin/zip/${token}`;
     } catch (err) {
       console.error(err);
       alert('Download error.');
@@ -777,17 +769,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }
-
-  function triggerBlobDownload(blob, filename) {
-    const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objUrl);
   }
 
   // --- Move / Rename ---
