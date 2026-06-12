@@ -615,6 +615,34 @@ function resetIdleInactivityTimer() {
 }
 
 // ---------------------------
+// Camera canvas sizing (responsive)
+// ---------------------------
+function sizeCameraCanvas() {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return;
+  const aspect = vw / vh;
+  const maxW = Math.min(1000, window.innerWidth * 0.94);
+  const maxH = window.innerHeight * 0.88;
+  let dispW = maxW;
+  let dispH = dispW / aspect;
+  if (dispH > maxH) { dispH = maxH; dispW = dispH * aspect; }
+  cameraCanvas.style.width = `${Math.round(dispW)}px`;
+  cameraCanvas.style.height = `${Math.round(dispH)}px`;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cameraCanvas.width = Math.min(Math.round(dispW * dpr), vw);
+  cameraCanvas.height = Math.min(Math.round(dispH * dpr), vh);
+}
+
+let _resizeTimer = null;
+function _onViewportChange() {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(sizeCameraCanvas, 150);
+}
+window.addEventListener('resize', _onViewportChange);
+window.addEventListener('orientationchange', _onViewportChange);
+
+// ---------------------------
 // Camera start
 // ---------------------------
 async function startCamera() {
@@ -631,16 +659,8 @@ async function startCamera() {
 
     video.srcObject = stream;
     video.onloadedmetadata = () => {
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      if (!vw || !vh) return;
-
-      const aspect = vw / vh;
-      const displayWidth = 1000;
-      const displayHeight = displayWidth / aspect;
-
-      cameraCanvas.width = displayWidth;
-      cameraCanvas.height = displayHeight;
+      sizeCameraCanvas();
+      if (!video.videoWidth || !video.videoHeight) return;
 
       if (idleText) idleText.style.display = 'none';
       if (pressHint) pressHint.classList.remove('hidden');
@@ -927,8 +947,7 @@ async function buildTemplateCollage(templateIndex = 0) {
   const qrMargin = CONFIG.qr?.margin ?? null;
   if (qrImg) {
     qrImg.src = generateQRDataURL(qrUrl, qrSize, qrMargin);
-    qrImg.style.width = `${qrSize}px`;
-    qrImg.style.height = `${qrSize}px`;
+    qrImg.style.setProperty('--qr-size', `${qrSize}px`);
   }
 }
 

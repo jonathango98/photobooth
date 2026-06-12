@@ -14,6 +14,7 @@
   --teal: #5a9ea0;
   --gold: #c9a453;
   --text: #e8dcc8;
+  --corner-inset: clamp(10px, 2vmin, 18px);
 }
 
 * {
@@ -36,6 +37,7 @@ body {
   background-repeat: no-repeat;
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
 }
 
@@ -100,8 +102,8 @@ body::after {
   display: block;
   width: auto;
   height: auto;
-  max-width: 1000px;
-  max-height: 90vh;
+  max-width: min(1000px, 94vw);
+  max-height: 88vh;
   border-radius: 16px;
   box-shadow:
     0 0 0 1px rgba(201, 164, 83, 0.3),
@@ -121,8 +123,8 @@ body::after {
 /* Shot counter pill */
 .shot-counter {
   position: absolute;
-  top: 18px;
-  left: 18px;
+  top: var(--corner-inset);
+  left: var(--corner-inset);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 1.4rem;
   font-weight: 700;
@@ -178,7 +180,7 @@ body::after {
 /* Press hint */
 .press-hint {
   position: absolute;
-  bottom: 24px;
+  bottom: clamp(12px, 2.5vmin, 24px);
   left: 50%;
   transform: translateX(-50%);
   font-family: 'IBM Plex Mono', monospace;
@@ -204,8 +206,8 @@ body::after {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 120px;
-  height: 120px;
+  width: clamp(80px, 14vmin, 120px);
+  height: clamp(80px, 14vmin, 120px);
   z-index: 20;
   display: none;
   pointer-events: none;
@@ -277,11 +279,11 @@ body::after {
 
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 40vw), 1fr));
   justify-content: center;
-  gap: 28px;
+  gap: clamp(12px, 3vmin, 28px);
   width: 100%;
-  max-width: 900px;
+  max-width: min(900px, 94vw);
   margin: 0 auto;
   padding: 8px;
 }
@@ -377,7 +379,7 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 48px;
+  gap: clamp(20px, 4vmin, 48px);
   max-width: 90vw;
 }
 
@@ -433,8 +435,8 @@ body::after {
 }
 
 #qr-img {
-  width: 220px;
-  height: 220px;
+  width: min(var(--qr-size, 300px), 26vmin);
+  height: min(var(--qr-size, 300px), 26vmin);
   border-radius: 10px;
   display: block;
 }
@@ -533,8 +535,8 @@ body::after {
 /* Reset button overlaid on camera screen (top-left) */
 #reset-btn {
   position: absolute;
-  top: 18px;
-  left: 18px;
+  top: var(--corner-inset);
+  left: var(--corner-inset);
   z-index: 20;
 }
 
@@ -552,8 +554,8 @@ body::after {
 ======================== */
 .info-btn {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: var(--corner-inset);
+  right: var(--corner-inset);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -582,8 +584,8 @@ body::after {
 /* Offline upload queue depth badge (bottom-left of idle screen) */
 .queue-badge {
   position: absolute;
-  bottom: 18px;
-  left: 18px;
+  bottom: var(--corner-inset);
+  left: var(--corner-inset);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -767,6 +769,28 @@ body::after {
   color: rgba(247, 242, 213, 0.4);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* Portrait / narrow viewport: stack result screen vertically */
+@media (max-width: 900px) {
+  .result-layout {
+    flex-direction: column;
+    gap: 20px;
+    max-height: 96vh;
+  }
+  #photo-canvas {
+    max-width: 80vw;
+    max-height: 52vh;
+  }
+  .result-layout.landscape #photo-canvas {
+    max-width: 90vw;
+    max-height: 40vh;
+  }
+  .result-qr-wrap {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+  }
 }
 
 /* Landscape tablet adjustments */
