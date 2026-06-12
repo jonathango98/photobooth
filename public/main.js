@@ -615,13 +615,53 @@ function resetIdleInactivityTimer() {
 }
 
 // ---------------------------
+// Capture crop helper
+// ---------------------------
+// Returns the center-crop rectangle {sx, sy, sw, sh} from the raw video frame
+// that matches the target capture aspect ratio (CONFIG.capture.photoWidth/Height).
+// Used by both captureOneShot() and the render loop so what guests see is
+// exactly what gets captured.
+function computeCaptureCrop(vw, vh) {
+  let targetAspect;
+  if (CONFIG && CONFIG.capture) {
+    targetAspect = CONFIG.capture.photoWidth / CONFIG.capture.photoHeight;
+  } else {
+    targetAspect = vw / vh; // fall back to full frame before CONFIG loads
+  }
+  const videoAspect = vw / vh;
+  let sx, sy, sw, sh;
+  if (videoAspect > targetAspect) {
+    // Video is wider than target — crop left/right
+    sh = vh;
+    sw = sh * targetAspect;
+    sx = (vw - sw) / 2;
+    sy = 0;
+  } else {
+    // Video is taller than target — crop top/bottom
+    sw = vw;
+    sh = sw / targetAspect;
+    sx = 0;
+    sy = (vh - sh) / 2;
+  }
+  return { sx, sy, sw, sh };
+}
+
+// ---------------------------
 // Camera canvas sizing (responsive)
 // ---------------------------
 function sizeCameraCanvas() {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   if (!vw || !vh) return;
-  const aspect = vw / vh;
+  // Use the capture aspect ratio so the canvas box is always 16:9 (matching
+  // what captureOneShot() will actually save). Fall back to raw video aspect
+  // if CONFIG hasn't loaded yet (will be re-called once it has).
+  let aspect;
+  if (CONFIG && CONFIG.capture) {
+    aspect = CONFIG.capture.photoWidth / CONFIG.capture.photoHeight;
+  } else {
+    aspect = vw / vh;
+  }
   const maxW = Math.min(1000, window.innerWidth * 0.94);
   const maxH = window.innerHeight * 0.88;
   let dispW = maxW;
@@ -630,8 +670,10 @@ function sizeCameraCanvas() {
   cameraCanvas.style.width = `${Math.round(dispW)}px`;
   cameraCanvas.style.height = `${Math.round(dispH)}px`;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cameraCanvas.width = Math.min(Math.round(dispW * dpr), vw);
-  cameraCanvas.height = Math.min(Math.round(dispH * dpr), vh);
+  // Cap backing store at the crop source dimensions (not full video dimensions)
+  const { sw: cropW, sh: cropH } = computeCaptureCrop(vw, vh);
+  cameraCanvas.width = Math.min(Math.round(dispW * dpr), cropW);
+  cameraCanvas.height = Math.min(Math.round(dispH * dpr), cropH);
 }
 
 let _resizeTimer = null;
@@ -706,10 +748,13 @@ function startRenderLoop() {
       if (isFrozen && frozenFrame) {
         cameraCtx.drawImage(frozenFrame, 0, 0, cw, ch);
       } else if (vw && vh) {
+        // Draw only the region that will be captured (center-cropped to
+        // capture aspect ratio), so the live preview exactly matches the shot.
+        const { sx, sy, sw, sh } = computeCaptureCrop(vw, vh);
         cameraCtx.save();
         cameraCtx.scale(-1, 1);
         cameraCtx.translate(-cw, 0);
-        cameraCtx.drawImage(video, 0, 0, cw, ch);
+        cameraCtx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
         cameraCtx.restore();
       } else {
         cameraCtx.fillStyle = '#1a1714';
@@ -739,21 +784,8 @@ function captureOneShot() {
 
   const targetW = CONFIG.capture.photoWidth;
   const targetH = CONFIG.capture.photoHeight;
-  const targetAspect = targetW / targetH;
-  const videoAspect = vw / vh;
 
-  let sx, sy, sw, sh;
-  if (videoAspect > targetAspect) {
-    sh = vh;
-    sw = sh * targetAspect;
-    sx = (vw - sw) / 2;
-    sy = 0;
-  } else {
-    sw = vw;
-    sh = sw / targetAspect;
-    sx = 0;
-    sy = (vh - sh) / 2;
-  }
+  const { sx, sy, sw, sh } = computeCaptureCrop(vw, vh);
 
   const off = document.createElement('canvas');
   off.width = targetW;
@@ -764,7 +796,7 @@ function captureOneShot() {
 
   triggerFlash();
 
-  // Freeze-frame preview
+  // Freeze-frame preview — draw the same cropped region as the live preview
   const cw = cameraCanvas.width;
   const ch = cameraCanvas.height;
   if (cw && ch) {
@@ -775,7 +807,7 @@ function captureOneShot() {
     fCtx.save();
     fCtx.scale(-1, 1);
     fCtx.translate(-cw, 0);
-    fCtx.drawImage(video, 0, 0, cw, ch);
+    fCtx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
     fCtx.restore();
     frozenFrame = freezeCanvas;
     freezeUntil = Date.now() + FREEZE_DURATION_MS;
