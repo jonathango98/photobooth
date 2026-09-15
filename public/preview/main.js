@@ -30,6 +30,21 @@ async function crossfade(slot, layerState, url) {
   layerState.active = nextActive;
 }
 
+// Match the booth's wallpaper: the event config's background_url wins, and the
+// CSS default (assets/background.webp) stands in when the event has none.
+async function applyEventWallpaper(serverUrl, eventId) {
+  try {
+    const res = await fetch(`${serverUrl}/api/event/${encodeURIComponent(eventId)}/config`);
+    if (!res.ok) return;
+    const { background_url: backgroundUrl } = await res.json();
+    if (!backgroundUrl) return;
+    const bg = document.querySelector('.bg');
+    if (bg) bg.style.backgroundImage = `url('${backgroundUrl}')`;
+  } catch (err) {
+    console.warn('Failed to load event wallpaper, using default:', err);
+  }
+}
+
 async function main() {
   // The event and slideshow token in the URL are the source of truth
   const params = new URLSearchParams(window.location.search);
@@ -49,6 +64,7 @@ async function main() {
 
   const serverUrl = await loadServerUrl();
   if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(serverUrl);
+  await applyEventWallpaper(serverUrl, eventId);
   document.documentElement.style.setProperty('--fade', '800ms');
 
   const SLOT_INTERVAL_MS = 3000;
