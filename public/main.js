@@ -21,6 +21,15 @@ const siteNameEl = document.getElementById('site-name');
 const shotCounter = document.getElementById('shot-counter');
 const countdownOverlay = document.getElementById('countdown-overlay');
 const pressHint = document.getElementById('press-hint');
+const portraitCta = document.getElementById('portrait-cta');
+
+// The camera-overlay hint and the portrait prompt below the camera are two
+// renderings of the same state — only one is visible at a time (see the
+// orientation media queries in style.css), so toggle them together.
+function setPressHintVisible(visible) {
+  if (pressHint) pressHint.classList.toggle('hidden', !visible);
+  if (portraitCta) portraitCta.classList.toggle('hidden', !visible);
+}
 const confirmBtn = document.getElementById('confirm-btn');
 const resetBar = document.getElementById('reset-bar');
 const resetBtn = document.getElementById('reset-btn');
@@ -537,39 +546,43 @@ function clearAutoReset() {
 // ---------------------------
 function buildInstructionRules() {
   const rulesEl = document.getElementById('instruction-rules');
+  const stepsEl = document.getElementById('portrait-steps');
   const disclaimerEl = document.getElementById('instruction-disclaimer');
   if (!rulesEl || !CONFIG) return;
 
-  rulesEl.innerHTML = '';
   const totalShots = CONFIG.capture?.totalShots ?? 3;
   const gestureEnabled = CONFIG.gestureTrigger?.enabled;
   const gestureType = CONFIG.gestureTrigger?.gestureType ?? 'peace';
   const templateCount = CONFIG.templates?.length ?? 1;
+  const gestureNames = { peace: 'peace sign ✌️', palm: 'open palm 🖐️', thumbsup: 'thumbs up 👍' };
+  const gestureName = gestureNames[gestureType] || gestureType;
 
-  // Rule 1: How to start
-  const rule1 = document.createElement('li');
-  if (gestureEnabled) {
-    const gestureNames = { peace: 'peace sign ✌️', palm: 'open palm 🖐️', thumbsup: 'thumbs up 👍' };
-    const gestureName = gestureNames[gestureType] || gestureType;
-    rule1.textContent = `Tap the screen or show a ${gestureName} to start.`;
-  } else {
-    rule1.textContent = 'Tap the screen to start.';
+  const rules = [
+    gestureEnabled
+      ? `Tap the screen or show a ${gestureName} to start.`
+      : 'Tap the screen to start.',
+    templateCount > 1 ? `After ${totalShots} shots, choose a template.` : `Take ${totalShots} shots.`,
+    'Scan the QR code to download your picture!',
+  ];
+
+  // Same rules render twice: the instruction popup, and the always-on steps
+  // strip below the camera in the portrait kiosk layout.
+  for (const el of [rulesEl, stepsEl]) {
+    if (!el) continue;
+    el.innerHTML = '';
+    for (const text of rules) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      el.appendChild(li);
+    }
   }
-  rulesEl.appendChild(rule1);
 
-  // Rule 2: Shots & template
-  const rule2 = document.createElement('li');
-  if (templateCount > 1) {
-    rule2.textContent = `After ${totalShots} shots, choose a template.`;
-  } else {
-    rule2.textContent = `Take ${totalShots} shots.`;
+  // Portrait CTA mirrors how the session can actually be started
+  if (portraitCta) {
+    const gestureEmoji = { peace: '✌️', palm: '🖐️', thumbsup: '👍' }[gestureType];
+    portraitCta.textContent =
+      gestureEnabled && gestureEmoji ? `PRESS OR ${gestureEmoji} TO START` : 'PRESS TO START';
   }
-  rulesEl.appendChild(rule2);
-
-  // Rule 3: QR download
-  const rule3 = document.createElement('li');
-  rule3.textContent = 'Scan the QR code to download your picture!';
-  rulesEl.appendChild(rule3);
 
   // Disclaimer
   if (disclaimerEl) {
@@ -662,8 +675,13 @@ function sizeCameraCanvas() {
   } else {
     aspect = vw / vh;
   }
-  const maxW = Math.min(1000, window.innerWidth * 0.94);
-  const maxH = window.innerHeight * 0.88;
+  // Portrait kiosks (iPad on a stand) get a wider but shorter camera band so
+  // the prompt panel below it has room; landscape keeps the full-height box.
+  const portrait = window.innerHeight > window.innerWidth;
+  const maxW = portrait
+    ? Math.min(1200, window.innerWidth * 0.96)
+    : Math.min(1000, window.innerWidth * 0.94);
+  const maxH = portrait ? window.innerHeight * 0.46 : window.innerHeight * 0.88;
   let dispW = maxW;
   let dispH = dispW / aspect;
   if (dispH > maxH) { dispH = maxH; dispW = dispH * aspect; }
@@ -705,7 +723,7 @@ async function startCamera() {
       if (!video.videoWidth || !video.videoHeight) return;
 
       if (idleText) idleText.style.display = 'none';
-      if (pressHint) pressHint.classList.remove('hidden');
+      setPressHintVisible(true);
       updateShotCounter();
 
       video.play();
@@ -821,7 +839,7 @@ function startCountdown() {
   if (!CONFIG || isCountingDown) return;
 
   isCountingDown = true;
-  pressHint.classList.add('hidden');
+  setPressHintVisible(false);
   stopGestureDetection();
 
   const seconds = CONFIG.countdown?.seconds ?? 3;
@@ -859,7 +877,7 @@ function startCountdown() {
               showScreen(templateScreen);
             }
           } else {
-            pressHint.classList.remove('hidden');
+            setPressHintVisible(true);
             startGestureDetection();
           }
         }, FREEZE_DURATION_MS);
