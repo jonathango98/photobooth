@@ -21,6 +21,15 @@ const siteNameEl = document.getElementById('site-name');
 const shotCounter = document.getElementById('shot-counter');
 const countdownOverlay = document.getElementById('countdown-overlay');
 const pressHint = document.getElementById('press-hint');
+const portraitCta = document.getElementById('portrait-cta');
+
+// The camera-overlay hint and the portrait prompt below the camera are two
+// renderings of the same state — only one is visible at a time (see the
+// orientation media queries in style.css), so toggle them together.
+function setPressHintVisible(visible) {
+  if (pressHint) pressHint.classList.toggle('hidden', !visible);
+  if (portraitCta) portraitCta.classList.toggle('hidden', !visible);
+}
 const confirmBtn = document.getElementById('confirm-btn');
 const resetBar = document.getElementById('reset-bar');
 const resetBtn = document.getElementById('reset-btn');
@@ -537,39 +546,43 @@ function clearAutoReset() {
 // ---------------------------
 function buildInstructionRules() {
   const rulesEl = document.getElementById('instruction-rules');
+  const stepsEl = document.getElementById('portrait-steps');
   const disclaimerEl = document.getElementById('instruction-disclaimer');
   if (!rulesEl || !CONFIG) return;
 
-  rulesEl.innerHTML = '';
   const totalShots = CONFIG.capture?.totalShots ?? 3;
   const gestureEnabled = CONFIG.gestureTrigger?.enabled;
   const gestureType = CONFIG.gestureTrigger?.gestureType ?? 'peace';
   const templateCount = CONFIG.templates?.length ?? 1;
+  const gestureNames = { peace: 'peace sign ✌️', palm: 'open palm 🖐️', thumbsup: 'thumbs up 👍' };
+  const gestureName = gestureNames[gestureType] || gestureType;
 
-  // Rule 1: How to start
-  const rule1 = document.createElement('li');
-  if (gestureEnabled) {
-    const gestureNames = { peace: 'peace sign ✌️', palm: 'open palm 🖐️', thumbsup: 'thumbs up 👍' };
-    const gestureName = gestureNames[gestureType] || gestureType;
-    rule1.textContent = `Tap the screen or show a ${gestureName} to start.`;
-  } else {
-    rule1.textContent = 'Tap the screen to start.';
+  const rules = [
+    gestureEnabled
+      ? `Tap the screen or show a ${gestureName} to start.`
+      : 'Tap the screen to start.',
+    templateCount > 1 ? `After ${totalShots} shots, choose a template.` : `Take ${totalShots} shots.`,
+    'Scan the QR code to download your picture!',
+  ];
+
+  // Same rules render twice: the instruction popup, and the always-on steps
+  // strip below the camera in the portrait kiosk layout.
+  for (const el of [rulesEl, stepsEl]) {
+    if (!el) continue;
+    el.innerHTML = '';
+    for (const text of rules) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      el.appendChild(li);
+    }
   }
-  rulesEl.appendChild(rule1);
 
-  // Rule 2: Shots & template
-  const rule2 = document.createElement('li');
-  if (templateCount > 1) {
-    rule2.textContent = `After ${totalShots} shots, choose a template.`;
-  } else {
-    rule2.textContent = `Take ${totalShots} shots.`;
+  // Portrait CTA mirrors how the session can actually be started
+  if (portraitCta) {
+    const gestureEmoji = { peace: '✌️', palm: '🖐️', thumbsup: '👍' }[gestureType];
+    portraitCta.textContent =
+      gestureEnabled && gestureEmoji ? `PRESS OR ${gestureEmoji} TO START` : 'PRESS TO START';
   }
-  rulesEl.appendChild(rule2);
-
-  // Rule 3: QR download
-  const rule3 = document.createElement('li');
-  rule3.textContent = 'Scan the QR code to download your picture!';
-  rulesEl.appendChild(rule3);
 
   // Disclaimer
   if (disclaimerEl) {
@@ -615,6 +628,81 @@ function resetIdleInactivityTimer() {
 }
 
 // ---------------------------
+// Capture crop helper
+// ---------------------------
+// Returns the center-crop rectangle {sx, sy, sw, sh} from the raw video frame
+// that matches the target capture aspect ratio (CONFIG.capture.photoWidth/Height).
+// Used by both captureOneShot() and the render loop so what guests see is
+// exactly what gets captured.
+function computeCaptureCrop(vw, vh) {
+  let targetAspect;
+  if (CONFIG && CONFIG.capture) {
+    targetAspect = CONFIG.capture.photoWidth / CONFIG.capture.photoHeight;
+  } else {
+    targetAspect = vw / vh; // fall back to full frame before CONFIG loads
+  }
+  const videoAspect = vw / vh;
+  let sx, sy, sw, sh;
+  if (videoAspect > targetAspect) {
+    // Video is wider than target — crop left/right
+    sh = vh;
+    sw = sh * targetAspect;
+    sx = (vw - sw) / 2;
+    sy = 0;
+  } else {
+    // Video is taller than target — crop top/bottom
+    sw = vw;
+    sh = sw / targetAspect;
+    sx = 0;
+    sy = (vh - sh) / 2;
+  }
+  return { sx, sy, sw, sh };
+}
+
+// ---------------------------
+// Camera canvas sizing (responsive)
+// ---------------------------
+function sizeCameraCanvas() {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return;
+  // Use the capture aspect ratio so the canvas box is always 16:9 (matching
+  // what captureOneShot() will actually save). Fall back to raw video aspect
+  // if CONFIG hasn't loaded yet (will be re-called once it has).
+  let aspect;
+  if (CONFIG && CONFIG.capture) {
+    aspect = CONFIG.capture.photoWidth / CONFIG.capture.photoHeight;
+  } else {
+    aspect = vw / vh;
+  }
+  // Portrait kiosks (iPad on a stand) get a wider but shorter camera band so
+  // the prompt panel below it has room; landscape keeps the full-height box.
+  const portrait = window.innerHeight > window.innerWidth;
+  const maxW = portrait
+    ? Math.min(1200, window.innerWidth * 0.96)
+    : Math.min(1000, window.innerWidth * 0.94);
+  const maxH = portrait ? window.innerHeight * 0.46 : window.innerHeight * 0.88;
+  let dispW = maxW;
+  let dispH = dispW / aspect;
+  if (dispH > maxH) { dispH = maxH; dispW = dispH * aspect; }
+  cameraCanvas.style.width = `${Math.round(dispW)}px`;
+  cameraCanvas.style.height = `${Math.round(dispH)}px`;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // Cap backing store at the crop source dimensions (not full video dimensions)
+  const { sw: cropW, sh: cropH } = computeCaptureCrop(vw, vh);
+  cameraCanvas.width = Math.min(Math.round(dispW * dpr), cropW);
+  cameraCanvas.height = Math.min(Math.round(dispH * dpr), cropH);
+}
+
+let _resizeTimer = null;
+function _onViewportChange() {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(sizeCameraCanvas, 150);
+}
+window.addEventListener('resize', _onViewportChange);
+window.addEventListener('orientationchange', _onViewportChange);
+
+// ---------------------------
 // Camera start
 // ---------------------------
 async function startCamera() {
@@ -631,19 +719,11 @@ async function startCamera() {
 
     video.srcObject = stream;
     video.onloadedmetadata = () => {
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      if (!vw || !vh) return;
-
-      const aspect = vw / vh;
-      const displayWidth = 1000;
-      const displayHeight = displayWidth / aspect;
-
-      cameraCanvas.width = displayWidth;
-      cameraCanvas.height = displayHeight;
+      sizeCameraCanvas();
+      if (!video.videoWidth || !video.videoHeight) return;
 
       if (idleText) idleText.style.display = 'none';
-      if (pressHint) pressHint.classList.remove('hidden');
+      setPressHintVisible(true);
       updateShotCounter();
 
       video.play();
@@ -686,10 +766,13 @@ function startRenderLoop() {
       if (isFrozen && frozenFrame) {
         cameraCtx.drawImage(frozenFrame, 0, 0, cw, ch);
       } else if (vw && vh) {
+        // Draw only the region that will be captured (center-cropped to
+        // capture aspect ratio), so the live preview exactly matches the shot.
+        const { sx, sy, sw, sh } = computeCaptureCrop(vw, vh);
         cameraCtx.save();
         cameraCtx.scale(-1, 1);
         cameraCtx.translate(-cw, 0);
-        cameraCtx.drawImage(video, 0, 0, cw, ch);
+        cameraCtx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
         cameraCtx.restore();
       } else {
         cameraCtx.fillStyle = '#1a1714';
@@ -719,21 +802,8 @@ function captureOneShot() {
 
   const targetW = CONFIG.capture.photoWidth;
   const targetH = CONFIG.capture.photoHeight;
-  const targetAspect = targetW / targetH;
-  const videoAspect = vw / vh;
 
-  let sx, sy, sw, sh;
-  if (videoAspect > targetAspect) {
-    sh = vh;
-    sw = sh * targetAspect;
-    sx = (vw - sw) / 2;
-    sy = 0;
-  } else {
-    sw = vw;
-    sh = sw / targetAspect;
-    sx = 0;
-    sy = (vh - sh) / 2;
-  }
+  const { sx, sy, sw, sh } = computeCaptureCrop(vw, vh);
 
   const off = document.createElement('canvas');
   off.width = targetW;
@@ -744,7 +814,7 @@ function captureOneShot() {
 
   triggerFlash();
 
-  // Freeze-frame preview
+  // Freeze-frame preview — draw the same cropped region as the live preview
   const cw = cameraCanvas.width;
   const ch = cameraCanvas.height;
   if (cw && ch) {
@@ -755,7 +825,7 @@ function captureOneShot() {
     fCtx.save();
     fCtx.scale(-1, 1);
     fCtx.translate(-cw, 0);
-    fCtx.drawImage(video, 0, 0, cw, ch);
+    fCtx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
     fCtx.restore();
     frozenFrame = freezeCanvas;
     freezeUntil = Date.now() + FREEZE_DURATION_MS;
@@ -769,7 +839,7 @@ function startCountdown() {
   if (!CONFIG || isCountingDown) return;
 
   isCountingDown = true;
-  pressHint.classList.add('hidden');
+  setPressHintVisible(false);
   stopGestureDetection();
 
   const seconds = CONFIG.countdown?.seconds ?? 3;
@@ -807,7 +877,7 @@ function startCountdown() {
               showScreen(templateScreen);
             }
           } else {
-            pressHint.classList.remove('hidden');
+            setPressHintVisible(true);
             startGestureDetection();
           }
         }, FREEZE_DURATION_MS);
@@ -927,8 +997,7 @@ async function buildTemplateCollage(templateIndex = 0) {
   const qrMargin = CONFIG.qr?.margin ?? null;
   if (qrImg) {
     qrImg.src = generateQRDataURL(qrUrl, qrSize, qrMargin);
-    qrImg.style.width = `${qrSize}px`;
-    qrImg.style.height = `${qrSize}px`;
+    qrImg.style.setProperty('--qr-size', `${qrSize}px`);
   }
 }
 
