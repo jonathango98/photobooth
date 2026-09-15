@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v10";
+const CACHE = "booth-shell-v11";
 
 const SHELL = [
   "/index.html",
@@ -72,19 +72,39 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Cache-first for shell assets; also populate cache on first fetch for templates.
+  // Stale-while-revalidate for shell assets: serve the cached copy immediately
+  // (so the kiosk still boots instantly and works offline), but always refetch in
+  // the background and overwrite the cache. Without the refetch, a shell asset was
+  // pinned to whatever CACHE held until someone remembered to bump the version —
+  // ship an index.html that needs a new style.css and every kiosk renders the new
+  // markup against the old stylesheet until its next hard reset.
+  //
   // The fetch is wrapped in .catch so an uncached miss while offline returns a
   // synthetic 503 instead of a rejected respondWith (which blanks the page).
+  const shouldCache = (response) =>
+    response.ok &&
+    (SHELL.includes(url.pathname) ||
+      url.pathname.startsWith("/templates/") ||
+      url.pathname.startsWith("/assets/"));
+
   e.respondWith(
     caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        // Cache template/asset files as they're fetched so they survive offline reload
-        if (response.ok && (url.pathname.startsWith("/templates/") || url.pathname.startsWith("/assets/"))) {
-          caches.open(CACHE).then(c => c.put(e.request, response.clone()));
-        }
-        return response;
-      }).catch(() => new Response("Offline", { status: 503 }));
+      const network = fetch(e.request)
+        .then(response => {
+          if (shouldCache(response)) {
+            const copy = response.clone();
+            caches.open(CACHE).then(c => c.put(e.request, copy));
+          }
+          return response;
+        })
+        .catch(() => cached || new Response("Offline", { status: 503 }));
+
+      if (cached) {
+        // Revalidate in the background; the cached copy answers this request.
+        e.waitUntil(network.catch(() => {}));
+        return cached;
+      }
+      return network;
     })
   );
 });
