@@ -13,7 +13,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  /* Same base colour as the booth (--bg), shown behind the wallpaper */
+  background: #1a1714;
 }
 
 .bg {
