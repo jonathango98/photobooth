@@ -344,35 +344,63 @@ async function initHandLandmarker() {
   }
 }
 
-function isPeaceSign(landmarks) {
-  // In MediaPipe, y increases downward, so "extended" = tip.y < pip.y
-  const indexExtended = landmarks[8].y < landmarks[6].y;
-  const middleExtended = landmarks[12].y < landmarks[10].y;
-  const ringCurled = landmarks[16].y > landmarks[14].y;
-  const pinkyCurled = landmarks[20].y > landmarks[18].y;
-  return indexExtended && middleExtended && ringCurled && pinkyCurled;
+// Finger shape is judged by comparing joint distances rather than raw screen
+// x/y, so it holds for either hand and for a tilted hand. `hand` is the image
+// landmarks with x scaled by the frame's aspect ratio (see toSquarePixels) so
+// distances aren't skewed by a 16:9 / 4:3 camera.
+const FINGERS = {
+  index: { tip: 8, pip: 6 },
+  middle: { tip: 12, pip: 10 },
+  ring: { tip: 16, pip: 14 },
+  pinky: { tip: 20, pip: 18 },
+};
+const WRIST = 0;
+const THUMB_TIP = 4;
+const THUMB_IP = 3;
+const THUMB_MCP = 2;
+const PINKY_MCP = 17;
+// tip-to-wrist ÷ PIP-to-wrist: straight fingers measure ~1.3–1.5, curled ones ≤ ~0.95
+const FINGER_EXTENDED_RATIO = 1.1;
+
+function toSquarePixels(landmarks, aspect) {
+  return landmarks.map((p) => ({ x: p.x * aspect, y: p.y }));
 }
 
-function isOpenPalm(landmarks) {
-  // Check each finger at two joints for stricter detection
-  const indexExtended = landmarks[8].y < landmarks[6].y && landmarks[6].y < landmarks[5].y;
-  const middleExtended = landmarks[12].y < landmarks[10].y && landmarks[10].y < landmarks[9].y;
-  const ringExtended = landmarks[16].y < landmarks[14].y && landmarks[14].y < landmarks[13].y;
-  const pinkyExtended = landmarks[20].y < landmarks[18].y && landmarks[18].y < landmarks[17].y;
-  const thumbExtended = landmarks[4].y < landmarks[3].y && landmarks[4].x > landmarks[3].x;
-  return indexExtended && middleExtended && ringExtended && pinkyExtended && thumbExtended;
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function isThumbsUp(landmarks) {
-  // Thumb clearly raised above the MCP joint (not just the IP joint)
-  const thumbExtended = landmarks[4].y < landmarks[2].y;
-  // Only require 3 of 4 fingers to be curled for more leniency
-  const indexCurled = landmarks[8].y > landmarks[6].y;
-  const middleCurled = landmarks[12].y > landmarks[10].y;
-  const ringCurled = landmarks[16].y > landmarks[14].y;
-  const pinkyCurled = landmarks[20].y > landmarks[18].y;
-  const curledCount = [indexCurled, middleCurled, ringCurled, pinkyCurled].filter(Boolean).length;
-  return thumbExtended && curledCount >= 3;
+function isFingerExtended(hand, { tip, pip }) {
+  return dist(hand[tip], hand[WRIST]) > dist(hand[pip], hand[WRIST]) * FINGER_EXTENDED_RATIO;
+}
+
+// Thumb sticks out when its tip is farther from the pinky knuckle than its IP
+// joint is; a thumb tucked across the palm points back toward the pinky.
+function isThumbExtended(hand) {
+  return dist(hand[THUMB_TIP], hand[PINKY_MCP]) > dist(hand[THUMB_IP], hand[PINKY_MCP]);
+}
+
+function isPeaceSign(hand) {
+  return (
+    isFingerExtended(hand, FINGERS.index) &&
+    isFingerExtended(hand, FINGERS.middle) &&
+    !isFingerExtended(hand, FINGERS.ring) &&
+    !isFingerExtended(hand, FINGERS.pinky)
+  );
+}
+
+function isOpenPalm(hand) {
+  return Object.values(FINGERS).every((f) => isFingerExtended(hand, f)) && isThumbExtended(hand);
+}
+
+function isThumbsUp(hand) {
+  // Thumb points up the screen: tip above IP above MCP (y grows downward)
+  const thumbUp =
+    hand[THUMB_TIP].y < hand[THUMB_IP].y && hand[THUMB_IP].y < hand[THUMB_MCP].y;
+  // Index must be curled (rules out pointing up); allow one of the other three to be loose
+  const indexCurled = !isFingerExtended(hand, FINGERS.index);
+  const curledCount = Object.values(FINGERS).filter((f) => !isFingerExtended(hand, f)).length;
+  return isThumbExtended(hand) && thumbUp && indexCurled && curledCount >= 3;
 }
 
 function getGestureDetector() {
@@ -409,7 +437,8 @@ function startGestureDetection() {
 
     let peaceDetected = false;
     if (results.landmarks && results.landmarks.length > 0) {
-      peaceDetected = detectGesture(results.landmarks[0]);
+      const aspect = video.videoWidth / video.videoHeight;
+      peaceDetected = detectGesture(toSquarePixels(results.landmarks[0], aspect));
     }
 
     if (peaceDetected) {
