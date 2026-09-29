@@ -78,7 +78,7 @@ let handLandmarker = null;
 let gestureDetectionInterval = null;
 let peaceSignStartTime = null;
 let peaceConsecutiveCount = 0;
-const PEACE_CONSECUTIVE_REQUIRED = 3;
+const PEACE_CONSECUTIVE_REQUIRED = 5;
 const peaceProgress = document.getElementById('peace-progress');
 const peaceRing = document.getElementById('peace-ring');
 const PEACE_RING_CIRCUMFERENCE = 339.292;
@@ -337,6 +337,9 @@ async function initHandLandmarker() {
       },
       runningMode: 'VIDEO',
       numHands: 1,
+      // Defaults are 0.5; raised so background clutter and half-seen hands don't register
+      minHandDetectionConfidence: 0.7,
+      minHandPresenceConfidence: 0.7,
     });
     console.log('[GESTURE] HandLandmarker initialized.');
   } catch (e) {
@@ -358,9 +361,13 @@ const WRIST = 0;
 const THUMB_TIP = 4;
 const THUMB_IP = 3;
 const THUMB_MCP = 2;
+const MIDDLE_MCP = 9;
 const PINKY_MCP = 17;
-// tip-to-wrist ÷ PIP-to-wrist: straight fingers measure ~1.3–1.5, curled ones ≤ ~0.95
-const FINGER_EXTENDED_RATIO = 1.1;
+// tip-to-wrist ÷ PIP-to-wrist: straight fingers measure ~1.3–1.5, curled ones ≤ ~0.95.
+// A finger between the two thresholds is half-bent and counts as neither, so a
+// relaxed or ambiguous hand can't satisfy any gesture.
+const FINGER_EXTENDED_RATIO = 1.25;
+const FINGER_CURLED_RATIO = 1.0;
 
 function toSquarePixels(landmarks, aspect) {
   return landmarks.map((p) => ({ x: p.x * aspect, y: p.y }));
@@ -370,8 +377,16 @@ function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function isFingerExtended(hand, { tip, pip }) {
-  return dist(hand[tip], hand[WRIST]) > dist(hand[pip], hand[WRIST]) * FINGER_EXTENDED_RATIO;
+function fingerRatio(hand, { tip, pip }) {
+  return dist(hand[tip], hand[WRIST]) / dist(hand[pip], hand[WRIST]);
+}
+
+function isFingerExtended(hand, finger) {
+  return fingerRatio(hand, finger) > FINGER_EXTENDED_RATIO;
+}
+
+function isFingerCurled(hand, finger) {
+  return fingerRatio(hand, finger) < FINGER_CURLED_RATIO;
 }
 
 // Thumb sticks out when its tip is farther from the pinky knuckle than its IP
@@ -380,17 +395,31 @@ function isThumbExtended(hand) {
   return dist(hand[THUMB_TIP], hand[PINKY_MCP]) > dist(hand[THUMB_IP], hand[PINKY_MCP]);
 }
 
+// Raised hand: wrist → middle knuckle points up the screen within 45° of
+// vertical. Rejects the same finger shape on a hand hanging at someone's side,
+// held sideways, or shading their face.
+function isHandUpright(hand) {
+  const up = hand[WRIST].y - hand[MIDDLE_MCP].y; // y grows downward
+  const across = Math.abs(hand[MIDDLE_MCP].x - hand[WRIST].x);
+  return up > 0 && across <= up;
+}
+
 function isPeaceSign(hand) {
   return (
+    isHandUpright(hand) &&
     isFingerExtended(hand, FINGERS.index) &&
     isFingerExtended(hand, FINGERS.middle) &&
-    !isFingerExtended(hand, FINGERS.ring) &&
-    !isFingerExtended(hand, FINGERS.pinky)
+    isFingerCurled(hand, FINGERS.ring) &&
+    isFingerCurled(hand, FINGERS.pinky)
   );
 }
 
 function isOpenPalm(hand) {
-  return Object.values(FINGERS).every((f) => isFingerExtended(hand, f)) && isThumbExtended(hand);
+  return (
+    isHandUpright(hand) &&
+    Object.values(FINGERS).every((f) => isFingerExtended(hand, f)) &&
+    isThumbExtended(hand)
+  );
 }
 
 function isThumbsUp(hand) {
@@ -398,8 +427,8 @@ function isThumbsUp(hand) {
   const thumbUp =
     hand[THUMB_TIP].y < hand[THUMB_IP].y && hand[THUMB_IP].y < hand[THUMB_MCP].y;
   // Index must be curled (rules out pointing up); allow one of the other three to be loose
-  const indexCurled = !isFingerExtended(hand, FINGERS.index);
-  const curledCount = Object.values(FINGERS).filter((f) => !isFingerExtended(hand, f)).length;
+  const indexCurled = isFingerCurled(hand, FINGERS.index);
+  const curledCount = Object.values(FINGERS).filter((f) => isFingerCurled(hand, f)).length;
   return isThumbExtended(hand) && thumbUp && indexCurled && curledCount >= 3;
 }
 
