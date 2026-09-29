@@ -946,7 +946,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.querySelector('.event-card-name').textContent = event.event_name || '—';
       card.querySelector('.meta-templates').textContent =
         `${templateCount} template${templateCount !== 1 ? 's' : ''}`;
-      card.querySelector('.meta-shots').textContent = `${shots} shots, ${w}×${h}`;
+      card.querySelector('.meta-shots').textContent =
+        `${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}`;
       card.querySelector('.meta-created').textContent = `Created: ${createdAt}`;
       card.querySelector('.meta-updated').textContent = `Updated: ${updatedAt}`;
       card.querySelector('.booth-url-label').textContent = boothUrl;
@@ -1515,6 +1516,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('ef-gesture-fps').value = src
       ? (src.gestureTrigger?.detectionFps ?? 10)
       : 10;
+    document.getElementById('ef-gif-enabled').checked = src?.gif?.enabled ?? false;
+    document.getElementById('ef-gif-frames').value = src?.gif?.frames ?? 5;
+    document.getElementById('ef-gif-interval-ms').value = src?.gif?.intervalMs ?? 150;
+    document.getElementById('ef-gif-boomerang').checked = src?.gif?.boomerang ?? true;
 
     // Render template cards; reset to cards mode
     templatesEditMode = 'cards';
@@ -1584,6 +1589,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           document.querySelector('input[name="ef-gesture-type"]:checked')?.value ?? 'peace',
         holdDuration: parseInt(document.getElementById('ef-gesture-hold-duration').value, 10),
         detectionFps: parseInt(document.getElementById('ef-gesture-fps').value, 10),
+      },
+      gif: {
+        enabled: document.getElementById('ef-gif-enabled').checked,
+        frames: parseInt(document.getElementById('ef-gif-frames').value, 10),
+        intervalMs: parseInt(document.getElementById('ef-gif-interval-ms').value, 10),
+        boomerang: document.getElementById('ef-gif-boomerang').checked,
       },
       templates,
     };

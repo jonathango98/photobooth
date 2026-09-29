@@ -156,3 +156,60 @@ test('capture flow: tap idle screen → countdown → result screen appears', as
     { timeout: 10000 }
   );
 });
+
+test('GIF mode: burst capture uploads an animated GIF collage', async ({ page }) => {
+  await setupKioskMocks(page);
+  await page.route(`${FAKE_SERVER}/api/event/test-event/config`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ...MOCK_EVENT_CONFIG,
+        gif: { enabled: true, frames: 5, intervalMs: 100, boomerang: true },
+      }),
+    })
+  );
+  const saved = new Promise((resolve) =>
+    page.route(`${FAKE_SERVER}/api/save`, (route) => {
+      resolve(route.request().postDataBuffer());
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    })
+  );
+
+  await page.goto('/?event=test-event');
+  await fixHiddenAttribute(page);
+  await page.waitForFunction(
+    () => document.querySelector('#instruction-overlay')?.classList.contains('visible'),
+    { timeout: 8000 }
+  );
+  await page.click('#instruction-close-btn');
+  await page.waitForFunction(
+    () => !document.querySelector('#press-hint')?.classList.contains('hidden'),
+    { timeout: 12000 }
+  );
+  await page.click('#idle-screen');
+
+  const body = /** @type {Buffer} */ (await saved);
+  const text = body.toString('latin1');
+  // Collage part is a GIF; the raw shot stays a JPEG still
+  expect(text).toMatch(/name="collage"; filename="collage\.gif"\r\nContent-Type: image\/gif/);
+  expect(text).toContain('GIF89a');
+  expect(text).toMatch(/name="raw1"; filename="raw1\.jpg"\r\nContent-Type: image\/jpeg/);
+
+  // 5-frame boomerang → 8 frames, each preceded by a graphic control extension
+  const gifStart = text.indexOf('GIF89a');
+  const gifEnd = text.indexOf('\r\n--', gifStart);
+  const gif = body.subarray(gifStart, gifEnd);
+  if (process.env.GIF_OUT) require('fs').writeFileSync(process.env.GIF_OUT, gif);
+  let frames = 0;
+  for (let i = 0; i < gif.length - 1; i++) {
+    if (gif[i] === 0x21 && gif[i + 1] === 0xf9 && gif[i + 2] === 0x04) frames++;
+  }
+  expect(frames).toBe(8);
+
+  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/);
+});
