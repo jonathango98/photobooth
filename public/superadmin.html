@@ -1457,6 +1457,30 @@
             </div>
           </div>
 
+          <div class="form-section-title">GIF Mode</div>
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="ef-gif-enabled" />
+              Each shot is a short burst; guests get an animated GIF instead of a photo
+            </label>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label for="ef-gif-frames">Frames per Shot</label>
+              <input type="number" id="ef-gif-frames" value="5" min="2" max="10" />
+            </div>
+            <div class="form-row">
+              <label for="ef-gif-interval-ms">Frame Interval (ms)</label>
+              <input type="number" id="ef-gif-interval-ms" value="150" min="50" max="500" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="ef-gif-boomerang" checked />
+              Boomerang (play forward, then backward)
+            </label>
+          </div>
+
           <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center;">
             Templates
             <button type="button" id="ef-templates-json-toggle" class="tpl-mini-btn">Edit as JSON</button>

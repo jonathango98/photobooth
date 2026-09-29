@@ -89,7 +89,10 @@ window.OfflineQueue = {
         (session.rawBlobs || []).forEach((blob, i) => {
           if (blob) formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
         });
-        if (session.collageBlob) formData.append("collage", session.collageBlob, "collage.jpg");
+        if (session.collageBlob) {
+          const ext = session.collageBlob.type === "image/gif" ? "gif" : "jpg";
+          formData.append("collage", session.collageBlob, `collage.${ext}`);
+        }
 
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 30000);

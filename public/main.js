@@ -60,6 +60,13 @@ let frozenFrame = null;
 let freezeUntil = 0;
 const FREEZE_DURATION_MS = 1000;
 
+// GIF mode — per shot, the burst of frames (at GIF resolution) behind the still
+// in capturedCanvases. Indexes line up with capturedCanvases.
+const capturedBursts = [];
+let gifPreviewTimer = null;
+// Longest edge of the GIF collage; keeps files a few MB instead of tens.
+const GIF_MAX_DIM = 960;
+
 // Template image cache
 const templateImageCache = new Map();
 
@@ -252,6 +259,7 @@ async function loadConfig() {
           countdown: eventConfig.countdown,
           autoResetSeconds: staticConfig.autoResetSeconds ?? 30,
           gestureTrigger: eventConfig.gestureTrigger ?? staticConfig.gestureTrigger,
+          gif: eventConfig.gif ?? staticConfig.gif,
           background_url: eventConfig.background_url || null,
           qr: eventConfig.qr ?? staticConfig.qr,
         };
@@ -562,6 +570,7 @@ function buildInstructionRules() {
       ? `Tap the screen or show a ${gestureName} to start.`
       : 'Tap the screen to start.',
     templateCount > 1 ? `After ${totalShots} shots, choose a template.` : `Take ${totalShots} shots.`,
+    ...(CONFIG.gif?.enabled ? ['Every shot is a mini GIF — keep moving until the flash!'] : []),
     'Scan the QR code to download your picture!',
   ];
 
@@ -790,34 +799,30 @@ function startRenderLoop() {
 // ---------------------------
 // Capture (center crop, not mirrored)
 // ---------------------------
-function captureOneShot() {
-  if (!CONFIG) return;
+function isCameraReady() {
+  if (video.videoWidth && video.videoHeight) return true;
+  alert('Camera not ready yet.');
+  return false;
+}
 
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  if (!vw || !vh) {
-    alert('Camera not ready yet.');
-    return;
-  }
-
-  const targetW = CONFIG.capture.photoWidth;
-  const targetH = CONFIG.capture.photoHeight;
-
-  const { sx, sy, sw, sh } = computeCaptureCrop(vw, vh);
-
+// The current video frame, center-cropped to the capture aspect, at width×height
+function grabVideoFrame(width, height) {
+  const { sx, sy, sw, sh } = computeCaptureCrop(video.videoWidth, video.videoHeight);
   const off = document.createElement('canvas');
-  off.width = targetW;
-  off.height = targetH;
-  const offCtx = off.getContext('2d');
-  offCtx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
-  capturedCanvases.push(off);
+  off.width = width;
+  off.height = height;
+  off.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
+  return off;
+}
 
+function flashAndFreeze() {
   triggerFlash();
 
   // Freeze-frame preview — draw the same cropped region as the live preview
   const cw = cameraCanvas.width;
   const ch = cameraCanvas.height;
   if (cw && ch) {
+    const { sx, sy, sw, sh } = computeCaptureCrop(video.videoWidth, video.videoHeight);
     const freezeCanvas = document.createElement('canvas');
     freezeCanvas.width = cw;
     freezeCanvas.height = ch;
@@ -830,6 +835,155 @@ function captureOneShot() {
     frozenFrame = freezeCanvas;
     freezeUntil = Date.now() + FREEZE_DURATION_MS;
   }
+}
+
+function captureOneShot() {
+  if (!CONFIG || !isCameraReady()) return;
+  capturedCanvases.push(grabVideoFrame(CONFIG.capture.photoWidth, CONFIG.capture.photoHeight));
+  flashAndFreeze();
+}
+
+// ---------------------------
+// GIF mode
+// ---------------------------
+// Event GIF settings, clamped to sane bounds, or null when GIF mode is off
+function getGifSettings() {
+  const g = CONFIG?.gif;
+  if (!g?.enabled) return null;
+  const clamp = (v, min, max, dflt) =>
+    Math.min(max, Math.max(min, Number.isFinite(v) ? Math.round(v) : dflt));
+  return {
+    frames: clamp(g.frames, 2, 10, 5),
+    intervalMs: clamp(g.intervalMs, 50, 500, 150),
+    boomerang: g.boomerang !== false,
+  };
+}
+
+// Downscale applied to a template when rendering its GIF
+function gifScaleFor(template) {
+  return Math.min(1, GIF_MAX_DIM / Math.max(template.width, template.height));
+}
+
+// Burst frames are stored at the largest scale any template will need, since
+// the guest only picks a template after the shots are taken.
+function gifBurstScale() {
+  return Math.max(...CONFIG.templates.map(gifScaleFor));
+}
+
+// Grab `frames` frames `intervalMs` apart, then flash on the last one. The last
+// frame is also kept full-size as the still (raw upload + template previews).
+function captureBurst(gif, onDone) {
+  if (!CONFIG || !isCameraReady()) {
+    onDone();
+    return;
+  }
+  const photoW = CONFIG.capture.photoWidth;
+  const photoH = CONFIG.capture.photoHeight;
+  const scale = gifBurstScale();
+  const frameW = Math.round(photoW * scale);
+  const frameH = Math.round(photoH * scale);
+  const frames = [];
+
+  const grab = () => {
+    if (frames.length < gif.frames - 1) {
+      frames.push(grabVideoFrame(frameW, frameH));
+      countdownTimers.push(setTimeout(grab, gif.intervalMs));
+      return;
+    }
+    const still = grabVideoFrame(photoW, photoH);
+    const last = document.createElement('canvas');
+    last.width = frameW;
+    last.height = frameH;
+    last.getContext('2d').drawImage(still, 0, 0, frameW, frameH);
+    frames.push(last);
+    capturedCanvases.push(still);
+    capturedBursts.push(frames);
+    flashAndFreeze();
+    onDone();
+  };
+  grab();
+}
+
+// Playback sequence of burst-frame indexes: 0..n-1, then back down for a boomerang
+function gifFrameOrder(gif) {
+  const order = Array.from({ length: gif.frames }, (_, i) => i);
+  if (gif.boomerang) {
+    for (let i = gif.frames - 2; i > 0; i--) order.push(i);
+  }
+  return order;
+}
+
+// One composited collage canvas per burst frame, at GIF resolution
+function composeGifFrames(template, gif) {
+  const scale = gifScaleFor(template);
+  const templateImg = templateImageCache.get(template.file);
+  const slots = template.slots || [];
+  const frames = [];
+  for (let f = 0; f < gif.frames; f++) {
+    const c = document.createElement('canvas');
+    c.width = Math.round(template.width * scale);
+    c.height = Math.round(template.height * scale);
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.scale(scale, scale);
+    capturedBursts.forEach((burst, i) => {
+      const slot = slots[i];
+      if (!slot) return;
+      ctx.drawImage(burst[f], slot.x, slot.y, CONFIG.capture.photoWidth, CONFIG.capture.photoHeight);
+    });
+    if (templateImg) ctx.drawImage(templateImg, 0, 0, template.width, template.height);
+    frames.push(c);
+  }
+  return frames;
+}
+
+// Loop the GIF on the result screen while the real GIF encodes and uploads.
+// Frames are scaled up onto photoCanvas so it keeps the still collage's size.
+function startGifPreview(frames, order, intervalMs) {
+  stopGifPreview();
+  let i = 0;
+  const draw = () => {
+    photoCtx.clearRect(0, 0, photoCanvas.width, photoCanvas.height);
+    photoCtx.drawImage(frames[order[i]], 0, 0, photoCanvas.width, photoCanvas.height);
+    i = (i + 1) % order.length;
+  };
+  draw();
+  gifPreviewTimer = setInterval(draw, intervalMs);
+}
+
+function stopGifPreview() {
+  if (gifPreviewTimer) {
+    clearInterval(gifPreviewTimer);
+    gifPreviewTimer = null;
+  }
+}
+
+// Palette quantization + LZW takes a second or two, so it runs in a worker
+function encodeGif(frames, order, delayMs) {
+  const { width, height } = frames[0];
+  const buffers = frames.map(
+    (c) => c.getContext('2d').getImageData(0, 0, width, height).data.buffer
+  );
+  return new Promise((resolve, reject) => {
+    const worker = new Worker('gif-worker.js', { type: 'module' });
+    const finish = (fn) => {
+      clearTimeout(timeout);
+      worker.terminate();
+      fn();
+    };
+    const timeout = setTimeout(
+      () => finish(() => reject(new Error('GIF encode timed out'))),
+      30000
+    );
+    worker.onmessage = (e) =>
+      finish(() =>
+        e.data.ok
+          ? resolve(new Blob([e.data.bytes], { type: 'image/gif' }))
+          : reject(new Error(e.data.error))
+      );
+    worker.onerror = (e) =>
+      finish(() => reject(new Error(e.message || 'GIF worker failed to load')));
+    worker.postMessage({ width, height, frames: buffers, order, delayMs }, buffers);
+  });
 }
 
 // ---------------------------
@@ -858,8 +1012,7 @@ function startCountdown() {
       clearInterval(timer);
       showCountdownOverlay('SMILE!', true);
 
-      const t1 = setTimeout(() => {
-        captureOneShot();
+      const afterCapture = () => {
         hideCountdownOverlay();
 
         const t2 = setTimeout(() => {
@@ -882,6 +1035,17 @@ function startCountdown() {
           }
         }, FREEZE_DURATION_MS);
         countdownTimers.push(t2);
+      };
+
+      const t1 = setTimeout(() => {
+        // GIF mode keeps "SMILE!" up through the burst and flashes on its last frame
+        const gif = getGifSettings();
+        if (gif) {
+          captureBurst(gif, afterCapture);
+        } else {
+          captureOneShot();
+          afterCapture();
+        }
       }, 250);
       countdownTimers.push(t1);
     }
@@ -966,33 +1130,68 @@ async function buildTemplateCollage(templateIndex = 0) {
   const PHOTO_H = CONFIG.capture.photoHeight;
   const PHOTO_SLOTS = template.slots || [];
 
+  stopGifPreview();
   photoCanvas.width = TEMPLATE_WIDTH;
   photoCanvas.height = TEMPLATE_HEIGHT;
-  photoCtx.clearRect(0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
 
   const resultLayout = document.querySelector('.result-layout');
   if (resultLayout) {
     resultLayout.classList.toggle('landscape', TEMPLATE_WIDTH > TEMPLATE_HEIGHT);
   }
 
-  for (let i = 0; i < capturedCanvases.length; i++) {
-    const slot = PHOTO_SLOTS[i];
-    if (!slot) continue;
-    photoCtx.drawImage(capturedCanvases[i], slot.x, slot.y, PHOTO_W, PHOTO_H);
-  }
+  // Snapshot the shots — a reset during the async GIF encode clears capturedCanvases
+  const shots = capturedCanvases.slice();
+  const drawStillCollage = (ctx) => {
+    ctx.clearRect(0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
+    for (let i = 0; i < shots.length; i++) {
+      const slot = PHOTO_SLOTS[i];
+      if (!slot) continue;
+      ctx.drawImage(shots[i], slot.x, slot.y, PHOTO_W, PHOTO_H);
+    }
 
-  if (templateImg) {
-    photoCtx.drawImage(templateImg, 0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
-  }
+    if (templateImg) {
+      ctx.drawImage(templateImg, 0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
+    }
+  };
+  drawStillCollage(photoCtx);
 
   currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const sessionId = currentSessionId;
   if (!CONFIG.eventId)
     console.warn('[QR] CONFIG.eventId is not set — upload will be rejected by the server');
+
+  // GIF mode: the animated GIF replaces the still collage as the guest's download
+  const gif = getGifSettings();
+  const upload = { rawCanvases: shots };
+  if (gif && capturedBursts.length > 0) {
+    const frames = composeGifFrames(template, gif);
+    const order = gifFrameOrder(gif);
+    startGifPreview(frames, order, gif.intervalMs);
+    setUploadStatus('Making your GIF…');
+    try {
+      upload.collageBlob = await encodeGif(frames, order, gif.intervalMs);
+    } catch (err) {
+      console.error('[GIF] encode failed — uploading the still collage instead:', err);
+      const still = document.createElement('canvas');
+      still.width = TEMPLATE_WIDTH;
+      still.height = TEMPLATE_HEIGHT;
+      drawStillCollage(still.getContext('2d'));
+      upload.collageCanvas = still;
+      if (sessionId === currentSessionId) {
+        stopGifPreview();
+        drawStillCollage(photoCtx);
+      }
+    }
+  }
+
   setUploadStatus('Uploading…');
-  await uploadSession(currentSessionId);
+  await uploadSession(sessionId, upload);
+
+  // The guest reset while this session was encoding/uploading — its QR is moot
+  if (sessionId !== currentSessionId) return;
 
   // Show QR only after upload confirmed (success or offline-queued)
-  const qrUrl = `${CONFIG.serverUrl}/p/${currentSessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ''}`;
+  const qrUrl = `${CONFIG.serverUrl}/p/${sessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ''}`;
   const qrSize = CONFIG.qr?.size ?? 300;
   const qrMargin = CONFIG.qr?.margin ?? null;
   if (qrImg) {
@@ -1021,7 +1220,11 @@ function setUploadStatus(text) {
 // ---------------------------
 // Upload raw shots + collage
 // ---------------------------
-async function uploadSession(sessionId) {
+// The collage is either a ready-made blob (GIF mode) or a canvas to encode as JPEG.
+async function uploadSession(
+  sessionId,
+  { rawCanvases = capturedCanvases, collageCanvas = photoCanvas, collageBlob = null } = {}
+) {
   if (!CONFIG) return;
 
   // Snapshot canvases synchronously before any async gaps to prevent a race
@@ -1055,10 +1258,10 @@ async function uploadSession(sessionId) {
     });
   }
 
-  let rawBlobs, collageBlob;
+  let rawBlobs;
   try {
-    rawBlobs = await Promise.all(capturedCanvases.map((c) => canvasToBlob(c)));
-    collageBlob = await canvasToBlob(photoCanvas);
+    rawBlobs = await Promise.all(rawCanvases.map((c) => canvasToBlob(c)));
+    if (!collageBlob) collageBlob = await canvasToBlob(collageCanvas);
   } catch (err) {
     console.error('[UPLOAD] canvas snapshot failed — not queuing retry:', err);
     setUploadStatus('Error: could not capture image. Please retake.');
@@ -1071,7 +1274,10 @@ async function uploadSession(sessionId) {
   rawBlobs.forEach((blob, i) => {
     if (blob) formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
   });
-  if (collageBlob) formData.append('collage', collageBlob, 'collage.jpg');
+  if (collageBlob) {
+    const ext = collageBlob.type === 'image/gif' ? 'gif' : 'jpg';
+    formData.append('collage', collageBlob, `collage.${ext}`);
+  }
 
   try {
     const uploadCtrl = new AbortController();
@@ -1146,6 +1352,7 @@ function triggerCapture() {
   if (currentShotIndex >= totalShots) {
     currentShotIndex = 0;
     capturedCanvases.length = 0;
+    capturedBursts.length = 0;
     frozenFrame = null;
     freezeUntil = 0;
     updateShotCounter();
@@ -1238,6 +1445,8 @@ function attachEventListeners() {
     currentShotIndex = 0;
     isCountingDown = false;
     capturedCanvases.length = 0;
+    capturedBursts.length = 0;
+    stopGifPreview();
     frozenFrame = null;
     freezeUntil = 0;
     selectedTemplateIndex = null;
