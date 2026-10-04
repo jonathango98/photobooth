@@ -46,9 +46,9 @@ function idbDelete(store, key) {
 }
 
 window.OfflineQueue = {
-  async enqueueSession({ sessionId, eventId, rawBlobs, collageBlob }) {
+  async enqueueSession({ sessionId, eventId, rawBlobs, collageBlob, videoBlob = null }) {
     const store = await tx("readwrite");
-    await idbPut(store, { sessionId, eventId, rawBlobs, collageBlob, createdAt: Date.now() });
+    await idbPut(store, { sessionId, eventId, rawBlobs, collageBlob, videoBlob, createdAt: Date.now() });
     console.log("[OfflineQueue] queued session", sessionId);
   },
 
@@ -93,6 +93,7 @@ window.OfflineQueue = {
           const ext = session.collageBlob.type === "image/gif" ? "gif" : "jpg";
           formData.append("collage", session.collageBlob, `collage.${ext}`);
         }
+        if (session.videoBlob) formData.append("video", session.videoBlob, "video.mp4");
 
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 30000);

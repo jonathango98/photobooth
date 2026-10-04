@@ -16,18 +16,72 @@ function shuffle(arr) {
   return a;
 }
 
-async function crossfade(slot, layerState, url) {
+const VIDEO_LOAD_TIMEOUT_MS = 10000;
+
+function loadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.alt = '';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(img);
+    img.src = url;
+  });
+}
+
+// Stop a slide's video and drop its buffered data
+function releaseMedia(layer) {
+  const video = layer.querySelector('video');
+  if (!video) return;
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+}
+
+// GIF-mode sessions carry an MP4 of the loop — full colour and smoother than
+// the GIF — so play that, and fall back to the collage image if it won't load.
+function loadMedia(photo) {
+  if (!photo.videoUrl) return loadImage(photo.url);
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    let settled = false;
+    const settle = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (ok) {
+        resolve(video);
+      } else {
+        video.removeAttribute('src');
+        video.load();
+        resolve(loadImage(photo.url));
+      }
+    };
+    const timer = setTimeout(() => settle(false), VIDEO_LOAD_TIMEOUT_MS);
+    video.addEventListener('loadeddata', () => settle(true), { once: true });
+    video.addEventListener('error', () => settle(false), { once: true });
+    video.src = photo.videoUrl;
+  });
+}
+
+async function crossfade(slot, layerState, photo, fadeMs) {
   const nextActive = layerState.active === 'a' ? 'b' : 'a';
   const incoming = slot.querySelector(`.layer.${nextActive}`);
   const outgoing = slot.querySelector(`.layer.${layerState.active}`);
-  await new Promise((resolve) => {
-    incoming.onload = resolve;
-    incoming.onerror = resolve;
-    incoming.src = url;
-  });
+  const media = await loadMedia(photo);
+  releaseMedia(incoming);
+  incoming.replaceChildren(media);
+  if (media instanceof HTMLVideoElement) media.play().catch(() => {});
   incoming.classList.add('visible');
   outgoing.classList.remove('visible');
   layerState.active = nextActive;
+  // Once faded out, the old slide's video no longer needs to decode
+  setTimeout(() => {
+    if (!outgoing.classList.contains('visible')) releaseMedia(outgoing);
+  }, fadeMs);
 }
 
 // Match the booth's wallpaper: the event config's background_url wins, and the
@@ -65,7 +119,8 @@ async function main() {
   const serverUrl = await loadServerUrl();
   if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(serverUrl);
   await applyEventWallpaper(serverUrl, eventId);
-  document.documentElement.style.setProperty('--fade', '800ms');
+  const FADE_MS = 800;
+  document.documentElement.style.setProperty('--fade', `${FADE_MS}ms`);
 
   const SLOT_INTERVAL_MS = 3000;
   const POLL_INTERVAL_MS = 60000;
@@ -89,7 +144,7 @@ async function main() {
         return;
       }
       const { photos } = await res.json();
-      photosById = new Map(photos.map((p) => [p.id, p.url]));
+      photosById = new Map(photos.map((p) => [p.id, p]));
       const knownInQueue = new Set(queue);
       const visible = new Set(slots.map((s) => s.dataset.currentId).filter(Boolean));
       const fresh = photos
@@ -113,10 +168,10 @@ async function main() {
   async function tick() {
     const id = nextId();
     if (!id) return;
-    const url = photosById.get(id);
-    if (!url) return;
+    const photo = photosById.get(id);
+    if (!photo) return;
     const slot = slots[nextSlot];
-    await crossfade(slot, layerState[nextSlot], url);
+    await crossfade(slot, layerState[nextSlot], photo, FADE_MS);
     slot.dataset.currentId = id;
     nextSlot = (nextSlot + 1) % 3;
   }

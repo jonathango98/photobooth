@@ -1,13 +1,12 @@
-const CACHE = "booth-shell-v12";
+const CACHE = "booth-shell-v13";
 
 const SHELL = [
   "/index.html",
   "/main.js",
   "/style.css",
   "/offline-queue.js",
-  "/gif-worker.js",
   "/vendor/qrcode.min.js",
-  "/vendor/gifenc.esm.js",
+  "/vendor/mp4-muxer.esm.js",
   "/vendor/mediapipe/vision_bundle.mjs",
   "/vendor/mediapipe/wasm/vision_wasm_internal.js",
   "/vendor/mediapipe/wasm/vision_wasm_internal.wasm",
