@@ -60,12 +60,16 @@ let frozenFrame = null;
 let freezeUntil = 0;
 const FREEZE_DURATION_MS = 1000;
 
-// GIF mode — per shot, the burst of frames (at GIF resolution) behind the still
+// GIF mode — per shot, the burst of frames (at video resolution) behind the still
 // in capturedCanvases. Indexes line up with capturedCanvases.
 const capturedBursts = [];
 let gifPreviewTimer = null;
-// Longest edge of the GIF collage; keeps files a few MB instead of tens.
-const GIF_MAX_DIM = 960;
+// The animated collage is saved as an MP4, not a GIF — Instagram Stories won't
+// take a GIF. The loop repeats to fill VIDEO_SECONDS so a story plays its full length.
+const VIDEO_MAX_DIM = 1920;
+const VIDEO_SECONDS = 10;
+const VIDEO_FPS = 30;
+const VIDEO_BITRATE = 3_000_000; // ~4 MB for 10 s
 
 // Template image cache
 const templateImageCache = new Map();
@@ -628,7 +632,7 @@ function buildInstructionRules() {
       ? `Tap the screen or show a ${gestureName} to start.`
       : 'Tap the screen to start.',
     templateCount > 1 ? `After ${totalShots} shots, choose a template.` : `Take ${totalShots} shots.`,
-    ...(CONFIG.gif?.enabled ? ['Every shot is a mini GIF — keep moving until the flash!'] : []),
+    ...(CONFIG.gif?.enabled ? ['Every shot is a mini video — keep moving until the flash!'] : []),
     'Scan the QR code to download your picture!',
   ];
 
@@ -917,15 +921,15 @@ function getGifSettings() {
   };
 }
 
-// Downscale applied to a template when rendering its GIF
-function gifScaleFor(template) {
-  return Math.min(1, GIF_MAX_DIM / Math.max(template.width, template.height));
+// Downscale applied to a template when rendering its MP4
+function videoScaleFor(template) {
+  return Math.min(1, VIDEO_MAX_DIM / Math.max(template.width, template.height));
 }
 
 // Burst frames are stored at the largest scale any template will need, since
 // the guest only picks a template after the shots are taken.
 function gifBurstScale() {
-  return Math.max(...CONFIG.templates.map(gifScaleFor));
+  return Math.max(...CONFIG.templates.map(videoScaleFor));
 }
 
 // Grab `frames` frames `intervalMs` apart, then flash on the last one. The last
@@ -971,18 +975,20 @@ function gifFrameOrder(gif) {
   return order;
 }
 
-// One composited collage canvas per burst frame, at GIF resolution
+// One composited collage canvas per burst frame, at video resolution.
+// H.264 needs even dimensions, so the frames round to them.
 function composeGifFrames(template, gif) {
-  const scale = gifScaleFor(template);
+  const scale = videoScaleFor(template);
+  const round = (v) => Math.round(v / 2) * 2;
   const templateImg = templateImageCache.get(template.file);
   const slots = template.slots || [];
   const frames = [];
   for (let f = 0; f < gif.frames; f++) {
     const c = document.createElement('canvas');
-    c.width = Math.round(template.width * scale);
-    c.height = Math.round(template.height * scale);
-    const ctx = c.getContext('2d', { willReadFrequently: true });
-    ctx.scale(scale, scale);
+    c.width = round(template.width * scale);
+    c.height = round(template.height * scale);
+    const ctx = c.getContext('2d');
+    ctx.scale(c.width / template.width, c.height / template.height);
     capturedBursts.forEach((burst, i) => {
       const slot = slots[i];
       if (!slot) return;
@@ -994,7 +1000,7 @@ function composeGifFrames(template, gif) {
   return frames;
 }
 
-// Loop the GIF on the result screen while the real GIF encodes and uploads.
+// Loop the animation on the result screen while the MP4 encodes and uploads.
 // Frames are scaled up onto photoCanvas so it keeps the still collage's size.
 function startGifPreview(frames, order, intervalMs) {
   stopGifPreview();
@@ -1015,33 +1021,88 @@ function stopGifPreview() {
   }
 }
 
-// Palette quantization + LZW takes a second or two, so it runs in a worker
-function encodeGif(frames, order, delayMs) {
-  const { width, height } = frames[0];
-  const buffers = frames.map(
-    (c) => c.getContext('2d').getImageData(0, 0, width, height).data.buffer
-  );
-  return new Promise((resolve, reject) => {
-    const worker = new Worker('gif-worker.js', { type: 'module' });
-    const finish = (fn) => {
-      clearTimeout(timeout);
-      worker.terminate();
-      fn();
+// First H.264 profile this browser can encode at this size: High, Main, then Baseline
+async function pickVideoConfig(width, height) {
+  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028']) {
+    const config = {
+      codec,
+      width,
+      height,
+      bitrate: VIDEO_BITRATE,
+      framerate: VIDEO_FPS,
+      avc: { format: 'avc' },
     };
-    const timeout = setTimeout(
-      () => finish(() => reject(new Error('GIF encode timed out'))),
-      30000
-    );
-    worker.onmessage = (e) =>
-      finish(() =>
-        e.data.ok
-          ? resolve(new Blob([e.data.bytes], { type: 'image/gif' }))
-          : reject(new Error(e.data.error))
-      );
-    worker.onerror = (e) =>
-      finish(() => reject(new Error(e.message || 'GIF worker failed to load')));
-    worker.postMessage({ width, height, frames: buffers, order, delayMs }, buffers);
+    try {
+      const { supported } = await VideoEncoder.isConfigSupported(config);
+      if (supported) return config;
+    } catch {
+      // Malformed for this browser — try the next profile
+    }
+  }
+  throw new Error(`No supported H.264 encoder for ${width}x${height}`);
+}
+
+// Encode the loop as a constant-frame-rate VIDEO_SECONDS MP4 with WebCodecs
+// (hardware H.264 in Chrome). Identical repeated frames compress to almost
+// nothing, so the file stays small and the encode takes a second or two.
+async function encodeMp4Loop(frames, order, intervalMs) {
+  if (typeof VideoEncoder === 'undefined') throw new Error('WebCodecs is not available');
+  const { Muxer, ArrayBufferTarget } = await import('./vendor/mp4-muxer.esm.js');
+  const { width, height } = frames[0];
+  const config = await pickVideoConfig(width, height);
+
+  const muxer = new Muxer({
+    target: new ArrayBufferTarget(),
+    video: { codec: 'avc', width, height, frameRate: VIDEO_FPS },
+    // moov atom up front so the video starts playing before it fully downloads
+    fastStart: 'in-memory',
   });
+  let encodeError = null;
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: (e) => {
+      encodeError = e;
+    },
+  });
+  encoder.configure(config);
+
+  const sources = frames.map((c) => new VideoFrame(c, { timestamp: 0 }));
+  const frameUs = 1e6 / VIDEO_FPS;
+  const totalFrames = VIDEO_SECONDS * VIDEO_FPS;
+  try {
+    for (let i = 0; i < totalFrames; i++) {
+      if (encodeError) throw encodeError;
+      const loopIndex = Math.floor((i * 1000) / VIDEO_FPS / intervalMs) % order.length;
+      const frame = new VideoFrame(sources[order[loopIndex]], {
+        timestamp: Math.round(i * frameUs),
+        duration: Math.round(frameUs),
+      });
+      // A keyframe every 2 s keeps scrubbing cheap
+      encoder.encode(frame, { keyFrame: i % (VIDEO_FPS * 2) === 0 });
+      frame.close();
+      // Backpressure — don't queue hundreds of frames on a slow encoder. Queued
+      // frames share the few source frames' memory, so a deep queue is cheap and
+      // keeps the encoder busy (a shallow one doubled the encode time).
+      while (encoder.encodeQueueSize > 30) await new Promise((r) => setTimeout(r, 1));
+    }
+    await encoder.flush();
+  } finally {
+    sources.forEach((f) => f.close());
+    if (encoder.state !== 'closed') encoder.close();
+  }
+  if (encodeError) throw encodeError;
+  muxer.finalize();
+  return new Blob([muxer.target.buffer], { type: 'video/mp4' });
+}
+
+function encodeMp4(frames, order, intervalMs) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('MP4 encode timed out')), 30000);
+  });
+  return Promise.race([encodeMp4Loop(frames, order, intervalMs), timeout]).finally(() =>
+    clearTimeout(timer)
+  );
 }
 
 // ---------------------------
@@ -1197,7 +1258,7 @@ async function buildTemplateCollage(templateIndex = 0) {
     resultLayout.classList.toggle('landscape', TEMPLATE_WIDTH > TEMPLATE_HEIGHT);
   }
 
-  // Snapshot the shots — a reset during the async GIF encode clears capturedCanvases
+  // Snapshot the shots — a reset during the async MP4 encode clears capturedCanvases
   const shots = capturedCanvases.slice();
   const drawStillCollage = (ctx) => {
     ctx.clearRect(0, 0, TEMPLATE_WIDTH, TEMPLATE_HEIGHT);
@@ -1218,23 +1279,27 @@ async function buildTemplateCollage(templateIndex = 0) {
   if (!CONFIG.eventId)
     console.warn('[QR] CONFIG.eventId is not set — upload will be rejected by the server');
 
-  // GIF mode: the animated GIF replaces the still collage as the guest's download
+  // GIF mode: the animated collage is encoded as an MP4 for the guest to save.
+  // The still collage still uploads alongside it — thumbnails, the admin grid and
+  // the slideshow fall back to it, and it's all the guest gets if encoding fails.
   const gif = getGifSettings();
   const upload = { rawCanvases: shots };
   if (gif && capturedBursts.length > 0) {
+    // The preview below draws over photoCanvas, so the still gets its own canvas
+    const still = document.createElement('canvas');
+    still.width = TEMPLATE_WIDTH;
+    still.height = TEMPLATE_HEIGHT;
+    drawStillCollage(still.getContext('2d'));
+    upload.collageCanvas = still;
+
     const frames = composeGifFrames(template, gif);
     const order = gifFrameOrder(gif);
     startGifPreview(frames, order, gif.intervalMs);
-    setUploadStatus('Making your GIF…');
+    setUploadStatus('Making your video…');
     try {
-      upload.collageBlob = await encodeGif(frames, order, gif.intervalMs);
+      upload.videoBlob = await encodeMp4(frames, order, gif.intervalMs);
     } catch (err) {
-      console.error('[GIF] encode failed — uploading the still collage instead:', err);
-      const still = document.createElement('canvas');
-      still.width = TEMPLATE_WIDTH;
-      still.height = TEMPLATE_HEIGHT;
-      drawStillCollage(still.getContext('2d'));
-      upload.collageCanvas = still;
+      console.error('[MP4] encode failed — uploading the still collage only:', err);
       if (sessionId === currentSessionId) {
         stopGifPreview();
         drawStillCollage(photoCtx);
@@ -1278,10 +1343,16 @@ function setUploadStatus(text) {
 // ---------------------------
 // Upload raw shots + collage
 // ---------------------------
-// The collage is either a ready-made blob (GIF mode) or a canvas to encode as JPEG.
+// The collage is a canvas to encode as JPEG (or a ready-made blob). GIF mode also
+// sends the MP4 loop as `video`.
 async function uploadSession(
   sessionId,
-  { rawCanvases = capturedCanvases, collageCanvas = photoCanvas, collageBlob = null } = {}
+  {
+    rawCanvases = capturedCanvases,
+    collageCanvas = photoCanvas,
+    collageBlob = null,
+    videoBlob = null,
+  } = {}
 ) {
   if (!CONFIG) return;
 
@@ -1336,10 +1407,12 @@ async function uploadSession(
     const ext = collageBlob.type === 'image/gif' ? 'gif' : 'jpg';
     formData.append('collage', collageBlob, `collage.${ext}`);
   }
+  if (videoBlob) formData.append('video', videoBlob, 'video.mp4');
 
   try {
     const uploadCtrl = new AbortController();
-    const uploadTimeout = setTimeout(() => uploadCtrl.abort(), 15000);
+    // A few extra MB of video needs more headroom on venue wifi
+    const uploadTimeout = setTimeout(() => uploadCtrl.abort(), videoBlob ? 30000 : 15000);
     const res = await fetch(`${CONFIG.serverUrl}/api/save`, {
       method: 'POST',
       body: formData,
@@ -1356,6 +1429,7 @@ async function uploadSession(
       eventId: CONFIG.eventId,
       rawBlobs,
       collageBlob,
+      videoBlob,
     });
     refreshQueueBadge();
     setUploadStatus('Saved — will sync when internet returns.');

@@ -157,7 +157,7 @@ test('capture flow: tap idle screen → countdown → result screen appears', as
   );
 });
 
-test('GIF mode: burst capture uploads an animated GIF collage', async ({ page }) => {
+test('GIF mode: burst capture uploads a 10s MP4 alongside the still collage', async ({ page }) => {
   await setupKioskMocks(page);
   await page.route(`${FAKE_SERVER}/api/event/test-event/config`, (route) =>
     route.fulfill({
@@ -195,21 +195,32 @@ test('GIF mode: burst capture uploads an animated GIF collage', async ({ page })
 
   const body = /** @type {Buffer} */ (await saved);
   const text = body.toString('latin1');
-  // Collage part is a GIF; the raw shot stays a JPEG still
-  expect(text).toMatch(/name="collage"; filename="collage\.gif"\r\nContent-Type: image\/gif/);
-  expect(text).toContain('GIF89a');
+  // The collage stays a JPEG still (thumbnails, fallback); no GIF is made any more
+  expect(text).toMatch(/name="collage"; filename="collage\.jpg"\r\nContent-Type: image\/jpeg/);
+  expect(text).not.toContain('GIF89a');
   expect(text).toMatch(/name="raw1"; filename="raw1\.jpg"\r\nContent-Type: image\/jpeg/);
+  expect(text).toMatch(/name="video"; filename="video\.mp4"\r\nContent-Type: video\/mp4/);
 
-  // 5-frame boomerang → 8 frames, each preceded by a graphic control extension
-  const gifStart = text.indexOf('GIF89a');
-  const gifEnd = text.indexOf('\r\n--', gifStart);
-  const gif = body.subarray(gifStart, gifEnd);
-  if (process.env.GIF_OUT) require('fs').writeFileSync(process.env.GIF_OUT, gif);
-  let frames = 0;
-  for (let i = 0; i < gif.length - 1; i++) {
-    if (gif[i] === 0x21 && gif[i + 1] === 0xf9 && gif[i + 2] === 0x04) frames++;
-  }
-  expect(frames).toBe(8);
+  const videoStart = text.indexOf('\r\n\r\n', text.indexOf('name="video"')) + 4;
+  const videoEnd = text.indexOf('\r\n--', videoStart);
+  const mp4 = body.subarray(videoStart, videoEnd);
+  if (process.env.MP4_OUT) require('fs').writeFileSync(process.env.MP4_OUT, mp4);
+  expect(mp4.subarray(4, 8).toString('latin1')).toBe('ftyp');
+
+  // Play it back in the browser: an H.264 video lasting VIDEO_SECONDS
+  const duration = await page.evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const v = document.createElement('video');
+    v.muted = true;
+    v.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+    await new Promise((resolve, reject) => {
+      v.onloadedmetadata = resolve;
+      v.onerror = () => reject(new Error('video failed to load'));
+    });
+    return v.duration;
+  }, mp4.toString('base64'));
+  expect(duration).toBeGreaterThan(9.9);
+  expect(duration).toBeLessThan(10.1);
 
   await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/);
 });
