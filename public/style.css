@@ -441,6 +441,25 @@ body::after {
   display: block;
 }
 
+#upload-status.pending::before {
+  content: '';
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.5em;
+  vertical-align: -0.15em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: statusSpin 0.8s linear infinite;
+}
+
+@keyframes statusSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Start Over + countdown */
 .result-actions {
   display: flex;
