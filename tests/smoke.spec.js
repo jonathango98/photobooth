@@ -310,3 +310,35 @@ test('a refused kiosk key tells staff the booth link is out of date', async ({ p
   await expect(page.locator('#upload-status')).toContainText('booth link is out of date');
   await expect(page.locator('#queue-badge')).toContainText('1 photo pending upload');
 });
+
+test('session IDs carry a timestamp and a CSPRNG UUID suffix', async ({ page }) => {
+  await setupKioskMocks(page);
+  const saved = new Promise((resolve) =>
+    page.route(`${FAKE_SERVER}/api/save`, (route) => {
+      resolve(route.request().postDataBuffer());
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    })
+  );
+
+  await page.goto('/?event=test-event');
+  await fixHiddenAttribute(page);
+  await page.waitForFunction(
+    () => document.querySelector('#instruction-overlay')?.classList.contains('visible'),
+    { timeout: 8000 }
+  );
+  await page.click('#instruction-close-btn');
+  await page.waitForFunction(
+    () => !document.querySelector('#press-hint')?.classList.contains('hidden'),
+    { timeout: 12000 }
+  );
+  await page.click('#idle-screen');
+
+  const text = /** @type {Buffer} */ (await saved).toString('latin1');
+  const sessionId = text.match(/name="sessionId"\r\n\r\n([^\r]+)/)?.[1];
+  // The admin grid sorts and dates sessions by the leading timestamp
+  expect(sessionId).toMatch(/^\d{13}_[0-9a-f]{32}$/);
+});
