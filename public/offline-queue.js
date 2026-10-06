@@ -46,9 +46,9 @@ function idbDelete(store, key) {
 }
 
 window.OfflineQueue = {
-  async enqueueSession({ sessionId, eventId, rawBlobs, collageBlob, videoBlob = null }) {
+  async enqueueSession({ sessionId, eventId, kioskKey = null, rawBlobs, collageBlob, videoBlob = null }) {
     const store = await tx("readwrite");
-    await idbPut(store, { sessionId, eventId, rawBlobs, collageBlob, videoBlob, createdAt: Date.now() });
+    await idbPut(store, { sessionId, eventId, kioskKey, rawBlobs, collageBlob, videoBlob, createdAt: Date.now() });
     console.log("[OfflineQueue] queued session", sessionId);
   },
 
@@ -61,7 +61,10 @@ window.OfflineQueue = {
     });
   },
 
-  async drainQueue(serverUrl) {
+  // `current` is the event and kiosk key of the booth link open right now. Its key
+  // wins for sessions of the same event, so opening a fresh link (new key) also
+  // releases sessions queued under the old one.
+  async drainQueue(serverUrl, current = {}) {
     const depth = await this.getQueueDepth();
     if (depth === 0) return;
 
@@ -85,6 +88,9 @@ window.OfflineQueue = {
         const formData = new FormData();
         formData.append("sessionId", session.sessionId);
         if (session.eventId) formData.append("eventId", session.eventId);
+        const kioskKey =
+          session.eventId === current.eventId && current.kioskKey ? current.kioskKey : session.kioskKey;
+        if (kioskKey) formData.append("kioskKey", kioskKey);
 
         (session.rawBlobs || []).forEach((blob, i) => {
           if (blob) formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);

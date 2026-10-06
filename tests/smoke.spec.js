@@ -267,3 +267,46 @@ test('GIF mode: burst capture uploads a 10s MP4 alongside the still collage', as
 
   await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/);
 });
+
+// Starts a session on an already-mocked kiosk page and waits for the upload
+async function captureOneSession(page, url) {
+  await page.goto(url);
+  await fixHiddenAttribute(page);
+  await page.waitForFunction(
+    () => document.querySelector('#instruction-overlay')?.classList.contains('visible'),
+    { timeout: 8000 }
+  );
+  await page.click('#instruction-close-btn');
+  await page.waitForFunction(
+    () => !document.querySelector('#press-hint')?.classList.contains('hidden'),
+    { timeout: 12000 }
+  );
+  await page.click('#idle-screen');
+}
+
+test('uploads carry the kiosk key from the booth link', async ({ page }) => {
+  await setupKioskMocks(page);
+  const saveBody = new Promise((resolve) =>
+    page.route(`${FAKE_SERVER}/api/save`, (route) => {
+      resolve(route.request().postDataBuffer()?.toString('latin1') ?? '');
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    })
+  );
+
+  await captureOneSession(page, '/?event=test-event&key=k3y-from-link');
+
+  expect(await saveBody).toMatch(/name="kioskKey"\r\n\r\nk3y-from-link\r\n/);
+  await expect(page.locator('#upload-status')).toHaveText('Ready! Scan to view.');
+});
+
+test('a refused kiosk key tells staff the booth link is out of date', async ({ page }) => {
+  await setupKioskMocks(page);
+  await page.route(`${FAKE_SERVER}/api/save`, (route) =>
+    route.fulfill({ status: 401, contentType: 'application/json', body: '{"ok":false}' })
+  );
+
+  await captureOneSession(page, '/?event=test-event&key=stale');
+
+  await expect(page.locator('#upload-status')).toContainText('booth link is out of date');
+  await expect(page.locator('#queue-badge')).toContainText('1 photo pending upload');
+});
