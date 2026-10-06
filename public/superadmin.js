@@ -821,8 +821,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- Modal ---
 
-  function confirmAction(title, message, onConfirm) {
+  function confirmAction(title, message, onConfirm, confirmLabel = 'Delete') {
     modalTitle.textContent = title;
+    modalConfirm.textContent = confirmLabel;
     modalMessage.textContent = message;
     pendingConfirmCallback = onConfirm;
     modalOverlay.classList.add('active');
@@ -903,7 +904,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const w = event.capture?.photoWidth ?? '?';
       const h = event.capture?.photoHeight ?? '?';
 
-      const boothUrl = `${BOOTH_ORIGIN}/?event=${encodeURIComponent(event.event_id)}`;
+      // The kiosk key rides in the booth link — /api/save rejects uploads without it
+      const boothUrl = `${BOOTH_ORIGIN}/?event=${encodeURIComponent(event.event_id)}${event.kiosk_key ? `&key=${encodeURIComponent(event.kiosk_key)}` : ''}`;
       const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${encodeURIComponent(event.event_id)}`;
       const slideshowUrl = event.slideshow_token
         ? `${BOOTH_ORIGIN}/preview/?event=${encodeURIComponent(event.event_id)}&token=${encodeURIComponent(event.slideshow_token)}`
@@ -926,6 +928,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span class="booth-url-label" style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;"></span>
                     <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
+                    <button class="event-regen-kiosk-key-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.5);border:1px solid rgba(247,242,213,0.15);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;"></button>
                     <button class="event-copy-admin-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy admin link</button>
                 </div>
                 <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -950,7 +953,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         `${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}`;
       card.querySelector('.meta-created').textContent = `Created: ${createdAt}`;
       card.querySelector('.meta-updated').textContent = `Updated: ${updatedAt}`;
-      card.querySelector('.booth-url-label').textContent = boothUrl;
+      card.querySelector('.booth-url-label').textContent = event.kiosk_key
+        ? boothUrl
+        : `${boothUrl}  (no kiosk key — anyone with the event ID can upload)`;
+      card.querySelector('.event-regen-kiosk-key-btn').textContent = event.kiosk_key
+        ? 'Regen kiosk key'
+        : 'Issue kiosk key';
       card.querySelector('.slideshow-url-label').textContent = slideshowUrl
         ? slideshowUrl
         : 'No slideshow token — click Regen token to generate one';
@@ -988,6 +996,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.textContent = 'Copy link';
           }, 2000);
         });
+      });
+
+      card.querySelector('.event-regen-kiosk-key-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const message = event.kiosk_key
+          ? `Issue a new kiosk key for "${event.event_id}"? Kiosks using the current booth link will stop uploading until they open the new link.`
+          : `Issue a kiosk key for "${event.event_id}"? Kiosks must then use the new booth link — the old one (without a key) will stop uploading.`;
+        confirmAction(
+          'Kiosk key',
+          message,
+          async () => {
+            try {
+              const res = await fetch(
+                `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/regenerate-kiosk-key`,
+                { method: 'POST', headers: authHeaders() }
+              );
+              if (res.status === 401) {
+                handle401();
+                return;
+              }
+              if (!res.ok) {
+                alert('Failed to issue kiosk key.');
+                return;
+              }
+              loadEvents();
+            } catch (err) {
+              console.error(err);
+              alert('Error issuing kiosk key.');
+            }
+          },
+          event.kiosk_key ? 'Regenerate' : 'Issue key'
+        );
       });
 
       card.querySelector('.event-copy-admin-link-btn').addEventListener('click', (e) => {

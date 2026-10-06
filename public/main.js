@@ -91,6 +91,9 @@ const PEACE_RING_CIRCUMFERENCE = 339.292;
 // Config loading
 // ---------------------------
 const _urlEventId = new URLSearchParams(window.location.search).get('event');
+// Upload key from the booth link superadmin hands out — /api/save requires it
+// for events that have one
+const _urlKioskKey = new URLSearchParams(window.location.search).get('key');
 
 function showEventError(title, msgNodes) {
   const outer = document.createElement('div');
@@ -284,6 +287,7 @@ async function loadConfig() {
   if (!CONFIG.eventId && _urlEventId) {
     CONFIG.eventId = _urlEventId;
   }
+  CONFIG.kioskKey = _urlKioskKey || null;
 
   // Update the error reporter with the resolved server URL so any subsequent
   // errors are sent to the correct endpoint (fallback URL is used until this runs).
@@ -1404,6 +1408,7 @@ async function uploadSession(
   const formData = new FormData();
   formData.append('sessionId', sessionId);
   if (CONFIG.eventId) formData.append('eventId', CONFIG.eventId);
+  if (CONFIG.kioskKey) formData.append('kioskKey', CONFIG.kioskKey);
   rawBlobs.forEach((blob, i) => {
     if (blob) formData.append(`raw${i + 1}`, blob, `raw${i + 1}.jpg`);
   });
@@ -1413,6 +1418,9 @@ async function uploadSession(
   }
   if (videoBlob) formData.append('video', videoBlob, 'video.mp4');
 
+  // Set when the server refuses this booth link's kiosk key — retrying won't help
+  // until staff open the current link, so say so instead of "will sync"
+  let rejectedKey = false;
   try {
     const uploadCtrl = new AbortController();
     // A few extra MB of video needs more headroom on venue wifi
@@ -1423,6 +1431,7 @@ async function uploadSession(
       signal: uploadCtrl.signal,
     });
     clearTimeout(uploadTimeout);
+    if (res.status === 401) rejectedKey = true;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (sessionId === currentSessionId) setUploadStatus('Ready! Scan to view.');
     console.log('[UPLOAD] success', sessionId);
@@ -1431,12 +1440,19 @@ async function uploadSession(
     await window.OfflineQueue.enqueueSession({
       sessionId,
       eventId: CONFIG.eventId,
+      kioskKey: CONFIG.kioskKey,
       rawBlobs,
       collageBlob,
       videoBlob,
     });
     refreshQueueBadge();
-    if (sessionId === currentSessionId) setUploadStatus('Saved — will sync when internet returns.');
+    if (sessionId === currentSessionId) {
+      setUploadStatus(
+        rejectedKey
+          ? 'Saved on this booth — upload refused: this booth link is out of date. Staff: open the current booth link.'
+          : 'Saved — will sync when internet returns.'
+      );
+    }
   }
 }
 
@@ -1467,7 +1483,10 @@ async function refreshQueueBadge() {
 async function drainAndRefresh() {
   if (!CONFIG?.serverUrl || !window.OfflineQueue) return;
   try {
-    await window.OfflineQueue.drainQueue(CONFIG.serverUrl);
+    await window.OfflineQueue.drainQueue(CONFIG.serverUrl, {
+      eventId: CONFIG.eventId,
+      kioskKey: CONFIG.kioskKey,
+    });
   } catch (err) {
     console.warn('[OfflineQueue] drain failed:', err);
   }
