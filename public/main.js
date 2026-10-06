@@ -1279,6 +1279,16 @@ async function buildTemplateCollage(templateIndex = 0) {
   if (!CONFIG.eventId)
     console.warn('[QR] CONFIG.eventId is not set — upload will be rejected by the server');
 
+  // The QR goes up before the encode/upload finishes — the URL only needs the
+  // sessionId, and the guest page shows "on its way…" and polls until it lands.
+  const qrUrl = `${CONFIG.serverUrl}/p/${sessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ''}`;
+  const qrSize = CONFIG.qr?.size ?? 300;
+  const qrMargin = CONFIG.qr?.margin ?? null;
+  if (qrImg) {
+    qrImg.src = generateQRDataURL(qrUrl, qrSize, qrMargin);
+    qrImg.style.setProperty('--qr-size', `${qrSize}px`);
+  }
+
   // GIF mode: the animated collage is encoded as an MP4 for the guest to save.
   // The still collage still uploads alongside it — thumbnails, the admin grid and
   // the slideshow fall back to it, and it's all the guest gets if encoding fails.
@@ -1295,7 +1305,7 @@ async function buildTemplateCollage(templateIndex = 0) {
     const frames = composeGifFrames(template, gif);
     const order = gifFrameOrder(gif);
     startGifPreview(frames, order, gif.intervalMs);
-    setUploadStatus('Making your video…');
+    setUploadStatus('Making your video…', { pending: true });
     try {
       upload.videoBlob = await encodeMp4(frames, order, gif.intervalMs);
     } catch (err) {
@@ -1307,20 +1317,11 @@ async function buildTemplateCollage(templateIndex = 0) {
     }
   }
 
-  setUploadStatus('Uploading…');
-  await uploadSession(sessionId, upload);
+  if (sessionId === currentSessionId) setUploadStatus('Uploading…', { pending: true });
+  const saved = await uploadSession(sessionId, upload);
 
-  // The guest reset while this session was encoding/uploading — its QR is moot
-  if (sessionId !== currentSessionId) return;
-
-  // Show QR only after upload confirmed (success or offline-queued)
-  const qrUrl = `${CONFIG.serverUrl}/p/${sessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ''}`;
-  const qrSize = CONFIG.qr?.size ?? 300;
-  const qrMargin = CONFIG.qr?.margin ?? null;
-  if (qrImg) {
-    qrImg.src = generateQRDataURL(qrUrl, qrSize, qrMargin);
-    qrImg.style.setProperty('--qr-size', `${qrSize}px`);
-  }
+  // Nothing will ever arrive at this QR's URL — take it down
+  if (saved === false && sessionId === currentSessionId && qrImg) qrImg.src = '';
 }
 
 // ---------------------------
@@ -1335,9 +1336,12 @@ function generateQRDataURL(url, targetSize, margin) {
   return qr.createDataURL(cellSize, marginPx);
 }
 
-function setUploadStatus(text) {
+// `pending` adds a spinner so a slow encode/upload reads as working, not stuck
+function setUploadStatus(text, { pending = false } = {}) {
   const el = document.getElementById('upload-status');
-  if (el) el.textContent = text;
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle('pending', pending);
 }
 
 // ---------------------------
@@ -1393,8 +1397,8 @@ async function uploadSession(
     if (!collageBlob) collageBlob = await canvasToBlob(collageCanvas);
   } catch (err) {
     console.error('[UPLOAD] canvas snapshot failed — not queuing retry:', err);
-    setUploadStatus('Error: could not capture image. Please retake.');
-    return;
+    if (sessionId === currentSessionId) setUploadStatus('Error: could not capture image. Please retake.');
+    return false;
   }
 
   const formData = new FormData();
@@ -1420,7 +1424,7 @@ async function uploadSession(
     });
     clearTimeout(uploadTimeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    setUploadStatus('Ready! Scan to view.');
+    if (sessionId === currentSessionId) setUploadStatus('Ready! Scan to view.');
     console.log('[UPLOAD] success', sessionId);
   } catch (err) {
     console.warn('[UPLOAD] failed, queuing offline:', err);
@@ -1432,7 +1436,7 @@ async function uploadSession(
       videoBlob,
     });
     refreshQueueBadge();
-    setUploadStatus('Saved — will sync when internet returns.');
+    if (sessionId === currentSessionId) setUploadStatus('Saved — will sync when internet returns.');
   }
 }
 

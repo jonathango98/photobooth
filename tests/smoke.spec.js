@@ -157,6 +157,49 @@ test('capture flow: tap idle screen → countdown → result screen appears', as
   );
 });
 
+test('QR shows while the upload is still in flight', async ({ page }) => {
+  await setupKioskMocks(page);
+  // Hold the upload open until the test releases it
+  let releaseSave = () => {};
+  const saveHeld = new Promise((resolve) =>
+    page.route(`${FAKE_SERVER}/api/save`, async (route) => {
+      await new Promise((r) => {
+        releaseSave = r;
+        resolve();
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    })
+  );
+
+  await page.goto('/?event=test-event');
+  await fixHiddenAttribute(page);
+  await page.waitForFunction(
+    () => document.querySelector('#instruction-overlay')?.classList.contains('visible'),
+    { timeout: 8000 }
+  );
+  await page.click('#instruction-close-btn');
+  await page.waitForFunction(
+    () => !document.querySelector('#press-hint')?.classList.contains('hidden'),
+    { timeout: 12000 }
+  );
+  await page.click('#idle-screen');
+
+  await saveHeld;
+  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#qr-img')).toHaveAttribute('src', /^data:image\//);
+  await expect(page.locator('#upload-status')).toHaveText('Uploading…');
+  await expect(page.locator('#upload-status')).toHaveClass(/\bpending\b/);
+
+  releaseSave();
+  await expect(page.locator('#upload-status')).toHaveText('Ready! Scan to view.');
+  await expect(page.locator('#upload-status')).not.toHaveClass(/\bpending\b/);
+  await expect(page.locator('#qr-img')).toHaveAttribute('src', /^data:image\//);
+});
+
 test('GIF mode: burst capture uploads a 10s MP4 alongside the still collage', async ({ page }) => {
   await setupKioskMocks(page);
   await page.route(`${FAKE_SERVER}/api/event/test-event/config`, (route) =>
