@@ -911,7 +911,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? `${BOOTH_ORIGIN}/preview/?event=${encodeURIComponent(event.event_id)}&token=${encodeURIComponent(event.slideshow_token)}`
         : null;
 
-      // Build card DOM without innerHTML to prevent XSS
+      // Static markup only — every user-supplied value is set via textContent below
       card.innerHTML = `
                 <div class="event-card-header">
                     <input type="checkbox" class="event-card-checkbox">
@@ -1282,11 +1282,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     row.className = 'tpl-slot-row';
     row.innerHTML = `
       <label>x</label>
-      <input type="number" class="tpl-slot-x" value="${x}" step="1" />
+      <input type="number" class="tpl-slot-x" step="1" />
       <label>y</label>
-      <input type="number" class="tpl-slot-y" value="${y}" step="1" />
+      <input type="number" class="tpl-slot-y" step="1" />
       <button type="button" class="tpl-mini-btn tpl-remove-slot-btn">×</button>
     `;
+    // Values are set as properties, never interpolated, so pasted template JSON can't inject markup
+    row.querySelector('.tpl-slot-x').value = x ?? '';
+    row.querySelector('.tpl-slot-y').value = y ?? '';
     row.querySelector('.tpl-remove-slot-btn').addEventListener('click', () => {
       row.remove();
       refreshSlotWarnings();
@@ -1309,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       </div>
       <div class="tpl-upload-row">
-        <input type="text" class="tpl-file" placeholder="file URL or path" value="${tpl.file || ''}" style="flex:1;padding:5px 8px;background:#1a1a1a;border:1px solid rgba(247,242,213,0.2);border-radius:4px;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;font-size:12px;" />
+        <input type="text" class="tpl-file" placeholder="file URL or path" style="flex:1;padding:5px 8px;background:#1a1a1a;border:1px solid rgba(247,242,213,0.2);border-radius:4px;color:#f7f2d5;font-family:'IBM Plex Mono',monospace;font-size:12px;" />
         <button type="button" class="tpl-mini-btn tpl-upload-btn">Upload PNG</button>
         <input type="file" class="tpl-file-input" accept="image/png,image/jpeg,image/webp" style="display:none" />
         <span class="tpl-upload-status"></span>
@@ -1317,11 +1320,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div class="form-grid-2">
         <div class="form-row">
           <label>Width (px)</label>
-          <input type="number" class="tpl-width" value="${tpl.width || 880}" min="1" step="1" />
+          <input type="number" class="tpl-width" min="1" step="1" />
         </div>
         <div class="form-row">
           <label>Height (px)</label>
-          <input type="number" class="tpl-height" value="${tpl.height || 495}" min="1" step="1" />
+          <input type="number" class="tpl-height" min="1" step="1" />
         </div>
       </div>
       <div class="tpl-slots-header">
@@ -1331,6 +1334,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div class="tpl-slots-container"></div>
       <div class="tpl-warning"></div>
     `;
+
+    card.querySelector('.tpl-file').value = tpl.file || '';
+    card.querySelector('.tpl-width').value = tpl.width || 880;
+    card.querySelector('.tpl-height').value = tpl.height || 495;
 
     const slotsContainer = card.querySelector('.tpl-slots-container');
     (tpl.slots || []).forEach(({ x, y }) => slotsContainer.appendChild(buildSlotRow(x, y)));

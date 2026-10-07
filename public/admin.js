@@ -334,7 +334,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           const label = document.createElement('span');
           label.className = 'label';
-          label.textContent = item.id.split('_').pop();
+          // Collage keys end in the long random sessionId suffix, so name them by type
+          label.textContent = item.id.includes('/collage/') ? 'collage' : item.id.split('_').pop();
 
           itemDiv.append(checkbox, actions, img, label);
 

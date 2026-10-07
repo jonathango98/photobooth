@@ -1278,7 +1278,9 @@ async function buildTemplateCollage(templateIndex = 0) {
   };
   drawStillCollage(photoCtx);
 
-  currentSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  // The sessionId is the only thing guarding a guest's photo link, so the suffix is
+  // 122 bits from the CSPRNG. The timestamp prefix lets the admin grid sort and date it.
+  currentSessionId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
   const sessionId = currentSessionId;
   if (!CONFIG.eventId)
     console.warn('[QR] CONFIG.eventId is not set — upload will be rejected by the server');
