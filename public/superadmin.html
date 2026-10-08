@@ -920,13 +920,23 @@
         color: #f7f2d5;
         border-bottom-color: #f7f2d5;
       }
+      #events-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 12px;
+      }
+      #events-list > p,
+      #events-empty {
+        grid-column: 1 / -1;
+      }
       .event-card {
         position: relative;
+        display: flex;
+        flex-direction: column;
         background: #111;
         border: 1px solid rgba(247, 242, 213, 0.1);
         border-radius: 8px;
         padding: 16px;
-        margin-bottom: 12px;
         cursor: pointer;
         transition: border-color 0.15s;
       }
@@ -981,19 +991,23 @@
         margin-bottom: 12px;
       }
       .event-card-footer {
+        margin-top: auto;
         display: flex;
-        align-items: center;
+        align-items: flex-end;
         justify-content: space-between;
         gap: 8px;
-        flex-wrap: wrap;
       }
       .event-card-links {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .event-refresh-btn {
+        flex-shrink: 0;
       }
       .event-card-links button {
-        padding: 6px 12px;
+        padding: 6px 10px;
         border-radius: 4px;
         cursor: pointer;
         font-family: 'IBM Plex Mono', monospace;
