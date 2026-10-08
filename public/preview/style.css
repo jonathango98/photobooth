@@ -43,6 +43,12 @@ html, body {
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: 4px;
+  transition: box-shadow var(--fade) ease;
+}
+
+/* Lift the photos off the wallpaper (only once a slot has a photo, so empty slots stay invisible) */
+.slot:has(.layer.visible) {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .layer {
