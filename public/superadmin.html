@@ -855,7 +855,7 @@
         margin-top: auto;
         display: flex;
         align-items: flex-end;
-        justify-content: space-between;
+        justify-content: flex-end;
         gap: 8px;
       }
       .event-card-links {
@@ -863,9 +863,6 @@
         gap: 8px;
         flex-wrap: wrap;
         justify-content: flex-end;
-      }
-      .event-refresh-btn {
-        flex-shrink: 0;
       }
       .event-card-links button {
         padding: 6px 10px;
@@ -881,7 +878,6 @@
       .event-card-links button:hover:not(:disabled) {
         background: rgba(247, 242, 213, 0.08);
       }
-      .event-refresh-btn,
       .event-menu-btn {
         width: 30px;
         height: 30px;
@@ -897,17 +893,9 @@
         font-size: 18px;
         line-height: 1;
       }
-      .event-refresh-btn {
-        border-color: rgba(247, 242, 213, 0.15);
-      }
-      .event-refresh-btn:hover:not(:disabled),
       .event-menu-btn:hover {
         background: rgba(247, 242, 213, 0.08);
         color: #f7f2d5;
-      }
-      .event-refresh-btn:disabled {
-        opacity: 0.4;
-        cursor: default;
       }
       .event-menu-btn {
         position: absolute;
@@ -1118,10 +1106,6 @@
         }
         .event-status-btn {
           padding: 4px 12px;
-        }
-        .event-refresh-btn {
-          width: 36px;
-          height: 36px;
         }
         .event-card-links {
           flex: 1;
