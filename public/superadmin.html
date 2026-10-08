@@ -22,6 +22,7 @@
         margin: 0;
         padding: 0;
         height: 100vh;
+        height: 100dvh;
         display: flex;
         flex-direction: column;
       }
@@ -770,7 +771,7 @@
       /* Event Cards */
       #events-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
         gap: 12px;
       }
       #events-list > p,
@@ -1050,6 +1051,158 @@
       }
       #move-modal-confirm:hover {
         background: #ede8c4;
+      }
+
+      /* Touch screens have no hover, so keep hover-only controls visible */
+      @media (hover: none), (pointer: coarse) {
+        .item-actions,
+        .tree-node-label .delete-folder-btn {
+          opacity: 1;
+        }
+        .photo-item:hover {
+          transform: none;
+        }
+      }
+
+      /* Phone / portrait */
+      @media (max-width: 700px) {
+        .login-box {
+          margin: 40px 12px;
+        }
+        /* 16px stops mobile browsers zooming in on focus */
+        .login-box input,
+        .form-row input[type='text'],
+        .form-row input[type='number'],
+        .form-row textarea,
+        .tpl-slot-row input,
+        #move-dest-input {
+          font-size: 16px;
+        }
+        .tpl-file {
+          font-size: 16px !important;
+        }
+
+        #top-bar {
+          padding: 10px 12px;
+          gap: 10px;
+        }
+        #top-bar h1 {
+          font-size: 14px;
+        }
+        #tab-bar {
+          padding: 0 8px;
+        }
+        .sa-tab {
+          flex: 1;
+          padding: 12px 8px;
+        }
+
+        /* Events */
+        #events-view {
+          padding: 12px !important;
+        }
+        .event-card {
+          padding: 14px;
+        }
+        .event-menu-btn {
+          width: 36px;
+          height: 36px;
+          top: 8px;
+          right: 8px;
+        }
+        .event-menu {
+          top: 46px;
+        }
+        .event-menu button {
+          padding: 12px 16px;
+        }
+        .event-status-btn {
+          padding: 4px 12px;
+        }
+        .event-refresh-btn {
+          width: 36px;
+          height: 36px;
+        }
+        .event-card-links {
+          flex: 1;
+          flex-wrap: nowrap;
+        }
+        .event-card-links button {
+          flex: 1;
+          padding: 9px 4px;
+        }
+
+        /* Files: folder tree stacks above the grid */
+        #main-layout {
+          flex-direction: column;
+        }
+        #sidebar {
+          width: 100%;
+          max-height: 35vh;
+          border-right: none;
+          border-bottom: 1px solid rgba(247, 242, 213, 0.12);
+        }
+        .tree-node-label {
+          padding-top: 9px;
+          padding-bottom: 9px;
+        }
+        #panel-controls {
+          padding: 8px 12px;
+        }
+        #panel-controls .btn {
+          padding: 8px 10px;
+        }
+        #photo-grid-container {
+          padding: 12px;
+        }
+        #photo-grid {
+          grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+          gap: 8px;
+        }
+        .photo-item .checkbox-overlay {
+          width: 24px;
+          height: 24px;
+        }
+        .item-action-btn {
+          padding: 4px 8px;
+          font-size: 13px;
+        }
+
+        /* Event form becomes a full-screen sheet with a pinned Save bar */
+        #event-form-overlay {
+          padding: 0;
+          align-items: stretch;
+        }
+        #event-form-box {
+          max-width: none;
+          max-height: none;
+          height: 100%;
+          border: none;
+          border-radius: 0;
+          padding: 16px 16px 0;
+        }
+        #event-form > div:last-child {
+          position: sticky;
+          bottom: 0;
+          background: #111;
+          padding: 12px 0 16px;
+          border-top: 1px solid rgba(247, 242, 213, 0.1);
+        }
+        #event-form-cancel,
+        #event-form-save {
+          flex: 1;
+          padding: 12px 18px;
+        }
+        #modal-actions button,
+        #move-modal-actions button {
+          padding: 12px 18px;
+        }
+        #preview-close {
+          top: 12px;
+          right: 12px;
+          width: 44px;
+          height: 44px;
+        }
       }
     </style>
   </head>
