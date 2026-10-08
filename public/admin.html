@@ -77,7 +77,7 @@
       /* Sessions List as a Grid */
       #sessions-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
         gap: 20px;
         align-items: start;
       }
@@ -349,6 +349,66 @@
         border: 1px solid rgba(247, 242, 213, 0.15);
         border-bottom: 1px solid #000;
         margin-bottom: -1px;
+      }
+
+      /* Touch screens have no hover, so keep per-photo actions visible */
+      @media (hover: none), (pointer: coarse) {
+        .item-actions {
+          opacity: 1;
+        }
+        .photo-item:hover {
+          transform: none;
+        }
+      }
+
+      /* Phone / portrait */
+      @media (max-width: 700px) {
+        body {
+          padding: 12px;
+        }
+        .login-box {
+          margin: 40px auto;
+        }
+        /* 16px stops mobile browsers zooming in on focus */
+        .login-box input {
+          font-size: 16px;
+        }
+        .btn-download-all {
+          width: 100%;
+          padding: 10px 14px;
+        }
+        .selection-controls .btn {
+          flex: 1 1 auto;
+          padding: 10px 12px;
+        }
+        .tab-btn {
+          flex: 1;
+          padding: 10px 8px;
+        }
+        #sessions-list {
+          gap: 12px;
+        }
+        .session {
+          padding: 10px;
+        }
+        .tab-raws .photo-grid,
+        .tab-collages .photo-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .photo-item .checkbox-overlay {
+          width: 24px;
+          height: 24px;
+        }
+        .item-action-btn {
+          padding: 4px 10px;
+          font-size: 15px;
+        }
+        #preview-close {
+          top: 12px;
+          right: 12px;
+          width: 44px;
+          height: 44px;
+        }
       }
     </style>
   </head>
