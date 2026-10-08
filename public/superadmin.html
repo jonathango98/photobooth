@@ -900,34 +900,26 @@
       }
 
       /* Event Cards */
-      #events-subtabs {
-        display: flex;
-        gap: 16px;
-        margin-bottom: 16px;
-        border-bottom: 1px solid rgba(247, 242, 213, 0.1);
-      }
-      .events-subtab {
-        background: none;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 6px 0;
-        color: rgba(247, 242, 213, 0.5);
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 13px;
-        cursor: pointer;
-      }
-      .events-subtab.active {
-        color: #f7f2d5;
-        border-bottom-color: #f7f2d5;
-      }
       #events-list {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
         gap: 12px;
       }
       #events-list > p,
-      #events-empty {
+      #events-empty,
+      .events-group-heading {
         grid-column: 1 / -1;
+      }
+      .events-group-heading {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(247, 242, 213, 0.45);
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(247, 242, 213, 0.1);
+      }
+      .events-group-heading ~ .events-group-heading {
+        margin-top: 16px;
       }
       .event-card {
         position: relative;
@@ -1308,10 +1300,6 @@
           >
             + New Event
           </button>
-        </div>
-        <div id="events-subtabs">
-          <button class="events-subtab active" data-subtab="active">Active</button>
-          <button class="events-subtab" data-subtab="archived">Archived</button>
         </div>
         <div id="events-list"></div>
       </div>

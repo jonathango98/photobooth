@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pendingMoveSourceKey = null;
   let eventFormMode = null; // 'create' or 'edit'
   let eventFormEditId = null;
-  let eventsSubtab = 'active'; // 'active' or 'archived'
   let allEvents = [];
 
   // --- Tab Switching ---
@@ -206,16 +205,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   createEventBtn.addEventListener('click', () => openEventForm(null));
-
-  document.querySelectorAll('.events-subtab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      eventsSubtab = tab.dataset.subtab;
-      document
-        .querySelectorAll('.events-subtab')
-        .forEach((t) => t.classList.toggle('active', t === tab));
-      renderEventsList(allEvents);
-    });
-  });
 
   // --- Auth ---
 
@@ -872,26 +861,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     const listEl = document.getElementById('events-list');
     listEl.innerHTML = '';
 
-    const archived = eventsSubtab === 'archived';
-    document.querySelectorAll('.events-subtab').forEach((t) => {
-      const isArchived = t.dataset.subtab === 'archived';
-      const n = (events || []).filter((e) => !e.is_active === isArchived).length;
-      t.textContent = `${isArchived ? 'Archived' : 'Active'} (${n})`;
-    });
-
-    const visible = (events || []).filter((e) => !e.is_active === archived);
-    if (visible.length === 0) {
-      listEl.innerHTML = `<div id="events-empty">${archived ? 'No archived events.' : 'No active events.'}</div>`;
+    if (!events || events.length === 0) {
+      listEl.innerHTML = '<div id="events-empty">No events yet.</div>';
       return;
     }
 
-    const sorted = [...visible].sort((a, b) => {
+    const byNewest = (a, b) => {
       const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
       const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
       return tb - ta;
+    };
+    const active = events.filter((e) => e.is_active).sort(byNewest);
+    const archived = events.filter((e) => !e.is_active).sort(byNewest);
+
+    // Active events first, archived grouped below, each under a full-width heading
+    const items = [];
+    [
+      ['Active', active],
+      ['Archived', archived],
+    ].forEach(([label, group]) => {
+      if (group.length === 0) return;
+      const heading = document.createElement('div');
+      heading.className = 'events-group-heading';
+      heading.textContent = `${label} (${group.length})`;
+      items.push(heading, ...group);
     });
 
-    sorted.forEach((event) => {
+    items.forEach((event) => {
+      if (event instanceof HTMLElement) {
+        listEl.appendChild(event);
+        return;
+      }
       const card = document.createElement('div');
       card.className = 'event-card';
 
