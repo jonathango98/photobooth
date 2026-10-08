@@ -923,9 +923,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="event-card-footer">
                     <button class="event-refresh-btn" aria-label="Refresh kiosk key and slideshow token" title="Refresh kiosk key and slideshow token">↻</button>
                     <div class="event-card-links">
-                        <button class="event-booth-link-btn">Booth link</button>
-                        <button class="event-admin-link-btn">Admin link</button>
-                        <button class="event-slideshow-link-btn">Slideshow link</button>
+                        <button class="event-booth-link-btn">Booth</button>
+                        <button class="event-admin-link-btn">Admin</button>
+                        <button class="event-slideshow-link-btn">Slideshow</button>
                     </div>
                 </div>
             `;
