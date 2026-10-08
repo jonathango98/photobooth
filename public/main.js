@@ -1423,11 +1423,12 @@ async function uploadSession(
   // Set when the server refuses this booth link's kiosk key — retrying won't help
   // until staff open the current link, so say so instead of "will sync"
   let rejectedKey = false;
+  let res;
   try {
     const uploadCtrl = new AbortController();
     // A few extra MB of video needs more headroom on venue wifi
     const uploadTimeout = setTimeout(() => uploadCtrl.abort(), videoBlob ? 30000 : 15000);
-    const res = await fetch(`${CONFIG.serverUrl}/api/save`, {
+    res = await fetch(`${CONFIG.serverUrl}/api/save`, {
       method: 'POST',
       body: formData,
       signal: uploadCtrl.signal,
@@ -1438,6 +1439,15 @@ async function uploadSession(
     if (sessionId === currentSessionId) setUploadStatus('Ready! Scan to view.');
     console.log('[UPLOAD] success', sessionId);
   } catch (err) {
+    // Demo booth over its upload cap: retrying soon won't help and the queue
+    // would just pile up on a visitor's device, so drop it and say so
+    if (res?.status === 429 && (await res.json().catch(() => ({}))).demo_limit) {
+      console.warn('[UPLOAD] demo upload limit reached');
+      if (sessionId === currentSessionId) {
+        setUploadStatus('Demo limit reached — try again later.');
+      }
+      return false;
+    }
     console.warn('[UPLOAD] failed, queuing offline:', err);
     await window.OfflineQueue.enqueueSession({
       sessionId,
