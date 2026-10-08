@@ -143,6 +143,10 @@ async function main() {
           'Invalid slideshow token — this link may have expired. Ask the event organiser for a new slideshow link.';
         return;
       }
+      if (res.status === 404) {
+        document.body.textContent = 'This event has ended. Thanks for coming!';
+        return;
+      }
       const { photos } = await res.json();
       photosById = new Map(photos.map((p) => [p.id, p]));
       const knownInQueue = new Set(queue);
