@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let eventFormMode = null; // 'create' or 'edit'
   let eventFormEditId = null;
   let allEvents = [];
+  let treeLoaded = false; // Files tab loads its tree on first open
 
   // --- Tab Switching ---
 
@@ -49,7 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const eventFormTitle = document.getElementById('event-form-title');
   const eventFormCancel = document.getElementById('event-form-cancel');
 
-  const wallpapersView = document.getElementById('wallpapers-view');
 
   tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -58,42 +58,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const tab = btn.dataset.tab;
       filesView.classList.toggle('hidden', tab !== 'files');
       eventsView.classList.toggle('hidden', tab !== 'events');
-      wallpapersView.classList.toggle('hidden', tab !== 'wallpapers');
       if (tab === 'events') loadEvents();
-      if (tab === 'wallpapers') loadWallpapers();
+      if (tab === 'files' && !treeLoaded) loadTree();
     });
   });
 
-  // --- Wallpapers ---
+  // Background upload reuses the wallpapers bucket prefix
+  const bgUploadBtn = document.getElementById('ef-background-upload-btn');
+  const bgFileInput = document.getElementById('ef-background-file');
+  const bgStatus = document.getElementById('ef-background-status');
 
-  const wallpaperFileInput = document.getElementById('wallpaper-file-input');
-  const wallpaperChooseBtn = document.getElementById('wallpaper-choose-btn');
-  const wallpaperUploadBtn = document.getElementById('wallpaper-upload-btn');
-  const wallpaperSelectedName = document.getElementById('wallpaper-selected-name');
-  const wallpaperStatus = document.getElementById('wallpaper-status');
-  const wallpaperGrid = document.getElementById('wallpaper-grid');
-  const wallpapersEmpty = document.getElementById('wallpapers-empty');
-  const wallpapersRefreshBtn = document.getElementById('wallpapers-refresh-btn');
+  bgUploadBtn.addEventListener('click', () => bgFileInput.click());
 
-  wallpaperChooseBtn.addEventListener('click', () => wallpaperFileInput.click());
-
-  wallpaperFileInput.addEventListener('change', () => {
-    const file = wallpaperFileInput.files[0];
-    if (file) {
-      wallpaperSelectedName.textContent = file.name;
-      wallpaperUploadBtn.disabled = false;
-      wallpaperStatus.textContent = '';
-    } else {
-      wallpaperSelectedName.textContent = 'No file selected';
-      wallpaperUploadBtn.disabled = true;
-    }
-  });
-
-  wallpaperUploadBtn.addEventListener('click', async () => {
-    const file = wallpaperFileInput.files[0];
+  bgFileInput.addEventListener('change', async () => {
+    const file = bgFileInput.files[0];
     if (!file) return;
-    wallpaperUploadBtn.disabled = true;
-    wallpaperStatus.textContent = 'Uploading...';
+    bgUploadBtn.disabled = true;
+    bgStatus.textContent = 'Uploading…';
     try {
       const formData = new FormData();
       formData.append('wallpaper', file);
@@ -107,102 +88,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (!res.ok) {
-        wallpaperStatus.textContent = 'Upload failed.';
-        wallpaperUploadBtn.disabled = false;
+        bgStatus.textContent = 'Upload failed.';
         return;
       }
       const data = await res.json();
-      wallpaperStatus.textContent = 'Uploaded!';
-      wallpaperFileInput.value = '';
-      wallpaperSelectedName.textContent = 'No file selected';
-      wallpaperUploadBtn.disabled = true;
+      document.getElementById('ef-background-url').value = data.url;
+      bgStatus.textContent = 'Uploaded!';
       setTimeout(() => {
-        wallpaperStatus.textContent = '';
+        bgStatus.textContent = '';
       }, 3000);
-      await loadWallpapers();
-      navigator.clipboard.writeText(data.url).catch(() => {});
     } catch (err) {
       console.error(err);
-      wallpaperStatus.textContent = 'Upload error.';
-      wallpaperUploadBtn.disabled = false;
+      bgStatus.textContent = 'Upload error.';
+    } finally {
+      bgFileInput.value = '';
+      bgUploadBtn.disabled = false;
     }
   });
-
-  wallpapersRefreshBtn.addEventListener('click', loadWallpapers);
-
-  async function loadWallpapers() {
-    wallpaperGrid.innerHTML = '';
-    wallpapersEmpty.classList.add('hidden');
-    try {
-      const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent('wallpapers/')}`;
-      const res = await fetch(url, { headers: authHeaders() });
-      if (res.status === 401) {
-        handle401();
-        return;
-      }
-      if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      const files = (data.files || data.photos || []).filter((f) =>
-        /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.key || '')
-      );
-      if (files.length === 0) {
-        wallpapersEmpty.classList.remove('hidden');
-        return;
-      }
-      files.forEach((file) => {
-        const key = file.key;
-        const fileUrl = file.url;
-        const name = key.split('/').pop();
-        const item = document.createElement('div');
-        item.className = 'wallpaper-item';
-        item.innerHTML = `
-                    <img class="wallpaper-img" loading="lazy">
-                    <div class="wallpaper-item-info">
-                        <span class="wallpaper-item-name"></span>
-                        <button class="wallpaper-copy-btn">Copy URL</button>
-                        <button class="wallpaper-delete-btn" title="Delete">🗑</button>
-                    </div>
-                `;
-        item.querySelector('.wallpaper-img').src = fileUrl;
-        item.querySelector('.wallpaper-img').alt = name;
-        const nameEl = item.querySelector('.wallpaper-item-name');
-        nameEl.textContent = name;
-        nameEl.title = name;
-        item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
-          navigator.clipboard.writeText(fileUrl).then(() => {
-            const btn = item.querySelector('.wallpaper-copy-btn');
-            btn.textContent = 'Copied!';
-            setTimeout(() => {
-              btn.textContent = 'Copy URL';
-            }, 2000);
-          });
-        });
-        item.querySelector('.wallpaper-delete-btn').addEventListener('click', () => {
-          confirmAction('Delete Wallpaper', `Delete "${name}"?`, async () => {
-            const res = await fetch(`${API_BASE}/api/superadmin/file`, {
-              method: 'DELETE',
-              headers: authHeaders(),
-              body: JSON.stringify({ key }),
-            });
-            if (res.status === 401) {
-              handle401();
-              return;
-            }
-            if (!res.ok) {
-              alert('Failed to delete wallpaper.');
-              return;
-            }
-            await loadWallpapers();
-          });
-        });
-        wallpaperGrid.appendChild(item);
-      });
-    } catch (err) {
-      console.error(err);
-      wallpapersEmpty.textContent = 'Failed to load wallpapers.';
-      wallpapersEmpty.classList.remove('hidden');
-    }
-  }
 
   createEventBtn.addEventListener('click', () => openEventForm(null));
 
@@ -243,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function showApp() {
     loginSection.classList.add('hidden');
     appSection.classList.remove('hidden');
-    await loadTree();
+    await loadEvents();
   }
 
   // --- Tree ---
@@ -270,6 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         cursor = data.cursor || null;
       } while (cursor);
       renderTree(enrichTree(merged.children, ''));
+      treeLoaded = true;
     } catch (err) {
       console.error(err);
       treeContainer.innerHTML =
