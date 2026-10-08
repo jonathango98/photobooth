@@ -818,13 +818,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
                 <button class="event-menu-btn" aria-label="More actions">⋮</button>
                 <div class="event-menu hidden">
+                    <button class="event-refresh-btn" title="Issue a new kiosk key and slideshow token">Refresh links</button>
                     <button class="event-duplicate-btn">Duplicate</button>
                     <button class="event-delete-btn">Delete</button>
                 </div>
                 <div class="event-card-name"></div>
                 <div class="event-card-meta"></div>
                 <div class="event-card-footer">
-                    <button class="event-refresh-btn" aria-label="Refresh kiosk key and slideshow token" title="Refresh kiosk key and slideshow token">↻</button>
                     <div class="event-card-links">
                         <button class="event-booth-link-btn">Booth</button>
                         <button class="event-admin-link-btn">Admin</button>
@@ -859,6 +859,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const refreshBtn = card.querySelector('.event-refresh-btn');
       refreshBtn.addEventListener('click', () => {
+        closeEventMenus();
         confirmAction(
           'Refresh links',
           `Issue a new kiosk key and slideshow token for "${event.event_id}"? The current booth and slideshow links will stop working.`,
