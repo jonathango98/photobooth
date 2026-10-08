@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pendingMoveSourceKey = null;
   let eventFormMode = null; // 'create' or 'edit'
   let eventFormEditId = null;
-  let selectedEventIds = new Set();
   let allEvents = [];
+  let treeLoaded = false; // Files tab loads its tree on first open
 
   // --- Tab Switching ---
 
@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const eventFormTitle = document.getElementById('event-form-title');
   const eventFormCancel = document.getElementById('event-form-cancel');
 
-  const wallpapersView = document.getElementById('wallpapers-view');
 
   tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -59,42 +58,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const tab = btn.dataset.tab;
       filesView.classList.toggle('hidden', tab !== 'files');
       eventsView.classList.toggle('hidden', tab !== 'events');
-      wallpapersView.classList.toggle('hidden', tab !== 'wallpapers');
       if (tab === 'events') loadEvents();
-      if (tab === 'wallpapers') loadWallpapers();
+      if (tab === 'files' && !treeLoaded) loadTree();
     });
   });
 
-  // --- Wallpapers ---
+  // Background upload reuses the wallpapers bucket prefix
+  const bgUploadBtn = document.getElementById('ef-background-upload-btn');
+  const bgFileInput = document.getElementById('ef-background-file');
+  const bgStatus = document.getElementById('ef-background-status');
 
-  const wallpaperFileInput = document.getElementById('wallpaper-file-input');
-  const wallpaperChooseBtn = document.getElementById('wallpaper-choose-btn');
-  const wallpaperUploadBtn = document.getElementById('wallpaper-upload-btn');
-  const wallpaperSelectedName = document.getElementById('wallpaper-selected-name');
-  const wallpaperStatus = document.getElementById('wallpaper-status');
-  const wallpaperGrid = document.getElementById('wallpaper-grid');
-  const wallpapersEmpty = document.getElementById('wallpapers-empty');
-  const wallpapersRefreshBtn = document.getElementById('wallpapers-refresh-btn');
+  bgUploadBtn.addEventListener('click', () => bgFileInput.click());
 
-  wallpaperChooseBtn.addEventListener('click', () => wallpaperFileInput.click());
-
-  wallpaperFileInput.addEventListener('change', () => {
-    const file = wallpaperFileInput.files[0];
-    if (file) {
-      wallpaperSelectedName.textContent = file.name;
-      wallpaperUploadBtn.disabled = false;
-      wallpaperStatus.textContent = '';
-    } else {
-      wallpaperSelectedName.textContent = 'No file selected';
-      wallpaperUploadBtn.disabled = true;
-    }
-  });
-
-  wallpaperUploadBtn.addEventListener('click', async () => {
-    const file = wallpaperFileInput.files[0];
+  bgFileInput.addEventListener('change', async () => {
+    const file = bgFileInput.files[0];
     if (!file) return;
-    wallpaperUploadBtn.disabled = true;
-    wallpaperStatus.textContent = 'Uploading...';
+    bgUploadBtn.disabled = true;
+    bgStatus.textContent = 'Uploading…';
     try {
       const formData = new FormData();
       formData.append('wallpaper', file);
@@ -108,116 +88,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (!res.ok) {
-        wallpaperStatus.textContent = 'Upload failed.';
-        wallpaperUploadBtn.disabled = false;
+        bgStatus.textContent = 'Upload failed.';
         return;
       }
       const data = await res.json();
-      wallpaperStatus.textContent = 'Uploaded!';
-      wallpaperFileInput.value = '';
-      wallpaperSelectedName.textContent = 'No file selected';
-      wallpaperUploadBtn.disabled = true;
+      document.getElementById('ef-background-url').value = data.url;
+      bgStatus.textContent = 'Uploaded!';
       setTimeout(() => {
-        wallpaperStatus.textContent = '';
+        bgStatus.textContent = '';
       }, 3000);
-      await loadWallpapers();
-      navigator.clipboard.writeText(data.url).catch(() => {});
     } catch (err) {
       console.error(err);
-      wallpaperStatus.textContent = 'Upload error.';
-      wallpaperUploadBtn.disabled = false;
+      bgStatus.textContent = 'Upload error.';
+    } finally {
+      bgFileInput.value = '';
+      bgUploadBtn.disabled = false;
     }
   });
-
-  wallpapersRefreshBtn.addEventListener('click', loadWallpapers);
-
-  async function loadWallpapers() {
-    wallpaperGrid.innerHTML = '';
-    wallpapersEmpty.classList.add('hidden');
-    try {
-      const url = `${API_BASE}/api/superadmin/photos?prefix=${encodeURIComponent('wallpapers/')}`;
-      const res = await fetch(url, { headers: authHeaders() });
-      if (res.status === 401) {
-        handle401();
-        return;
-      }
-      if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      const files = (data.files || data.photos || []).filter((f) =>
-        /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.key || '')
-      );
-      if (files.length === 0) {
-        wallpapersEmpty.classList.remove('hidden');
-        return;
-      }
-      files.forEach((file) => {
-        const key = file.key;
-        const fileUrl = file.url;
-        const name = key.split('/').pop();
-        const item = document.createElement('div');
-        item.className = 'wallpaper-item';
-        item.innerHTML = `
-                    <img class="wallpaper-img" loading="lazy">
-                    <div class="wallpaper-item-info">
-                        <span class="wallpaper-item-name"></span>
-                        <button class="wallpaper-copy-btn">Copy URL</button>
-                        <button class="wallpaper-delete-btn" title="Delete">🗑</button>
-                    </div>
-                `;
-        item.querySelector('.wallpaper-img').src = fileUrl;
-        item.querySelector('.wallpaper-img').alt = name;
-        const nameEl = item.querySelector('.wallpaper-item-name');
-        nameEl.textContent = name;
-        nameEl.title = name;
-        item.querySelector('.wallpaper-copy-btn').addEventListener('click', () => {
-          navigator.clipboard.writeText(fileUrl).then(() => {
-            const btn = item.querySelector('.wallpaper-copy-btn');
-            btn.textContent = 'Copied!';
-            setTimeout(() => {
-              btn.textContent = 'Copy URL';
-            }, 2000);
-          });
-        });
-        item.querySelector('.wallpaper-delete-btn').addEventListener('click', () => {
-          confirmAction('Delete Wallpaper', `Delete "${name}"?`, async () => {
-            const res = await fetch(`${API_BASE}/api/superadmin/file`, {
-              method: 'DELETE',
-              headers: authHeaders(),
-              body: JSON.stringify({ key }),
-            });
-            if (res.status === 401) {
-              handle401();
-              return;
-            }
-            if (!res.ok) {
-              alert('Failed to delete wallpaper.');
-              return;
-            }
-            await loadWallpapers();
-          });
-        });
-        wallpaperGrid.appendChild(item);
-      });
-    } catch (err) {
-      console.error(err);
-      wallpapersEmpty.textContent = 'Failed to load wallpapers.';
-      wallpapersEmpty.classList.remove('hidden');
-    }
-  }
 
   createEventBtn.addEventListener('click', () => openEventForm(null));
-
-  document
-    .getElementById('events-bulk-activate-btn')
-    .addEventListener('click', () => bulkSetActive(true));
-  document
-    .getElementById('events-bulk-deactivate-btn')
-    .addEventListener('click', () => bulkSetActive(false));
-  document.getElementById('events-bulk-clear-btn').addEventListener('click', () => {
-    selectedEventIds.clear();
-    updateEventsBulkBar();
-    renderEventsList(allEvents);
-  });
 
   // --- Auth ---
 
@@ -256,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function showApp() {
     loginSection.classList.add('hidden');
     appSection.classList.remove('hidden');
-    await loadTree();
+    await loadEvents();
   }
 
   // --- Tree ---
@@ -283,6 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         cursor = data.cursor || null;
       } while (cursor);
       renderTree(enrichTree(merged.children, ''));
+      treeLoaded = true;
     } catch (err) {
       console.error(err);
       treeContainer.innerHTML =
@@ -870,229 +760,134 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function updateEventsBulkBar() {
-    const bar = document.getElementById('events-bulk-bar');
-    const countEl = document.getElementById('events-bulk-count');
-    const n = selectedEventIds.size;
-    bar.classList.toggle('visible', n > 0);
-    countEl.textContent = `${n} selected`;
-  }
-
   function renderEventsList(events) {
     const listEl = document.getElementById('events-list');
     listEl.innerHTML = '';
 
     if (!events || events.length === 0) {
-      listEl.innerHTML = '<div id="events-empty">No events found. Create one to get started.</div>';
+      listEl.innerHTML = '<div id="events-empty">No events yet.</div>';
       return;
     }
 
-    const sorted = [...events].sort((a, b) => {
+    const byNewest = (a, b) => {
       const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
       const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
       return tb - ta;
+    };
+    const active = events.filter((e) => e.is_active).sort(byNewest);
+    const archived = events.filter((e) => !e.is_active).sort(byNewest);
+
+    // Active events first, archived grouped below, each under a full-width heading
+    const items = [];
+    [
+      ['Active', active],
+      ['Archived', archived],
+    ].forEach(([label, group]) => {
+      if (group.length === 0) return;
+      const heading = document.createElement('div');
+      heading.className = 'events-group-heading';
+      heading.textContent = `${label} (${group.length})`;
+      items.push(heading, ...group);
     });
 
-    sorted.forEach((event) => {
+    items.forEach((event) => {
+      if (event instanceof HTMLElement) {
+        listEl.appendChild(event);
+        return;
+      }
       const card = document.createElement('div');
-      card.className = `event-card${selectedEventIds.has(event.event_id) ? ' selected' : ''}`;
+      card.className = 'event-card';
 
-      const createdAt = event.created_at ? new Date(event.created_at).toLocaleString() : '—';
-      const updatedAt = event.updated_at ? new Date(event.updated_at).toLocaleString() : '—';
       const templateCount = (event.templates || []).length;
       const shots = event.capture?.totalShots ?? '?';
       const w = event.capture?.photoWidth ?? '?';
       const h = event.capture?.photoHeight ?? '?';
+      const id = encodeURIComponent(event.event_id);
 
       // The kiosk key rides in the booth link — /api/save rejects uploads without it
-      const boothUrl = `${BOOTH_ORIGIN}/?event=${encodeURIComponent(event.event_id)}${event.kiosk_key ? `&key=${encodeURIComponent(event.kiosk_key)}` : ''}`;
-      const adminUrl = `${BOOTH_ORIGIN}/admin.html?event=${encodeURIComponent(event.event_id)}`;
-      const slideshowUrl = event.slideshow_token
-        ? `${BOOTH_ORIGIN}/preview/?event=${encodeURIComponent(event.event_id)}&token=${encodeURIComponent(event.slideshow_token)}`
-        : null;
+      const boothUrl = () => `${BOOTH_ORIGIN}/?event=${id}&key=${encodeURIComponent(event.kiosk_key)}`;
+      const adminUrl = () => `${BOOTH_ORIGIN}/admin.html?event=${id}`;
+      const slideshowUrl = () =>
+        `${BOOTH_ORIGIN}/preview/?event=${id}&token=${encodeURIComponent(event.slideshow_token)}`;
 
       // Static markup only — every user-supplied value is set via textContent below
       card.innerHTML = `
                 <div class="event-card-header">
-                    <input type="checkbox" class="event-card-checkbox">
                     <span class="event-card-id"></span>
-                    <span class="event-badge ${event.is_active ? 'active' : 'inactive'}">${event.is_active ? 'active' : 'inactive'}</span>
+                    <button class="event-status-btn ${event.is_active ? 'active' : 'inactive'}">${event.is_active ? 'active' : 'inactive'}</button>
                 </div>
-                <div class="event-card-name"></div>
-                <div class="event-card-meta">
-                    <span class="meta-templates"></span>
-                    <span class="meta-shots"></span>
-                    <span class="meta-created"></span>
-                    <span class="meta-updated"></span>
-                </div>
-                <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span class="booth-url-label" style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;"></span>
-                    <button class="event-copy-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy link</button>
-                    <button class="event-regen-kiosk-key-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.5);border:1px solid rgba(247,242,213,0.15);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;"></button>
-                    <button class="event-copy-admin-link-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Copy admin link</button>
-                </div>
-                <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span class="slideshow-url-label" style="font-size:11px;color:rgba(247,242,213,0.4);word-break:break-all;"></span>
-                    <button class="event-copy-slideshow-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.6);border:1px solid rgba(247,242,213,0.2);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;" ${slideshowUrl ? '' : 'disabled'}>Copy slideshow</button>
-                    <button class="event-regen-token-btn" style="padding:3px 10px;font-size:11px;background:transparent;color:rgba(247,242,213,0.5);border:1px solid rgba(247,242,213,0.15);border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;white-space:nowrap;">Regen token</button>
-                </div>
-                <div class="event-card-actions">
-                    ${!event.is_active ? `<button class="event-activate-btn">Set Active</button>` : `<button class="event-deactivate-btn">Deactivate</button>`}
-                    <button class="event-edit-btn">Edit</button>
+                <button class="event-menu-btn" aria-label="More actions">⋮</button>
+                <div class="event-menu hidden">
                     <button class="event-duplicate-btn">Duplicate</button>
                     <button class="event-delete-btn">Delete</button>
                 </div>
+                <div class="event-card-name"></div>
+                <div class="event-card-meta"></div>
+                <div class="event-card-footer">
+                    <button class="event-refresh-btn" aria-label="Refresh kiosk key and slideshow token" title="Refresh kiosk key and slideshow token">↻</button>
+                    <div class="event-card-links">
+                        <button class="event-booth-link-btn">Booth</button>
+                        <button class="event-admin-link-btn">Admin</button>
+                        <button class="event-slideshow-link-btn">Slideshow</button>
+                    </div>
+                </div>
             `;
       // Populate all user-supplied text via textContent to prevent XSS
-      card.querySelector('.event-card-checkbox').checked = selectedEventIds.has(event.event_id);
       card.querySelector('.event-card-id').textContent = event.event_id;
       card.querySelector('.event-card-name').textContent = event.event_name || '—';
-      card.querySelector('.meta-templates').textContent =
-        `${templateCount} template${templateCount !== 1 ? 's' : ''}`;
-      card.querySelector('.meta-shots').textContent =
-        `${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}`;
-      card.querySelector('.meta-created').textContent = `Created: ${createdAt}`;
-      card.querySelector('.meta-updated').textContent = `Updated: ${updatedAt}`;
-      card.querySelector('.booth-url-label').textContent = event.kiosk_key
-        ? boothUrl
-        : `${boothUrl}  (no kiosk key — anyone with the event ID can upload)`;
-      card.querySelector('.event-regen-kiosk-key-btn').textContent = event.kiosk_key
-        ? 'Regen kiosk key'
-        : 'Issue kiosk key';
-      card.querySelector('.slideshow-url-label').textContent = slideshowUrl
-        ? slideshowUrl
-        : 'No slideshow token — click Regen token to generate one';
-      const checkbox = card.querySelector('.event-card-checkbox');
-      checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (checkbox.checked) {
-          selectedEventIds.add(event.event_id);
-        } else {
-          selectedEventIds.delete(event.event_id);
-        }
-        card.classList.toggle('selected', checkbox.checked);
-        updateEventsBulkBar();
-      });
+      card.querySelector('.event-card-meta').textContent =
+        `${templateCount} template${templateCount !== 1 ? 's' : ''} · ${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}`;
 
       card.addEventListener('click', (e) => {
-        if (e.target.closest('button') || e.target === checkbox) return;
-        const nowSelected = !selectedEventIds.has(event.event_id);
-        if (nowSelected) {
-          selectedEventIds.add(event.event_id);
-        } else {
-          selectedEventIds.delete(event.event_id);
-        }
-        checkbox.checked = nowSelected;
-        card.classList.toggle('selected', nowSelected);
-        updateEventsBulkBar();
+        if (e.target.closest('button') || e.target.closest('.event-menu')) return;
+        openEventForm(event);
       });
 
-      card.querySelector('.event-copy-link-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(boothUrl).then(() => {
-          const btn = card.querySelector('.event-copy-link-btn');
-          btn.textContent = 'Copied!';
-          setTimeout(() => {
-            btn.textContent = 'Copy link';
-          }, 2000);
-        });
+      // Missing key/token is minted on first copy so the link always works
+      bindCopyLink(card.querySelector('.event-booth-link-btn'), async () => {
+        if (!event.kiosk_key) event.kiosk_key = await regenerateSecret(event, 'kiosk-key');
+        return event.kiosk_key && boothUrl();
+      });
+      bindCopyLink(card.querySelector('.event-admin-link-btn'), async () => adminUrl());
+      bindCopyLink(card.querySelector('.event-slideshow-link-btn'), async () => {
+        if (!event.slideshow_token)
+          event.slideshow_token = await regenerateSecret(event, 'slideshow-token');
+        return event.slideshow_token && slideshowUrl();
       });
 
-      card.querySelector('.event-regen-kiosk-key-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const message = event.kiosk_key
-          ? `Issue a new kiosk key for "${event.event_id}"? Kiosks using the current booth link will stop uploading until they open the new link.`
-          : `Issue a kiosk key for "${event.event_id}"? Kiosks must then use the new booth link — the old one (without a key) will stop uploading.`;
+      const refreshBtn = card.querySelector('.event-refresh-btn');
+      refreshBtn.addEventListener('click', () => {
         confirmAction(
-          'Kiosk key',
-          message,
+          'Refresh links',
+          `Issue a new kiosk key and slideshow token for "${event.event_id}"? The current booth and slideshow links will stop working.`,
           async () => {
-            try {
-              const res = await fetch(
-                `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/regenerate-kiosk-key`,
-                { method: 'POST', headers: authHeaders() }
-              );
-              if (res.status === 401) {
-                handle401();
-                return;
-              }
-              if (!res.ok) {
-                alert('Failed to issue kiosk key.');
-                return;
-              }
-              loadEvents();
-            } catch (err) {
-              console.error(err);
-              alert('Error issuing kiosk key.');
-            }
+            refreshBtn.disabled = true;
+            const key = await regenerateSecret(event, 'kiosk-key');
+            const token = await regenerateSecret(event, 'slideshow-token');
+            refreshBtn.disabled = false;
+            if (key) event.kiosk_key = key;
+            if (token) event.slideshow_token = token;
           },
-          event.kiosk_key ? 'Regenerate' : 'Issue key'
+          'Refresh'
         );
       });
 
-      card.querySelector('.event-copy-admin-link-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(adminUrl).then(() => {
-          const btn = card.querySelector('.event-copy-admin-link-btn');
-          btn.textContent = 'Copied!';
-          setTimeout(() => {
-            btn.textContent = 'Copy admin link';
-          }, 2000);
-        });
+      const statusBtn = card.querySelector('.event-status-btn');
+      statusBtn.addEventListener('click', () => {
+        statusBtn.disabled = true;
+        setEventActive(event, !event.is_active);
       });
 
-      card.querySelector('.event-copy-slideshow-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!slideshowUrl) return;
-        navigator.clipboard.writeText(slideshowUrl).then(() => {
-          const btn = card.querySelector('.event-copy-slideshow-btn');
-          btn.textContent = 'Copied!';
-          setTimeout(() => {
-            btn.textContent = 'Copy slideshow';
-          }, 2000);
-        });
+      const menuBtn = card.querySelector('.event-menu-btn');
+      const menu = card.querySelector('.event-menu');
+      menuBtn.addEventListener('click', () => {
+        const wasOpen = !menu.classList.contains('hidden');
+        closeEventMenus();
+        menu.classList.toggle('hidden', wasOpen);
       });
 
-      card.querySelector('.event-regen-token-btn').addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const btn = card.querySelector('.event-regen-token-btn');
-        btn.textContent = 'Regenerating…';
-        btn.disabled = true;
-        try {
-          const res = await fetch(
-            `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/regenerate-slideshow-token`,
-            { method: 'POST', headers: authHeaders() }
-          );
-          if (res.status === 401) {
-            handle401();
-            return;
-          }
-          if (!res.ok) {
-            alert('Failed to regenerate token.');
-            return;
-          }
-          loadEvents();
-        } catch (err) {
-          console.error(err);
-          alert('Error regenerating token.');
-        } finally {
-          btn.textContent = 'Regen token';
-          btn.disabled = false;
-        }
-      });
-
-      const activateBtn = card.querySelector('.event-activate-btn');
-      if (activateBtn) {
-        activateBtn.addEventListener('click', () => activateEvent(event));
-      }
-
-      const deactivateBtn = card.querySelector('.event-deactivate-btn');
-      if (deactivateBtn) {
-        deactivateBtn.addEventListener('click', () => deactivateEvent(event));
-      }
-
-      card.querySelector('.event-edit-btn').addEventListener('click', () => openEventForm(event));
       card.querySelector('.event-duplicate-btn').addEventListener('click', () => {
+        closeEventMenus();
         const copy = { ...event };
         delete copy.event_id;
         delete copy.created_at;
@@ -1100,6 +895,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         openEventForm(null, copy);
       });
       card.querySelector('.event-delete-btn').addEventListener('click', () => {
+        closeEventMenus();
         confirmAction(
           'Delete Event',
           `Are you sure you want to delete event "${event.event_id}"? This only removes the config, not any photos.`,
@@ -1111,38 +907,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  async function bulkSetActive(isActive) {
-    const ids = Array.from(selectedEventIds);
-    let failed = 0;
-    for (const id of ids) {
-      const action = isActive ? 'activate' : 'deactivate';
+  function closeEventMenus() {
+    document.querySelectorAll('.event-menu').forEach((m) => m.classList.add('hidden'));
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.event-menu-btn') && !e.target.closest('.event-menu')) closeEventMenus();
+  });
+
+  function bindCopyLink(btn, getUrl) {
+    const label = btn.textContent;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
       try {
-        const res = await fetch(
-          `${API_BASE}/api/superadmin/events/${encodeURIComponent(id)}/${action}`,
-          {
-            method: 'POST',
-            headers: authHeaders(),
-          }
-        );
-        if (res.status === 401) {
-          handle401();
-          return;
-        }
-        if (!res.ok) failed++;
-      } catch {
-        failed++;
+        const url = await getUrl();
+        if (!url) return;
+        await navigator.clipboard.writeText(url);
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+          btn.textContent = label;
+        }, 2000);
+      } catch (err) {
+        console.error(err);
+        alert('Could not copy link.');
+      } finally {
+        btn.disabled = false;
       }
-    }
-    if (failed > 0) alert(`${failed} event(s) could not be updated.`);
-    selectedEventIds.clear();
-    updateEventsBulkBar();
-    loadEvents();
+    });
   }
 
-  async function activateEvent(event) {
+  // kind: 'kiosk-key' | 'slideshow-token'. Returns the new value, or null on failure.
+  async function regenerateSecret(event, kind) {
     try {
       const res = await fetch(
-        `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/activate`,
+        `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/regenerate-${kind}`,
+        { method: 'POST', headers: authHeaders() }
+      );
+      if (res.status === 401) {
+        handle401();
+        return null;
+      }
+      if (!res.ok) {
+        alert(`Failed to generate ${kind.replace('-', ' ')}.`);
+        return null;
+      }
+      const data = await res.json();
+      return kind === 'kiosk-key' ? data.kiosk_key : data.slideshow_token;
+    } catch (err) {
+      console.error(err);
+      alert(`Error generating ${kind.replace('-', ' ')}.`);
+      return null;
+    }
+  }
+
+  async function setEventActive(event, isActive) {
+    const action = isActive ? 'activate' : 'deactivate';
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/${action}`,
         {
           method: 'POST',
           headers: authHeaders(),
@@ -1153,37 +975,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (!res.ok) {
-        alert('Failed to activate event.');
-        return;
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || `Failed to ${action} event.`);
       }
       loadEvents();
     } catch (err) {
       console.error(err);
-      alert('Error activating event.');
-    }
-  }
-
-  async function deactivateEvent(event) {
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/superadmin/events/${encodeURIComponent(event.event_id)}/deactivate`,
-        {
-          method: 'POST',
-          headers: authHeaders(),
-        }
-      );
-      if (res.status === 401) {
-        handle401();
-        return;
-      }
-      if (!res.ok) {
-        alert('Failed to deactivate event.');
-        return;
-      }
+      alert(`Error trying to ${action} event.`);
       loadEvents();
-    } catch (err) {
-      console.error(err);
-      alert('Error deactivating event.');
     }
   }
 
@@ -1588,10 +1387,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('ef-event-id').addEventListener('input', updateBoothUrlPreview);
 
   eventFormCancel.addEventListener('click', closeEventForm);
-
-  eventFormOverlay.addEventListener('click', (e) => {
-    if (e.target === eventFormOverlay) closeEventForm();
-  });
 
   eventFormEl.addEventListener('submit', async (e) => {
     e.preventDefault();
