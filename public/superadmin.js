@@ -836,15 +836,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.querySelector('.event-card-id').textContent = event.event_id;
       card.querySelector('.event-card-name').textContent = event.event_name || '—';
       card.querySelector('.event-card-meta').textContent =
-        `${templateCount} template${templateCount !== 1 ? 's' : ''} · ${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}`;
+        `${templateCount} template${templateCount !== 1 ? 's' : ''} · ${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}${event.is_demo ? ' · demo' : ''}`;
 
       card.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('.event-menu')) return;
         openEventForm(event);
       });
 
-      // Missing key/token is minted on first copy so the link always works
+      // Missing key/token is minted on first copy so the link always works.
+      // Demo events take keyless uploads, so their booth link is the bare public one.
       bindCopyLink(card.querySelector('.event-booth-link-btn'), async () => {
+        if (event.is_demo) return `${BOOTH_ORIGIN}/?event=${id}`;
         if (!event.kiosk_key) event.kiosk_key = await regenerateSecret(event, 'kiosk-key');
         return event.kiosk_key && boothUrl();
       });
@@ -1341,6 +1343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('ef-event-name').value = src ? src.event_name || '' : '';
     document.getElementById('ef-background-url').value = src ? src.background_url || '' : '';
     document.getElementById('ef-admin-password').value = src ? src.admin_password || '' : '';
+    document.getElementById('ef-is-demo').checked = !!src?.is_demo;
     document.getElementById('ef-total-shots').value = src ? (src.capture?.totalShots ?? 3) : 3;
     document.getElementById('ef-photo-width').value = src ? (src.capture?.photoWidth ?? 880) : 880;
     document.getElementById('ef-photo-height').value = src
@@ -1413,6 +1416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       event_id: document.getElementById('ef-event-id').value.trim(),
       event_name: document.getElementById('ef-event-name').value.trim(),
       background_url: document.getElementById('ef-background-url').value.trim() || null,
+      is_demo: document.getElementById('ef-is-demo').checked,
       ...(document.getElementById('ef-admin-password').value.trim()
         ? { admin_password: document.getElementById('ef-admin-password').value.trim() }
         : {}),
