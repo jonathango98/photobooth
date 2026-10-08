@@ -11,3 +11,6 @@ public/config.dev.json
 node_modules/
 test-results/
 playwright-report/
+
+# Serena (code-intelligence MCP) project state
+.serena/
