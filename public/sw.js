@@ -1,4 +1,4 @@
-const CACHE = "booth-shell-v13";
+const CACHE = "booth-shell-v14";
 
 const SHELL = [
   "/index.html",
@@ -14,6 +14,8 @@ const SHELL = [
   "/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.wasm",
   "/vendor/mediapipe/hand_landmarker.task",
   "/vendor/fonts/IBMPlexMono-Regular.woff2",
+  "/vendor/fonts/FunnelSans-Variable.woff2",
+  "/vendor/fonts/FunnelDisplay-Variable.woff2",
   "/config.json",
   "/assets/background.webp",
 ];

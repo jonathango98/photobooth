@@ -29,9 +29,9 @@
       <div class="camera-wrap">
         <canvas id="camera-canvas"></canvas>
         <div class="camera-overlay">
-          <div id="shot-counter" class="shot-counter"></div>
+          <div id="shot-counter" class="shot-counter glass"></div>
           <div id="countdown-overlay" class="countdown-overlay"></div>
-          <div id="press-hint" class="press-hint hidden">PRESS TO START</div>
+          <div id="press-hint" class="press-hint glass hidden">Tap to start</div>
         </div>
         <!-- Peace sign progress ring -->
         <svg id="peace-progress" viewBox="0 0 120 120">
@@ -59,34 +59,64 @@
             ✌️
           </text>
         </svg>
+
+        <!-- Reset session button (visible once shots are in progress) -->
+        <button id="reset-btn" class="reset-session-btn glass hidden">
+          <svg
+            class="btn-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 4v5h5" />
+          </svg>
+          Start over
+        </button>
+
+        <!-- Info button to reopen instructions -->
+        <button id="info-btn" class="info-btn glass" aria-label="How it works">
+          <svg
+            class="btn-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5" />
+            <path d="M12 8h.01" />
+          </svg>
+        </button>
+
+        <!-- Offline upload queue depth indicator (shown only when > 0) -->
+        <div id="queue-badge" class="queue-badge glass hidden" aria-live="polite"></div>
       </div>
       <!-- Portrait-only prompt panel — fills the space below the camera band -->
       <div id="portrait-panel" class="portrait-panel">
-        <div id="portrait-cta" class="portrait-cta">PRESS TO START</div>
+        <div id="portrait-cta" class="portrait-cta">Tap to start</div>
         <ol id="portrait-steps" class="portrait-steps"></ol>
       </div>
 
       <!-- Shown before camera permission granted -->
-      <h1 id="idle-text">PRESS TO START</h1>
+      <h1 id="idle-text">Tap to start</h1>
 
       <video id="video" autoplay playsinline style="display: none"></video>
-
-      <!-- Reset session button (visible once shots are in progress) -->
-      <button id="reset-btn" class="reset-session-btn hidden">↩ Reset</button>
-
-      <!-- Info button to reopen instructions -->
-      <button id="info-btn" class="info-btn" aria-label="How it works">i</button>
-
-      <!-- Offline upload queue depth indicator (shown only when > 0) -->
-      <div id="queue-badge" class="queue-badge hidden" aria-live="polite"></div>
 
       <!-- Instruction popup -->
       <div id="instruction-overlay" class="instruction-overlay">
         <div class="instruction-card">
-          <h2>How It Works</h2>
+          <h2>How it works</h2>
           <ol id="instruction-rules"></ol>
           <p class="instruction-disclaimer" id="instruction-disclaimer"></p>
-          <button id="instruction-close-btn" class="instruction-close-btn">Got It</button>
+          <button id="instruction-close-btn" class="instruction-close-btn">Got it</button>
         </div>
       </div>
     </div>
@@ -94,11 +124,29 @@
     <!-- TEMPLATE SELECTION SCREEN -->
     <div id="template-screen" class="screen">
       <div class="template-layout">
-        <h2>CHOOSE A TEMPLATE<span>select your style</span></h2>
+        <div class="template-heading">
+          <h2>Choose a template</h2>
+          <p>Tap one to see your photos in it.</p>
+        </div>
         <div id="template-grid" class="template-grid"></div>
         <div class="template-actions">
-          <button id="template-reset-btn" class="reset-session-btn">↩ Start Over</button>
-          <button id="confirm-btn">Confirm Selection</button>
+          <button id="template-reset-btn" class="reset-session-btn glass">
+            <svg
+              class="btn-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v5h5" />
+            </svg>
+            Start over
+          </button>
+          <button id="confirm-btn">Use this template</button>
         </div>
       </div>
     </div>
@@ -111,15 +159,15 @@
         </div>
         <div class="result-qr-wrap">
           <div class="qr-card">
-            <p id="scan-to-download-text">Scan to Download</p>
-            <img id="qr-img" alt="QR Code" />
-            <p
-              id="upload-status"
-              style="font-size: 12px; opacity: 0.6; margin: 4px 0 0; text-align: center"
-            ></p>
+            <div class="qr-heading">
+              <h2>Your photos are ready</h2>
+              <p id="scan-to-download-text">Scan with your phone camera to download.</p>
+            </div>
+            <img id="qr-img" alt="QR code to download your photos" />
+            <p id="upload-status"></p>
           </div>
           <div class="result-actions">
-            <button id="back-btn">Start Over</button>
+            <button id="back-btn">Start over</button>
             <div class="reset-countdown">
               <span id="reset-label">Restarting in <span id="reset-seconds"></span>s</span>
               <div class="reset-bar-wrap">
