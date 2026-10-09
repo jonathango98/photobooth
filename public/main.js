@@ -814,8 +814,15 @@ async function startCamera() {
       return;
     }
 
+    // Ask for a 1080p-class stream at the capture aspect, so the center crop is
+    // ~zero and each shot is downscaled (never upscaled) into the frame slot.
+    const { photoWidth = 16, photoHeight = 9 } = CONFIG?.capture ?? {};
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user' },
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1920 },
+        height: { ideal: Math.round((1920 * photoHeight) / photoWidth) },
+      },
       audio: false,
     });
 
@@ -904,7 +911,9 @@ function grabVideoFrame(width, height) {
   const off = document.createElement('canvas');
   off.width = width;
   off.height = height;
-  off.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
+  const offCtx = off.getContext('2d');
+  offCtx.imageSmoothingQuality = 'high';
+  offCtx.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
   return off;
 }
 
@@ -1312,16 +1321,17 @@ async function buildTemplateCollage(templateIndex = 0) {
   };
   drawStillCollage(photoCtx);
 
-  // The sessionId is the only thing guarding a guest's photo link, so the suffix is
-  // 122 bits from the CSPRNG. The timestamp prefix lets the admin grid sort and date it.
-  currentSessionId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
+  // The sessionId is the only thing guarding a guest's photo link, so it is 22 base62
+  // chars (~131 bits) from the CSPRNG — short enough to keep the QR at 33×33.
+  currentSessionId = randomBase62(22);
   const sessionId = currentSessionId;
   if (!CONFIG.eventId)
     console.warn('[QR] CONFIG.eventId is not set — upload will be rejected by the server');
 
   // The QR goes up before the encode/upload finishes — the URL only needs the
   // sessionId, and the guest page shows "on its way…" and polls until it lands.
-  const qrUrl = `${CONFIG.serverUrl}/p/${sessionId}${CONFIG.eventId ? `?eventId=${encodeURIComponent(CONFIG.eventId)}` : ''}`;
+  // No ?eventId — the server resolves the event from the Session record.
+  const qrUrl = `${CONFIG.serverUrl}/p/${sessionId}`;
   const qrSize = CONFIG.qr?.size ?? 300;
   const qrMargin = CONFIG.qr?.margin ?? null;
   if (qrImg) {
@@ -1367,8 +1377,21 @@ async function buildTemplateCollage(templateIndex = 0) {
 // ---------------------------
 // QR code helpers
 // ---------------------------
+// Unbiased base62 string: bytes ≥ 248 (= 62×4) are rejected so `% 62` is uniform
+function randomBase62(length) {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let out = '';
+  while (out.length < length) {
+    for (const b of crypto.getRandomValues(new Uint8Array(length * 2))) {
+      if (b < 248 && out.length < length) out += alphabet[b % 62];
+    }
+  }
+  return out;
+}
+
+// Level L: the QR is shown on a lit screen, not print, so less redundancy is fine
 function generateQRDataURL(url, targetSize, margin) {
-  const qr = qrcode(0, 'M');
+  const qr = qrcode(0, 'L');
   qr.addData(url);
   qr.make();
   const cellSize = Math.max(2, Math.floor(targetSize / (qr.getModuleCount() + 8)));

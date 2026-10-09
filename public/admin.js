@@ -272,11 +272,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       sessions[sessionId].push(photo);
     });
 
-    const sortedSessionIds = Object.keys(sessions).sort((a, b) => {
-      const tsA = parseInt(a, 10) || 0;
-      const tsB = parseInt(b, 10) || 0;
-      return tsB - tsA;
-    });
+    // Legacy IDs lead with a ms timestamp; short random IDs fall back to the
+    // earliest upload time of the session's files.
+    function sessionTime(sessionId) {
+      if (/^\d+(_|$)/.test(sessionId)) return parseInt(sessionId, 10);
+      const times = sessions[sessionId].map((p) => Date.parse(p.uploadedAt)).filter(Boolean);
+      return times.length ? Math.min(...times) : 0;
+    }
+
+    const sortedSessionIds = Object.keys(sessions).sort((a, b) => sessionTime(b) - sessionTime(a));
 
     sessionsList.innerHTML = '';
     if (sortedSessionIds.length === 0) {
@@ -289,7 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const sessionDiv = document.createElement('div');
       sessionDiv.className = 'session';
 
-      const ts = parseInt(sessionId);
+      const ts = sessionTime(sessionId);
       const date = sessionId === 'unknown' || !ts ? 'Unknown Date' : new Date(ts).toLocaleString();
 
       const h3 = document.createElement('h3');

@@ -311,7 +311,7 @@ test('a refused kiosk key tells staff the booth link is out of date', async ({ p
   await expect(page.locator('#queue-badge')).toContainText('1 photo pending upload');
 });
 
-test('session IDs carry a timestamp and a CSPRNG UUID suffix', async ({ page }) => {
+test('session IDs are 22-char CSPRNG base62', async ({ page }) => {
   await setupKioskMocks(page);
   const saved = new Promise((resolve) =>
     page.route(`${FAKE_SERVER}/api/save`, (route) => {
@@ -339,6 +339,6 @@ test('session IDs carry a timestamp and a CSPRNG UUID suffix', async ({ page }) 
 
   const text = /** @type {Buffer} */ (await saved).toString('latin1');
   const sessionId = text.match(/name="sessionId"\r\n\r\n([^\r]+)/)?.[1];
-  // The admin grid sorts and dates sessions by the leading timestamp
-  expect(sessionId).toMatch(/^\d{13}_[0-9a-f]{32}$/);
+  // Short base62 ID keeps the QR URL small enough for a 33×33 grid
+  expect(sessionId).toMatch(/^[0-9A-Za-z]{22}$/);
 });
