@@ -269,6 +269,7 @@ async function loadConfig() {
           gif: eventConfig.gif ?? staticConfig.gif,
           background_url: eventConfig.background_url || null,
           qr: eventConfig.qr ?? staticConfig.qr,
+          accent: eventConfig.accent || null,
         };
         usedServerConfig = true;
         console.log('[CONFIG] Loaded from server API:', CONFIG.eventId);
@@ -303,6 +304,12 @@ async function loadConfig() {
   document.body.style.backgroundImage = CONFIG.background_url
     ? `url('${CONFIG.background_url}')`
     : `url('assets/background.webp')`;
+
+  // Event colour for the kiosk chrome (shot counter, gesture ring, reset bar)
+  if (CONFIG.accent && CSS.supports('color', CONFIG.accent)) {
+    document.documentElement.style.setProperty('--accent', CONFIG.accent);
+    document.documentElement.style.setProperty('--accent-paper', CONFIG.accent);
+  }
 
   if (CONFIG.templates) {
     await Promise.all(CONFIG.templates.map((t) => loadTemplateImage(t.file)));
@@ -555,13 +562,34 @@ function hideCountdownOverlay() {
   countdownOverlay.textContent = '';
 }
 
+// One thumbnail per shot: taken shots show the photo, then the current slot,
+// then dashed slots still to come.
 function updateShotCounter() {
   if (!CONFIG || !stream) return;
   const totalShots = CONFIG.capture?.totalShots ?? 3;
+  shotCounter.replaceChildren();
   if (currentShotIndex < totalShots) {
-    shotCounter.textContent = `${currentShotIndex + 1} / ${totalShots}`;
+    const { photoWidth = 16, photoHeight = 9 } = CONFIG.capture ?? {};
+    shotCounter.style.setProperty('--shot-aspect', `${photoWidth} / ${photoHeight}`);
+    shotCounter.setAttribute('role', 'img');
+    shotCounter.setAttribute('aria-label', `Photo ${currentShotIndex + 1} of ${totalShots}`);
+    for (let i = 0; i < totalShots; i++) {
+      const thumb = document.createElement('div');
+      const shot = capturedCanvases[i];
+      if (i < currentShotIndex && shot) {
+        thumb.className = 'shot-thumb done';
+        const c = document.createElement('canvas');
+        c.width = 144;
+        c.height = Math.round((144 * photoHeight) / photoWidth);
+        c.getContext('2d').drawImage(shot, 0, 0, c.width, c.height);
+        thumb.appendChild(c);
+      } else {
+        thumb.className = i === currentShotIndex ? 'shot-thumb current' : 'shot-thumb pending';
+      }
+      shotCounter.appendChild(thumb);
+    }
   } else {
-    shotCounter.textContent = '';
+    shotCounter.removeAttribute('aria-label');
   }
   updateResetBtn();
 }
@@ -653,11 +681,10 @@ function buildInstructionRules() {
   }
 
   // Portrait CTA mirrors how the session can actually be started
-  if (portraitCta) {
-    const gestureEmoji = { peace: '✌️', palm: '🖐️', thumbsup: '👍' }[gestureType];
-    portraitCta.textContent =
-      gestureEnabled && gestureEmoji ? `PRESS OR ${gestureEmoji} TO START` : 'PRESS TO START';
-  }
+  const gestureEmoji = { peace: '✌️', palm: '🖐️', thumbsup: '👍' }[gestureType];
+  const ctaText = gestureEnabled && gestureEmoji ? `Tap or ${gestureEmoji} to start` : 'Tap to start';
+  if (portraitCta) portraitCta.textContent = ctaText;
+  if (pressHint) pressHint.textContent = ctaText;
 
   // Disclaimer
   if (disclaimerEl) {
@@ -1133,7 +1160,7 @@ function startCountdown() {
       showCountdownOverlay(remaining.toString());
     } else {
       clearInterval(timer);
-      showCountdownOverlay('SMILE!', true);
+      showCountdownOverlay('Smile!', true);
 
       const afterCapture = () => {
         hideCountdownOverlay();
@@ -1161,7 +1188,7 @@ function startCountdown() {
       };
 
       const t1 = setTimeout(() => {
-        // GIF mode keeps "SMILE!" up through the burst and flashes on its last frame
+        // GIF mode keeps "Smile!" up through the burst and flashes on its last frame
         const gif = getGifSettings();
         if (gif) {
           captureBurst(gif, afterCapture);
@@ -1189,14 +1216,22 @@ function populateTemplateScreen() {
   const PHOTO_W = CONFIG.capture.photoWidth;
   const PHOTO_H = CONFIG.capture.photoHeight;
 
+  // Up to 4 per row; card size comes from these in style.css
+  const columns = Math.min(CONFIG.templates.length, 4);
+  templateGrid.style.setProperty('--n', columns);
+  templateGrid.style.setProperty('--rows', Math.ceil(CONFIG.templates.length / columns));
+
   CONFIG.templates.forEach((template, index) => {
-    const item = document.createElement('div');
+    const item = document.createElement('button');
+    item.type = 'button';
     item.className = 'template-item';
     item.dataset.templateIndex = index;
+    item.setAttribute('aria-label', `Template ${index + 1}`);
+    item.setAttribute('aria-pressed', 'false');
 
     const card = document.createElement('div');
     card.className = 'template-item-card';
-    card.style.aspectRatio = `${template.width} / ${template.height}`;
+    card.style.setProperty('--ratio', template.width / template.height);
 
     const previewCanvas = document.createElement('canvas');
     const previewCtx = previewCanvas.getContext('2d');
@@ -1214,21 +1249,20 @@ function populateTemplateScreen() {
       previewCtx.drawImage(templateImg, 0, 0, template.width, template.height);
     }
 
-    const numLabel = document.createElement('div');
-    numLabel.className = 'template-number';
-    numLabel.textContent = `Style ${index + 1}`;
-
     card.appendChild(previewCanvas);
     item.appendChild(card);
-    item.appendChild(numLabel);
     templateGrid.appendChild(item);
 
     item.addEventListener('click', () => {
       if (selectedTemplateIndex !== null) {
         const prev = templateGrid.querySelector(`[data-template-index="${selectedTemplateIndex}"]`);
-        if (prev) prev.classList.remove('selected');
+        if (prev) {
+          prev.classList.remove('selected');
+          prev.setAttribute('aria-pressed', 'false');
+        }
       }
       item.classList.add('selected');
+      item.setAttribute('aria-pressed', 'true');
       selectedTemplateIndex = index;
       confirmBtn.classList.add('visible');
     });
