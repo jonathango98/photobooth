@@ -24,7 +24,6 @@ const SQ_EVENT = {
   sidequest: {
     enabled: true,
     server_url: 'https://sq.example.com',
-    require_screen_approval: true,
     has_key: true,
   },
 };
@@ -60,7 +59,6 @@ test('superadmin: Side Quest tag, write-only key, https check, blank key omitted
   await expect(page.locator('#ef-sq-url')).toHaveValue('https://sq.example.com');
   await expect(page.locator('#ef-sq-key')).toHaveValue('');
   await expect(page.locator('#ef-sq-key')).toHaveAttribute('placeholder', 'Key set, leave blank to keep');
-  await expect(page.locator('#ef-sq-approval')).toBeChecked();
 
   // http:// is rejected client-side, nothing is sent
   await page.fill('#ef-sq-url', 'http://sq.example.com');
@@ -87,7 +85,6 @@ test('superadmin: blank key is omitted, typed key is sent', async ({ page }) => 
   expect(bodies[0].sidequest).toEqual({
     enabled: true,
     server_url: 'https://sq.example.com',
-    require_screen_approval: true,
   });
 
   await page.locator('.event-card', { hasText: 'Side Quest Event' }).click();
@@ -106,60 +103,16 @@ test('superadmin: duplicate does not carry the key', async ({ page }) => {
   await expect(page.locator('#ef-sq-url')).toHaveValue('https://sq.example.com');
 });
 
-function photos(sidequest) {
-  return {
-    ok: true,
-    total: 2,
-    nextCursor: null,
-    ...(sidequest ? { sidequest } : {}),
-    photos: [
-      { id: 'sq-event/collage/aaa.jpg', url: 'x', thumbUrl: 'x', folder: 'collage', uploadedAt: '2026-01-01T00:00:00Z', session_id: 'aaa', screen_approved: false },
-      { id: 'sq-event/collage/bbb.jpg', url: 'x', thumbUrl: 'x', folder: 'collage', uploadedAt: '2026-01-01T00:01:00Z', session_id: 'bbb', screen_approved: true },
-    ],
-  };
-}
-
-async function adminOpen(page, sidequest) {
-  await commonMocks(page);
-  await page.route(`${FAKE_SERVER}/api/admin/photos**`, (r) =>
-    r.fulfill({ contentType: 'application/json', body: JSON.stringify(photos(sidequest)) })
-  );
-  await page.addInitScript(() => sessionStorage.setItem('adminPassword', 'pw'));
-  await page.goto('/admin?event=sq-event');
-}
-
-test('admin: toggle posts screen-approval; filter shows waiting only', async ({ page }) => {
-  await adminOpen(page, { enabled: true, require_screen_approval: true });
-  await expect(page.locator('.sq-approve')).toHaveCount(2);
-  await expect(page.locator('#sq-controls')).toContainText('every person under 18 has consent');
-
-  let body = null;
-  await page.route(`${FAKE_SERVER}/api/admin/screen-approval`, async (r) => {
-    body = r.request().postDataJSON();
-    await r.fulfill({ contentType: 'application/json', body: '{"ok":true,"approved":true}' });
+test('superadmin: disabled Side Quest with a non-https leftover URL is rejected inline', async ({ page }) => {
+  await superadminLogin(page);
+  await page.locator('.event-card', { hasText: 'Side Quest Event' }).click();
+  await page.uncheck('#ef-sq-enabled');
+  await page.fill('#ef-sq-url', 'http://old.example.com');
+  let message = '';
+  page.once('dialog', (d) => {
+    message = d.message();
+    d.dismiss();
   });
-  // newest session (bbb) is first and already approved; aaa is second
-  await page.locator('.sq-approve').nth(1).check();
-  await expect.poll(() => body).toEqual({ eventId: 'sq-event', sessionId: 'aaa', approved: true });
-
-  await page.check('#sq-waiting-filter');
-  await expect(page.locator('.sq-approve')).toHaveCount(0);
-});
-
-test('admin: failed toggle reverts and shows an error toast', async ({ page }) => {
-  await adminOpen(page, { enabled: true, require_screen_approval: true });
-  await page.route(`${FAKE_SERVER}/api/admin/screen-approval`, (r) =>
-    r.fulfill({ status: 500, body: 'no' })
-  );
-  const box = page.locator('.sq-approve').nth(1);
-  await box.check();
-  await expect(page.locator('#toast')).toBeVisible();
-  await expect(box).not.toBeChecked();
-});
-
-test('admin: flag off shows no approval controls', async ({ page }) => {
-  await adminOpen(page, undefined);
-  await expect(page.locator('.session')).toHaveCount(2);
-  await expect(page.locator('.sq-approve')).toHaveCount(0);
-  await expect(page.locator('#sq-controls')).toBeHidden();
+  await page.locator('#event-form button[type=submit]').click();
+  expect(message).toContain('https://');
 });

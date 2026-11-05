@@ -351,46 +351,6 @@
         margin-bottom: -1px;
       }
 
-      /* Side Quest big-screen approval */
-      #sq-controls {
-        display: none;
-        margin-bottom: 16px;
-        padding: 10px 14px;
-        background: #0d0d0d;
-        border: 1px solid rgba(247, 242, 213, 0.1);
-        border-radius: 6px;
-        font-size: 12px;
-        color: rgba(247, 242, 213, 0.7);
-      }
-      #sq-controls p {
-        margin: 0 0 8px;
-      }
-      #sq-controls label,
-      .sq-toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        font-size: 12px;
-        color: #f7f2d5;
-      }
-      .sq-toggle {
-        margin-bottom: 10px;
-      }
-      #toast {
-        display: none;
-        position: fixed;
-        left: 50%;
-        bottom: 24px;
-        transform: translateX(-50%);
-        background: #b3261e;
-        color: #fff;
-        padding: 10px 16px;
-        border-radius: 6px;
-        font-size: 13px;
-        z-index: 2000;
-      }
-
       /* Touch screens have no hover, so keep per-photo actions visible */
       @media (hover: none), (pointer: coarse) {
         .item-actions {
@@ -492,14 +452,6 @@
           </button>
         </div>
 
-        <div id="sq-controls">
-          <p>Approve only photos where every person under 18 has consent.</p>
-          <label>
-            <input type="checkbox" id="sq-waiting-filter" />
-            Waiting for approval
-          </label>
-        </div>
-
         <div class="tabs">
           <button class="tab-btn active" data-tab="collages">Collages</button>
           <button class="tab-btn" data-tab="raws">Raw Images</button>
@@ -521,8 +473,6 @@
         </div>
       </div>
     </div>
-
-    <div id="toast" role="alert"></div>
 
     <!-- Lightbox -->
     <div id="preview-overlay">

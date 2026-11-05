@@ -1379,8 +1379,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sqKey = document.getElementById('ef-sq-key');
     sqKey.value = '';
     sqKey.placeholder = src?.sidequest?.has_key ? 'Key set, leave blank to keep' : '';
-    document.getElementById('ef-sq-approval').checked =
-      src?.sidequest?.require_screen_approval ?? true;
 
     // Render template cards; reset to cards mode
     templatesEditMode = 'cards';
@@ -1427,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sqEnabled = document.getElementById('ef-sq-enabled').checked;
     const sqUrl = document.getElementById('ef-sq-url').value.trim();
     const sqKeyValue = document.getElementById('ef-sq-key').value.trim();
-    if (sqEnabled && !/^https:\/\/[^\s/]+/i.test(sqUrl)) {
+    if ((sqEnabled || sqUrl) && !/^https:\/\/[^\s/]+/i.test(sqUrl)) {
       alert('Side Quest server URL must start with https://');
       return;
     }
@@ -1467,7 +1465,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         server_url: sqUrl,
         // Blank key = keep the existing one (server contract)
         ...(sqKeyValue ? { key: sqKeyValue } : {}),
-        require_screen_approval: document.getElementById('ef-sq-approval').checked,
       },
       templates,
     };
