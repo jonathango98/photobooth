@@ -793,6 +793,134 @@ button:focus-visible {
   cursor: pointer;
 }
 
+/* ========================
+   SIDE QUEST SCAN STEP
+   Sits over the live camera so the guest can aim their My Code.
+   Only shown for events with sidequest.enabled.
+======================== */
+.sq-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--corner-inset);
+  border-radius: var(--feed-radius);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+  line-height: normal;
+  cursor: default;
+}
+
+.sq-scan[hidden] {
+  display: none;
+}
+
+.sq-scan-title {
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vmin, 1.8rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+/* Viewfinder: where to hold the code */
+.sq-scan-frame {
+  height: min(44%, 320px);
+  aspect-ratio: 1;
+  border-radius: 20px;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.sq-scan[data-state='refused'] .sq-scan-frame,
+.sq-scan[data-state='checking'] .sq-scan-frame {
+  opacity: 0.4;
+}
+
+.sq-scan-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.sq-scan-msg {
+  margin: 0;
+  max-width: min(640px, 94%);
+  padding: 10px 20px;
+  border-radius: 14px;
+  font-size: clamp(1rem, 2.4vmin, 1.3rem);
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.sq-scan-msg:empty {
+  display: none;
+}
+
+.sq-scan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* The guest already has their ticket; the countdown starts on its own */
+.sq-scan[data-state='done'] .sq-scan-actions {
+  visibility: hidden;
+}
+
+.sq-btn {
+  height: clamp(48px, 7vmin, 60px);
+  padding: 0 clamp(20px, 3vmin, 32px);
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: clamp(16px, 2.4vmin, 19px);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sq-btn[hidden] {
+  display: none;
+}
+
+.sq-btn-primary {
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.sq-btn-secondary {
+  color: var(--ink);
+}
+
+/* Side Quest result line on the white result card */
+.sq-points {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--paper-ink);
+}
+
+.sq-points::before {
+  content: '\2605';
+  margin-right: 0.45em;
+  color: var(--accent-paper);
+}
+
+.sq-points[hidden] {
+  display: none;
+}
+
 /* Error overlay (camera / config failures with auto-retry) */
 .error-overlay {
   position: fixed;

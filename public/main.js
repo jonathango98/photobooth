@@ -270,6 +270,8 @@ async function loadConfig() {
           background_url: eventConfig.background_url || null,
           qr: eventConfig.qr ?? staticConfig.qr,
           accent: eventConfig.accent || null,
+          // Present only for Side Quest events; missing means the flow is unchanged
+          sidequest: eventConfig.sidequest?.enabled ? eventConfig.sidequest : null,
         };
         usedServerConfig = true;
         console.log('[CONFIG] Loaded from server API:', CONFIG.eventId);
@@ -721,7 +723,7 @@ function clearIdleInactivityTimer() {
 }
 
 function resetIdleInactivityTimer() {
-  if (idleScreen.classList.contains('active') && !isCountingDown) {
+  if (idleScreen.classList.contains('active') && !isCountingDown && !sqScanOpen) {
     const overlay = document.getElementById('instruction-overlay');
     if (overlay && !overlay.classList.contains('visible')) {
       startIdleInactivityTimer();
@@ -1344,6 +1346,11 @@ async function buildTemplateCollage(templateIndex = 0) {
   // the slideshow fall back to it, and it's all the guest gets if encoding fails.
   const gif = getGifSettings();
   const upload = { rawCanvases: shots };
+  // Hand the Side Quest ticket to this session's upload; it belongs to no other
+  if (sqTicket) {
+    upload.sidequestTicket = sqTicket;
+    sqTicket = null;
+  }
   if (gif && capturedBursts.length > 0) {
     // The preview below draws over photoCanvas, so the still gets its own canvas
     const still = document.createElement('canvas');
@@ -1419,6 +1426,7 @@ async function uploadSession(
     collageCanvas = photoCanvas,
     collageBlob = null,
     videoBlob = null,
+    sidequestTicket = null,
   } = {}
 ) {
   if (!CONFIG) return;
@@ -1476,6 +1484,9 @@ async function uploadSession(
     formData.append('collage', collageBlob, `collage.${ext}`);
   }
   if (videoBlob) formData.append('video', videoBlob, 'video.mp4');
+  // An expired ticket is dropped; the photos still upload
+  const ticket = sidequestTicket && sidequestTicket.expiresAt > Date.now() ? sidequestTicket : null;
+  if (ticket) formData.append('sidequestTicket', ticket.ticket);
 
   // Set when the server refuses this booth link's kiosk key — retrying won't help
   // until staff open the current link, so say so instead of "will sync"
@@ -1495,6 +1506,10 @@ async function uploadSession(
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (sessionId === currentSessionId) setUploadStatus('Ready! Scan to view.');
     console.log('[UPLOAD] success', sessionId);
+    if (ticket) {
+      const saved = await res.json().catch(() => null);
+      if (sessionId === currentSessionId) showSidequestPoints(saved?.sidequest);
+    }
   } catch (err) {
     // Demo booth over its upload cap: retrying soon won't help and the queue
     // would just pile up on a visitor's device, so drop it and say so
@@ -1513,6 +1528,7 @@ async function uploadSession(
       rawBlobs,
       collageBlob,
       videoBlob,
+      sidequestTicket: ticket,
     });
     refreshQueueBadge();
     if (sessionId === currentSessionId) {
@@ -1563,11 +1579,274 @@ async function drainAndRefresh() {
 }
 
 // ---------------------------
+// Side Quest: scan My Code before the first shot
+// ---------------------------
+// Only for events whose config has sidequest.enabled. The ticket is opaque and
+// lives in memory (plus the offline queue for its session). Never log the
+// scanned code or the ticket.
+const sqScan = document.getElementById('sq-scan');
+const sqScanMsg = document.getElementById('sq-scan-msg');
+const sqSkipBtn = document.getElementById('sq-skip-btn');
+const sqRetryBtn = document.getElementById('sq-retry-btn');
+const sqPoints = document.getElementById('sq-points');
+
+const SQ_DECODE_MS = 150; // decode throttle so the camera preview stays smooth
+const SQ_DECODE_MAX_DIM = 640; // frames are downscaled to this before decoding
+const SQ_START_TIMEOUT_MS = 8000;
+const SQ_SUCCESS_HOLD_MS = 1600;
+const SQ_NOTICE_MS = 2000;
+const SQ_HINT = 'Hold your My Code up to the camera.';
+const SQ_CHECKING = 'Checking your code…';
+const SQ_SUCCESS = "You're in! Points after your photos.";
+const SQ_MESSAGES = {
+  LIMIT_REACHED: "That's all the photobooth points for today. You can still take photos!",
+  CODE_EXPIRED: 'That code expired. Show it again.',
+  PAUSED: 'The game is paused right now. You can still take photos!',
+  GAME_OFF: 'The game is closed right now. You can still take photos!',
+  NOT_A_CODE: "That isn't a Side Quest code.",
+  RATE_LIMITED: 'Too many tries. Wait a moment, or take photos without points.',
+  SIDEQUEST_OFFLINE: 'Points are offline. You can still take photos!',
+};
+const SQ_RETRYABLE = new Set(['CODE_EXPIRED', 'NOT_A_CODE', 'RATE_LIMITED', 'SIDEQUEST_OFFLINE']);
+
+let sqTicket = null; // { ticket, expiresAt } for the session being shot
+let sqScanOpen = false;
+let sqState = 'scanning'; // scanning | checking | done | refused
+let sqDecodeTimer = null;
+let sqIdleTimer = null;
+let sqNoticeTimer = null;
+let sqSuccessTimer = null;
+let sqStartCtrl = null;
+let sqIgnorePayload = null; // a code the server already refused for good
+let sqCanvas = null;
+let sqCtx = null;
+let sqJsqrPromise = null;
+
+// jsQR 1.4.0 (vendor/jsQR.js, Apache-2.0). Loaded on demand so other events
+// never fetch it.
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  if (!sqJsqrPromise) {
+    sqJsqrPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'vendor/jsQR.js';
+      s.onload = resolve;
+      s.onerror = () => {
+        sqJsqrPromise = null;
+        reject(new Error('jsQR failed to load'));
+      };
+      document.head.appendChild(s);
+    });
+  }
+  return sqJsqrPromise;
+}
+
+function setSidequestMessage(text) {
+  if (sqScanMsg) sqScanMsg.textContent = text;
+}
+
+function setSidequestState(state) {
+  sqState = state;
+  if (sqScan) sqScan.dataset.state = state;
+}
+
+function openSidequestScan() {
+  sqTicket = null;
+  sqIgnorePayload = null;
+  sqScanOpen = true;
+  stopGestureDetection();
+  setPressHintVisible(false);
+  sqScan.hidden = false;
+  showSidequestScanning();
+  startSidequestIdleTimer();
+  loadJsQR()
+    .then(() => {
+      if (sqScanOpen && sqState === 'scanning') scheduleSidequestDecode();
+    })
+    .catch((err) => {
+      console.warn('[SQ] QR decoder unavailable:', err.message);
+      if (sqScanOpen) showSidequestRefusal('SIDEQUEST_OFFLINE');
+    });
+}
+
+function closeSidequestScan() {
+  sqScanOpen = false;
+  clearTimeout(sqDecodeTimer);
+  clearTimeout(sqIdleTimer);
+  clearTimeout(sqNoticeTimer);
+  clearTimeout(sqSuccessTimer);
+  sqDecodeTimer = sqIdleTimer = sqNoticeTimer = sqSuccessTimer = null;
+  if (sqStartCtrl) sqStartCtrl.abort();
+  sqStartCtrl = null;
+  sqIgnorePayload = null;
+  setSidequestState('scanning');
+  if (sqScan) sqScan.hidden = true;
+}
+
+function showSidequestScanning() {
+  setSidequestState('scanning');
+  clearTimeout(sqNoticeTimer);
+  setSidequestMessage(SQ_HINT);
+  sqRetryBtn.hidden = true;
+  sqSkipBtn.textContent = 'Skip (no points)';
+  scheduleSidequestDecode();
+}
+
+function showSidequestRefusal(code) {
+  setSidequestState('refused');
+  clearTimeout(sqNoticeTimer);
+  setSidequestMessage(SQ_MESSAGES[code]);
+  sqRetryBtn.hidden = !SQ_RETRYABLE.has(code);
+  sqSkipBtn.textContent = 'Take photos anyway';
+  startSidequestIdleTimer();
+}
+
+function showSidequestSuccess() {
+  setSidequestState('done');
+  clearTimeout(sqNoticeTimer);
+  setSidequestMessage(SQ_SUCCESS);
+  sqSuccessTimer = setTimeout(() => {
+    sqSuccessTimer = null;
+    if (!sqScanOpen || sqState !== 'done') return;
+    const ticket = sqTicket;
+    closeSidequestScan();
+    sqTicket = ticket;
+    startCountdown();
+  }, SQ_SUCCESS_HOLD_MS);
+}
+
+// Skip / Take photos anyway: shoot without points
+function skipSidequestScan() {
+  if (!sqScanOpen || sqState === 'done') return;
+  sqTicket = null;
+  closeSidequestScan();
+  startCountdown();
+}
+
+// Nobody finished the scan step: go back to the start screen, like the result
+// screen's auto-reset does
+function startSidequestIdleTimer() {
+  clearTimeout(sqIdleTimer);
+  const seconds = CONFIG?.autoResetSeconds ?? 30;
+  sqIdleTimer = setTimeout(() => {
+    sqIdleTimer = null;
+    if (!sqScanOpen || sqState === 'done' || sqState === 'checking') return;
+    sqTicket = null;
+    closeSidequestScan();
+    setPressHintVisible(true);
+    startGestureDetection();
+    showInstructions();
+  }, seconds * 1000);
+}
+
+function scheduleSidequestDecode() {
+  clearTimeout(sqDecodeTimer);
+  sqDecodeTimer = setTimeout(decodeSidequestFrame, SQ_DECODE_MS);
+}
+
+function decodeSidequestFrame() {
+  sqDecodeTimer = null;
+  if (!sqScanOpen || sqState !== 'scanning' || !window.jsQR) return;
+
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (vw && vh) {
+    const scale = Math.min(1, SQ_DECODE_MAX_DIM / Math.max(vw, vh));
+    const w = Math.round(vw * scale);
+    const h = Math.round(vh * scale);
+    if (!sqCanvas) {
+      sqCanvas = document.createElement('canvas');
+      sqCtx = sqCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    if (sqCanvas.width !== w || sqCanvas.height !== h) {
+      sqCanvas.width = w;
+      sqCanvas.height = h;
+    }
+    // Raw (unmirrored) frame: the preview is mirrored, but QR codes must not be
+    sqCtx.drawImage(video, 0, 0, w, h);
+    const found = window.jsQR(sqCtx.getImageData(0, 0, w, h).data, w, h);
+    if (found && typeof found.data === 'string' && found.data) {
+      handleSidequestPayload(found.data);
+      if (sqState !== 'scanning') return;
+    }
+  }
+  scheduleSidequestDecode();
+}
+
+function handleSidequestPayload(payload) {
+  if (payload === sqIgnorePayload) return;
+  if (!payload.startsWith('SQ1')) {
+    // Some other QR code: say so briefly and keep scanning
+    setSidequestMessage(SQ_MESSAGES.NOT_A_CODE);
+    clearTimeout(sqNoticeTimer);
+    sqNoticeTimer = setTimeout(() => {
+      if (sqScanOpen && sqState === 'scanning') setSidequestMessage(SQ_HINT);
+    }, SQ_NOTICE_MS);
+    return;
+  }
+  requestSidequestTicket(payload);
+}
+
+async function requestSidequestTicket(code) {
+  setSidequestState('checking');
+  clearTimeout(sqNoticeTimer);
+  setSidequestMessage(SQ_CHECKING);
+  sqRetryBtn.hidden = true;
+
+  const ctrl = new AbortController();
+  sqStartCtrl = ctrl;
+  const timeout = setTimeout(() => ctrl.abort(), SQ_START_TIMEOUT_MS);
+  let result = null;
+  try {
+    const res = await fetch(`${CONFIG.serverUrl}/api/sidequest/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId: CONFIG.eventId, kioskKey: CONFIG.kioskKey, code }),
+      signal: ctrl.signal,
+    });
+    result = await res.json();
+  } catch {
+    result = null; // network failure, timeout, or not JSON: treated as offline
+  }
+  clearTimeout(timeout);
+
+  // Skipped, timed out, or reset while waiting
+  if (sqStartCtrl !== ctrl || !sqScanOpen) return;
+  sqStartCtrl = null;
+
+  if (result?.ok === true && typeof result.ticket === 'string' && result.ticket) {
+    const seconds = Number(result.expires_in) > 0 ? Number(result.expires_in) : 600;
+    sqTicket = { ticket: result.ticket, expiresAt: Date.now() + seconds * 1000 };
+    showSidequestSuccess();
+    return;
+  }
+
+  let reason = SQ_MESSAGES[result?.code] ? result.code : 'SIDEQUEST_OFFLINE';
+  // Booth-server refusals that guests can't fix: show the offline message, log the code for ops
+  if (result?.code === 'BAD_KIOSK_KEY' || result?.code === 'NOT_ENABLED') {
+    console.warn(`sidequest start refused: ${result.code}`);
+    reason = 'SIDEQUEST_OFFLINE';
+  }
+  // Scanning the same expired or foreign code again can't succeed
+  if (reason === 'CODE_EXPIRED' || reason === 'NOT_A_CODE') sqIgnorePayload = code;
+  showSidequestRefusal(reason);
+}
+
+// Result card line from the save response's `sidequest` field
+function showSidequestPoints(status) {
+  if (!sqPoints) return;
+  const text = { done: 'Points added', pending: 'Points on the way' }[status];
+  sqPoints.textContent = text || '';
+  sqPoints.hidden = !text;
+}
+
+// ---------------------------
 // Event listeners & init
 // ---------------------------
 function triggerCapture() {
   if (!CONFIG || !video.srcObject || isCountingDown) return;
   if (!idleScreen.classList.contains('active')) return;
+  if (sqScanOpen) return;
 
   hideInstructions();
   clearIdleInactivityTimer();
@@ -1580,6 +1859,12 @@ function triggerCapture() {
     frozenFrame = null;
     freezeUntil = 0;
     updateShotCounter();
+  }
+
+  // Side Quest events scan the player's My Code before the first shot
+  if (currentShotIndex === 0 && CONFIG.sidequest?.enabled) {
+    openSidequestScan();
+    return;
   }
 
   startCountdown();
@@ -1620,6 +1905,15 @@ function attachEventListeners() {
   });
 
   idleScreen.addEventListener('click', triggerCapture);
+
+  // Side Quest scan step. Its clicks must not reach the idle screen's start tap.
+  if (sqScan) sqScan.addEventListener('click', (e) => e.stopPropagation());
+  if (sqSkipBtn) sqSkipBtn.addEventListener('click', skipSidequestScan);
+  if (sqRetryBtn)
+    sqRetryBtn.addEventListener('click', () => {
+      showSidequestScanning();
+      startSidequestIdleTimer();
+    });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'AudioVolumeUp') {
@@ -1681,6 +1975,9 @@ function attachEventListeners() {
     if (qrImg) qrImg.src = '';
     currentSessionId = null;
     setUploadStatus('');
+    closeSidequestScan();
+    sqTicket = null;
+    showSidequestPoints(null);
 
     showScreen(idleScreen);
     startGestureDetection();

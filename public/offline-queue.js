@@ -46,9 +46,15 @@ function idbDelete(store, key) {
 }
 
 window.OfflineQueue = {
-  async enqueueSession({ sessionId, eventId, kioskKey = null, rawBlobs, collageBlob, videoBlob = null }) {
+  async enqueueSession({ sessionId, eventId, kioskKey = null, rawBlobs, collageBlob, videoBlob = null, sidequestTicket = null }) {
+    const record = { sessionId, eventId, kioskKey, rawBlobs, collageBlob, videoBlob, createdAt: Date.now() };
+    // Side Quest ticket ({ ticket, expiresAt }): opaque, kept only with its session
+    if (sidequestTicket) {
+      record.sidequestTicket = sidequestTicket.ticket;
+      record.sidequestTicketExpiresAt = sidequestTicket.expiresAt;
+    }
     const store = await tx("readwrite");
-    await idbPut(store, { sessionId, eventId, kioskKey, rawBlobs, collageBlob, videoBlob, createdAt: Date.now() });
+    await idbPut(store, record);
     console.log("[OfflineQueue] queued session", sessionId);
   },
 
@@ -100,6 +106,10 @@ window.OfflineQueue = {
           formData.append("collage", session.collageBlob, `collage.${ext}`);
         }
         if (session.videoBlob) formData.append("video", session.videoBlob, "video.mp4");
+        // An expired ticket is dropped; the photos still upload
+        if (session.sidequestTicket && session.sidequestTicketExpiresAt > Date.now()) {
+          formData.append("sidequestTicket", session.sidequestTicket);
+        }
 
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 30000);
