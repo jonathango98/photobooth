@@ -32,6 +32,14 @@
           <div id="shot-counter" class="shot-counter glass"></div>
           <div id="countdown-overlay" class="countdown-overlay"></div>
           <div id="press-hint" class="press-hint glass hidden">Tap to start</div>
+          <!-- Side Quest: optional My Code scanning (Side Quest events only) -->
+          <div class="sq-stack">
+            <div id="sq-toast" class="sq-toast glass" role="status" aria-live="polite" hidden></div>
+            <div id="sq-badge" class="sq-badge glass" hidden>Side Quest points on</div>
+            <div id="sq-hint" class="sq-hint glass" hidden>
+              Got a Side Quest code? Show it to the camera for points.
+            </div>
+          </div>
         </div>
         <!-- Peace sign progress ring -->
         <svg id="peace-progress" viewBox="0 0 120 120">
@@ -98,21 +106,6 @@
 
         <!-- Offline upload queue depth indicator (shown only when > 0) -->
         <div id="queue-badge" class="queue-badge glass hidden" aria-live="polite"></div>
-
-        <!-- Side Quest: scan My Code before the first shot (Side Quest events only) -->
-        <div id="sq-scan" class="sq-scan" hidden>
-          <div class="sq-scan-title glass">Scan your Side Quest code</div>
-          <div class="sq-scan-frame" aria-hidden="true"></div>
-          <div class="sq-scan-panel">
-            <p id="sq-scan-msg" class="sq-scan-msg glass" aria-live="polite"></p>
-            <div class="sq-scan-actions">
-              <button id="sq-retry-btn" class="sq-btn sq-btn-secondary glass" hidden>
-                Try again
-              </button>
-              <button id="sq-skip-btn" class="sq-btn sq-btn-primary">Skip (no points)</button>
-            </div>
-          </div>
-        </div>
       </div>
       <!-- Portrait-only prompt panel — fills the space below the camera band -->
       <div id="portrait-panel" class="portrait-panel">
