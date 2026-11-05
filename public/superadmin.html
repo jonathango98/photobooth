@@ -562,6 +562,8 @@
       }
       .form-row input[type='text'],
       .form-row input[type='number'],
+      .form-row input[type='url'],
+      .form-row input[type='password'],
       .form-row textarea {
         width: 100%;
         padding: 8px;
@@ -1061,6 +1063,8 @@
         .login-box input,
         .form-row input[type='text'],
         .form-row input[type='number'],
+        .form-row input[type='url'],
+        .form-row input[type='password'],
         .form-row textarea,
         .tpl-slot-row input,
         #move-dest-input {
@@ -1457,6 +1461,24 @@
               <input type="checkbox" id="ef-gif-boomerang" checked />
               Boomerang (play forward, then backward)
             </label>
+          </div>
+
+          <div class="form-section-title">Side Quest</div>
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="ef-sq-enabled" />
+              Side Quest event (kiosk code scan, points)
+            </label>
+          </div>
+          <div id="ef-sq-fields">
+            <div class="form-row">
+              <label for="ef-sq-url">Side Quest server URL (https only)</label>
+              <input type="url" id="ef-sq-url" placeholder="https://" autocomplete="off" />
+            </div>
+            <div class="form-row">
+              <label for="ef-sq-key">Key</label>
+              <input type="password" id="ef-sq-key" autocomplete="new-password" />
+            </div>
           </div>
 
           <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center;">

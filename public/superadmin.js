@@ -808,7 +808,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const boothUrl = () => `${BOOTH_ORIGIN}/?event=${id}&key=${encodeURIComponent(event.kiosk_key)}`;
       const adminUrl = () => `${BOOTH_ORIGIN}/admin.html?event=${id}`;
       const slideshowUrl = () =>
-        `${BOOTH_ORIGIN}/preview/?event=${id}&token=${encodeURIComponent(event.slideshow_token)}`;
+        `${BOOTH_ORIGIN}/preview/index.html?event=${id}&token=${encodeURIComponent(event.slideshow_token)}`;
 
       // Static markup only — every user-supplied value is set via textContent below
       card.innerHTML = `
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.querySelector('.event-card-id').textContent = event.event_id;
       card.querySelector('.event-card-name').textContent = event.event_name || '—';
       card.querySelector('.event-card-meta').textContent =
-        `${templateCount} template${templateCount !== 1 ? 's' : ''} · ${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}${event.is_demo ? ' · demo' : ''}`;
+        `${templateCount} template${templateCount !== 1 ? 's' : ''} · ${shots} shots, ${w}×${h}${event.gif?.enabled ? ', GIF' : ''}${event.is_demo ? ' · demo' : ''}${event.sidequest?.enabled ? ' · Side Quest' : ''}`;
 
       card.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('.event-menu')) return;
@@ -895,6 +895,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         delete copy.event_id;
         delete copy.created_at;
         delete copy.updated_at;
+        // Never carry the Side Quest key (or its has_key flag) into a copy
+        if (copy.sidequest) copy.sidequest = { ...copy.sidequest, has_key: false };
         openEventForm(null, copy);
       });
       card.querySelector('.event-delete-btn').addEventListener('click', () => {
@@ -1371,6 +1373,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('ef-gif-interval-ms').value = src?.gif?.intervalMs ?? 150;
     document.getElementById('ef-gif-boomerang').checked = src?.gif?.boomerang ?? true;
 
+    // Side Quest: the key is write-only, so the field is never prefilled
+    document.getElementById('ef-sq-enabled').checked = !!src?.sidequest?.enabled;
+    document.getElementById('ef-sq-url').value = src?.sidequest?.server_url || '';
+    const sqKey = document.getElementById('ef-sq-key');
+    sqKey.value = '';
+    sqKey.placeholder = src?.sidequest?.has_key ? 'Key set, leave blank to keep' : '';
+
     // Render template cards; reset to cards mode
     templatesEditMode = 'cards';
     jsonToggleBtn.textContent = 'Edit as JSON';
@@ -1413,6 +1422,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       templates = parsed.map(({ name, preview, ...rest }) => rest);
     }
 
+    const sqEnabled = document.getElementById('ef-sq-enabled').checked;
+    const sqUrl = document.getElementById('ef-sq-url').value.trim();
+    const sqKeyValue = document.getElementById('ef-sq-key').value.trim();
+    if ((sqEnabled || sqUrl) && !/^https:\/\/[^\s/]+/i.test(sqUrl)) {
+      alert('Side Quest server URL must start with https://');
+      return;
+    }
+
     const eventData = {
       event_id: document.getElementById('ef-event-id').value.trim(),
       event_name: document.getElementById('ef-event-name').value.trim(),
@@ -1442,6 +1459,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         frames: parseInt(document.getElementById('ef-gif-frames').value, 10),
         intervalMs: parseInt(document.getElementById('ef-gif-interval-ms').value, 10),
         boomerang: document.getElementById('ef-gif-boomerang').checked,
+      },
+      sidequest: {
+        enabled: sqEnabled,
+        server_url: sqUrl,
+        // Blank key = keep the existing one (server contract)
+        ...(sqKeyValue ? { key: sqKeyValue } : {}),
       },
       templates,
     };

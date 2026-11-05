@@ -104,6 +104,9 @@ async function main() {
   const params = new URLSearchParams(window.location.search);
   const eventId = params.get('event');
   const slideshowToken = params.get('token');
+  // ?embed=1 (Side Quest main screen): dark, wallpaper-free, fills the frame
+  const embed = params.get('embed') === '1';
+  if (embed) document.documentElement.classList.add('embed');
 
   if (!eventId) {
     document.body.textContent =
@@ -118,7 +121,8 @@ async function main() {
 
   const serverUrl = await loadServerUrl();
   if (window._updateErrorReporterUrl) window._updateErrorReporterUrl(serverUrl);
-  await applyEventWallpaper(serverUrl, eventId);
+  // Embed has no wallpaper, so skip the extra request (keeps the first photo fast)
+  if (!embed) await applyEventWallpaper(serverUrl, eventId);
   const FADE_MS = 800;
   document.documentElement.style.setProperty('--fade', `${FADE_MS}ms`);
 

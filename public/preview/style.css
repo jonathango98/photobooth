@@ -70,3 +70,24 @@ html, body {
 .layer.visible {
   opacity: 1;
 }
+
+/* ?embed=1: no wallpaper, dark background, photos fill the frame */
+html.embed, html.embed body {
+  background: #000;
+  color: #f7f2d5;
+  font-family: sans-serif;
+}
+html.embed .bg {
+  display: none;
+}
+html.embed {
+  --gap: clamp(8px, 2vw, 24px);
+}
+html.embed .slot {
+  height: 100%;
+  max-width: 100%;
+  box-shadow: none;
+}
+html.embed .stage {
+  grid-template-rows: minmax(0, 1fr);
+}
