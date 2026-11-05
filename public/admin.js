@@ -43,6 +43,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   let nextCursor = 0;
   let totalPhotos = 0;
   let isLoadingPage = false;
+  // Side Quest events only: { enabled, require_screen_approval } from the photos response
+  let sidequest = null;
+  const sqControls = document.getElementById('sq-controls');
+  const sqWaitingFilter = document.getElementById('sq-waiting-filter');
+  const toastEl = document.getElementById('toast');
+  let toastTimer = null;
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.style.display = 'none';
+    }, 4000);
+  }
+
+  sqWaitingFilter.addEventListener('change', renderPhotos);
 
   const eventIdDisplay = document.getElementById('event-id-display');
   const urlEventId = new URLSearchParams(window.location.search).get('event');
@@ -216,6 +233,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const data = await response.json();
       const photos = data.photos || [];
+      sidequest = data.sidequest?.enabled ? data.sidequest : null;
+      sqControls.style.display = sidequest ? 'block' : 'none';
       totalPhotos = data.total ?? photos.length;
       nextCursor = data.nextCursor ?? null;
 
@@ -261,13 +280,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     return 'unknown';
   }
 
+  async function setScreenApproval(sessionId, items, box) {
+    const approved = box.checked;
+    const previous = !approved;
+    items.forEach((p) => (p.screen_approved = approved));
+    box.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/screen-approval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+        body: JSON.stringify({ eventId, sessionId, approved }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok === false) throw new Error('rejected');
+      // With the filter on, an approved session drops out of the waiting list
+      if (sqWaitingFilter.checked) renderPhotos();
+    } catch (err) {
+      console.error(err);
+      items.forEach((p) => (p.screen_approved = previous));
+      box.checked = previous;
+      showToast('Could not update the big screen. Try again.');
+    } finally {
+      box.disabled = false;
+    }
+  }
+
   function renderPhotos() {
     const sessions = {};
     sessionsList.className = `tab-${currentTab}`;
 
+    const showApproval = !!sidequest && currentTab === 'collages';
+    sqControls.style.display = showApproval ? 'block' : 'none';
+    const waitingOnly = showApproval && sqWaitingFilter.checked;
+
     const itemsToRender = currentTab === 'collages' ? photoData.collages : photoData.raws;
     itemsToRender.forEach((photo) => {
-      const sessionId = getSessionId(photo.id);
+      if (waitingOnly && photo.screen_approved) return;
+      const sessionId = (showApproval && photo.session_id) || getSessionId(photo.id);
       if (!sessions[sessionId]) sessions[sessionId] = [];
       sessions[sessionId].push(photo);
     });
@@ -299,6 +349,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       const h3 = document.createElement('h3');
       h3.textContent = `Session: ${sessionId} | ${date}`;
       sessionDiv.appendChild(h3);
+
+      if (showApproval) {
+        const label = document.createElement('label');
+        label.className = 'sq-toggle';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.className = 'sq-approve';
+        box.checked = items.some((p) => p.screen_approved);
+        box.addEventListener('change', () => setScreenApproval(sessionId, items, box));
+        label.append(box, document.createTextNode('On big screen'));
+        sessionDiv.appendChild(label);
+      }
 
       const grid = document.createElement('div');
       grid.className = 'photo-grid';

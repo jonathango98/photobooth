@@ -1,8 +1,21 @@
 [build]
   publish = "public"
 
+# Security headers.
+#
+# Netlify applies every matching [[headers]] rule and does NOT document how
+# the same header from two overlapping rules is merged (docs only say values
+# repeated inside ONE rule are concatenated:
+# https://docs.netlify.com/manage/routing/headers/). A catch-all "/*" rule
+# plus a "/preview/*" override would therefore risk two CSPs (the stricter
+# `frame-ancestors 'none'` wins) or X-Frame-Options: DENY still being sent.
+# So no rules overlap: the default set is listed per path below and
+# "/preview/*" is deliberately NOT covered by any of them.
+# A new top-level folder in public/ needs its own rule here.
+#
+# Default (all pages/assets, never framable): DENY + frame-ancestors 'none'.
 [[headers]]
-  for = "/*"
+  for = "/"
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
@@ -10,6 +23,70 @@
     Permissions-Policy = "camera=*, microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/:file"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=*, microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=*, microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=*, microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/templates/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=*, microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=*, microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'none'"
+
+# /preview/* (slideshow): framable by Side Quest only. Single CSP, no
+# X-Frame-Options (it cannot express an allowlist).
+# TODO: replace the placeholders with the real Side Quest production and
+# staging domains (space-separated origins, https only). Do NOT add
+# *.up.railway.app.
+[[headers]]
+  for = "/preview/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=*, microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'self' https://SIDEQUEST-PROD-DOMAIN https://SIDEQUEST-STAGING-DOMAIN"
 
 [[headers]]
   for = "/vendor/*"
