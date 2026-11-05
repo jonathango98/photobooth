@@ -98,6 +98,21 @@
 
         <!-- Offline upload queue depth indicator (shown only when > 0) -->
         <div id="queue-badge" class="queue-badge glass hidden" aria-live="polite"></div>
+
+        <!-- Side Quest: scan My Code before the first shot (Side Quest events only) -->
+        <div id="sq-scan" class="sq-scan" hidden>
+          <div class="sq-scan-title glass">Scan your Side Quest code</div>
+          <div class="sq-scan-frame" aria-hidden="true"></div>
+          <div class="sq-scan-panel">
+            <p id="sq-scan-msg" class="sq-scan-msg glass" aria-live="polite"></p>
+            <div class="sq-scan-actions">
+              <button id="sq-retry-btn" class="sq-btn sq-btn-secondary glass" hidden>
+                Try again
+              </button>
+              <button id="sq-skip-btn" class="sq-btn sq-btn-primary">Skip (no points)</button>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- Portrait-only prompt panel — fills the space below the camera band -->
       <div id="portrait-panel" class="portrait-panel">
@@ -165,6 +180,7 @@
             </div>
             <img id="qr-img" alt="QR code to download your photos" />
             <p id="upload-status"></p>
+            <p id="sq-points" class="sq-points" hidden></p>
           </div>
           <div class="result-actions">
             <button id="back-btn">Start over</button>
