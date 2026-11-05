@@ -808,7 +808,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const boothUrl = () => `${BOOTH_ORIGIN}/?event=${id}&key=${encodeURIComponent(event.kiosk_key)}`;
       const adminUrl = () => `${BOOTH_ORIGIN}/admin.html?event=${id}`;
       const slideshowUrl = () =>
-        `${BOOTH_ORIGIN}/preview/?event=${id}&token=${encodeURIComponent(event.slideshow_token)}`;
+        `${BOOTH_ORIGIN}/preview/index.html?event=${id}&token=${encodeURIComponent(event.slideshow_token)}`;
 
       // Static markup only — every user-supplied value is set via textContent below
       card.innerHTML = `

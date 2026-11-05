@@ -76,6 +76,10 @@
 
 # /preview/* (slideshow): framable by Side Quest only. Single CSP, no
 # X-Frame-Options (it cannot express an allowlist).
+# Verified on deploy preview: "/preview/" (trailing slash, no file) ALSO
+# matches "/:file" and gets X-Frame-Options: DENY, while
+# "/preview/index.html" gets only this rule. So the slideshow link must use
+# /preview/index.html (superadmin.js slideshowUrl).
 # TODO: replace the placeholders with the real Side Quest production and
 # staging domains (space-separated origins, https only). Do NOT add
 # *.up.railway.app.
