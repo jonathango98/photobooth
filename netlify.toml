@@ -80,9 +80,8 @@
 # matches "/:file" and gets X-Frame-Options: DENY, while
 # "/preview/index.html" gets only this rule. So the slideshow link must use
 # /preview/index.html (superadmin.js slideshowUrl).
-# TODO: replace the placeholders with the real Side Quest production and
-# staging domains (space-separated origins, https only). Do NOT add
-# *.up.railway.app.
+# Side Quest production and staging (Railway project nextgen27-sidequest).
+# Space-separated https origins. Do NOT add *.up.railway.app.
 [[headers]]
   for = "/preview/*"
   [headers.values]
@@ -90,7 +89,7 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=*, microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'self' https://SIDEQUEST-PROD-DOMAIN https://SIDEQUEST-STAGING-DOMAIN"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://photobooth-server-production.up.railway.app; media-src 'self' blob: https:; worker-src 'self'; frame-ancestors 'self' https://nextgen27-sidequest.up.railway.app https://nextgen27-sidequest-dev.up.railway.app"
 
 [[headers]]
   for = "/vendor/*"
