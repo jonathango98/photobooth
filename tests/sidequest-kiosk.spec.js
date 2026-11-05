@@ -119,6 +119,7 @@ test('flag off: tap goes straight to the countdown, no scan step', async ({ page
   await expect(page.locator('#upload-status')).toHaveText('Ready! Scan to view.');
   await expect(page.locator('#sq-points')).toBeHidden();
   expect(calls.start).toHaveLength(0);
+  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).not.toContain('name="sidequestTicket"');
 });
 
@@ -140,6 +141,7 @@ test('flag on: tap shows the scan step, Skip goes to the countdown', async ({ pa
   );
   await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
   expect(calls.start).toHaveLength(0);
+  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).not.toContain('name="sidequestTicket"');
 });
 
@@ -163,6 +165,7 @@ test('flag on: a scanned code gets a ticket, the save carries it, points show', 
     kioskKey: 'kiosk-key',
     code: 'SQ1.test-code',
   });
+  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).toContain('name="sidequestTicket"');
   expect(calls.save[0]).toContain('opaque-ticket');
 
@@ -187,6 +190,7 @@ test('flag on: a refusal offers Try again and Take photos anyway', async ({ page
   await page.click('#sq-skip-btn');
   await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
   expect(calls.start).toHaveLength(1);
+  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).not.toContain('name="sidequestTicket"');
 });
 
