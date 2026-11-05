@@ -1,8 +1,9 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
-// Side Quest scan step (K1). The event config's `sidequest` block turns it on;
-// without it the kiosk flow must stay exactly as before.
+// Side Quest passive scanning (K1). The event config's `sidequest` block turns
+// it on; without it the kiosk flow must stay exactly as before. Scanning is
+// optional: tap, gesture and shutter start the countdown just like any event.
 
 const FAKE_SERVER = 'http://fake-server.test';
 
@@ -74,8 +75,8 @@ async function setupMocks(page, { eventConfig, start, saveBody = { ok: true } })
   return calls;
 }
 
-// Dismiss the instructions and wait for the live camera, then tap to start
-async function tapStart(page) {
+// Load the booth and wait for the live camera with the instructions dismissed
+async function openBooth(page) {
   await page.goto('/?event=test-event&key=kiosk-key');
   await page.waitForFunction(
     () => document.querySelector('#instruction-overlay')?.classList.contains('visible'),
@@ -86,13 +87,24 @@ async function tapStart(page) {
     () => !document.querySelector('#press-hint')?.classList.contains('hidden'),
     { timeout: 12000 }
   );
-  await page.click('#idle-screen');
 }
 
-// Stands in for jsQR: reports `payload` as soon as the decoder runs
-async function fakeQrPayload(page, payload) {
+async function waitForCountdown(page) {
+  await page.waitForFunction(
+    () => document.querySelector('#countdown-overlay')?.classList.contains('show'),
+    { timeout: 3000 }
+  );
+}
+
+// Stands in for jsQR: reports whatever window.__qr holds (null: no code in view)
+async function fakeQr(page, payload = null) {
   await page.addInitScript((data) => {
-    window.jsQR = () => ({ data });
+    window.__qr = data;
+    window.__qrCalls = 0;
+    window.jsQR = () => {
+      window.__qrCalls++;
+      return window.__qr ? { data: window.__qr } : null;
+    };
   }, payload);
 }
 
@@ -106,156 +118,220 @@ function jsonReply(body) {
     });
 }
 
-test('flag off: tap goes straight to the countdown, no scan step', async ({ page }) => {
-  const calls = await setupMocks(page, { eventConfig: BASE_EVENT_CONFIG });
-  await tapStart(page);
+const SQ_EVENT = { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON };
+const HINT = 'Got a Side Quest code? Show it to the camera for points.';
+const SUCCESS = "You're in! Points after your photos.";
 
-  await page.waitForFunction(
-    () => document.querySelector('#countdown-overlay')?.classList.contains('show'),
-    { timeout: 3000 }
-  );
-  await expect(page.locator('#sq-scan')).toBeHidden();
+test('flag off: no scanning, no Side Quest UI, decoder never loaded', async ({ page }) => {
+  const jsqrRequests = [];
+  page.on('request', (r) => r.url().includes('jsQR') && jsqrRequests.push(r.url()));
+  const calls = await setupMocks(page, { eventConfig: BASE_EVENT_CONFIG });
+  await openBooth(page);
+
+  await expect(page.locator('#sq-hint')).toBeHidden();
+  await page.click('#idle-screen');
+  await waitForCountdown(page);
   await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
   await expect(page.locator('#upload-status')).toHaveText('Ready! Scan to view.');
+  await expect(page.locator('#sq-points')).toBeHidden();
+  await expect(page.locator('#sq-toast')).toBeHidden();
+  await expect(page.locator('#sq-badge')).toBeHidden();
+  expect(calls.start).toHaveLength(0);
+  expect(jsqrRequests).toHaveLength(0);
+  expect(await page.evaluate(() => typeof window.jsQR)).toBe('undefined');
+  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
+  expect(calls.save[0]).not.toContain('name="sidequestTicket"');
+});
+
+test('flag on: hint while scanning, tap goes straight to the countdown without a ticket', async ({
+  page,
+}) => {
+  await fakeQr(page);
+  const calls = await setupMocks(page, { eventConfig: SQ_EVENT });
+  await openBooth(page);
+
+  await expect(page.locator('#sq-hint')).toBeVisible();
+  await expect(page.locator('#sq-hint')).toHaveText(HINT);
+  await expect.poll(() => page.evaluate(() => window.__qrCalls)).toBeGreaterThan(1);
+  await expect(page.locator('#sq-scan')).toHaveCount(0);
+
+  await page.click('#idle-screen');
+  await waitForCountdown(page);
+  await expect(page.locator('#sq-hint')).toBeHidden();
+  // Decoding stops with the first countdown
+  const decodes = await page.evaluate(() => window.__qrCalls);
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => window.__qrCalls)).toBe(decodes);
+
+  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
   await expect(page.locator('#sq-points')).toBeHidden();
   expect(calls.start).toHaveLength(0);
   await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).not.toContain('name="sidequestTicket"');
 });
 
-test('flag on: tap shows the scan step, Skip goes to the countdown', async ({ page }) => {
-  const calls = await setupMocks(page, { eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON } });
-  await tapStart(page);
-
-  await expect(page.locator('#sq-scan')).toBeVisible();
-  await expect(page.locator('#sq-skip-btn')).toHaveText('Skip (no points)');
-  // No countdown until the guest scans or skips
-  await page.waitForTimeout(500);
-  await expect(page.locator('#countdown-overlay')).not.toHaveClass(/\bshow\b/);
-
-  await page.click('#sq-skip-btn');
-  await expect(page.locator('#sq-scan')).toBeHidden();
-  await page.waitForFunction(
-    () => document.querySelector('#countdown-overlay')?.classList.contains('show'),
-    { timeout: 3000 }
-  );
-  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
-  expect(calls.start).toHaveLength(0);
-  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
-  expect(calls.save[0]).not.toContain('name="sidequestTicket"');
-});
-
-test('flag on: a scanned code gets a ticket, the save carries it, points show', async ({
+test('flag on: a scanned code gets a ticket once, shows toast and badge, the save carries it', async ({
   page,
 }) => {
-  await fakeQrPayload(page, 'SQ1.test-code');
+  await fakeQr(page);
   const calls = await setupMocks(page, {
-    eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON },
+    eventConfig: SQ_EVENT,
     start: jsonReply({ ok: true, ticket: 'opaque-ticket', expires_in: 600 }),
     saveBody: { ok: true, sidequest: 'done' },
   });
-  await tapStart(page);
+  await openBooth(page);
 
-  await expect(page.locator('#sq-scan-msg')).toHaveText("You're in! Points after your photos.");
-  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
-  await expect(page.locator('#sq-points')).toHaveText('Points added');
-
+  await page.evaluate(() => (window.__qr = 'SQ1.test-code'));
+  await expect.poll(() => calls.start.length).toBe(1);
   expect(calls.start[0]).toEqual({
     eventId: 'test-event',
     kioskKey: 'kiosk-key',
     code: 'SQ1.test-code',
   });
+  await expect(page.locator('#sq-toast')).toHaveText(SUCCESS);
+  await expect(page.locator('#sq-badge')).toBeVisible();
+  await expect(page.locator('#sq-badge')).toHaveText('Side Quest points on');
+  await expect(page.locator('#sq-hint')).toBeHidden();
+  // The code stays in view, but a held ticket stops scanning: no second call
+  await page.waitForTimeout(800);
+  expect(calls.start).toHaveLength(1);
+
+  await page.click('#idle-screen');
+  await waitForCountdown(page);
+  await expect(page.locator('#sq-badge')).toBeVisible();
+  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
+  await expect(page.locator('#sq-points')).toHaveText('Points added');
   await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).toContain('name="sidequestTicket"');
   expect(calls.save[0]).toContain('opaque-ticket');
 
-  // Start over clears the ticket and the points line
+  // Start over clears the ticket, badge and points line, and scanning resumes
+  await page.evaluate(() => (window.__qr = null));
   await page.click('#back-btn');
   await expect(page.locator('#sq-points')).toBeHidden();
+  await expect(page.locator('#sq-badge')).toBeHidden();
+  await expect(page.locator('#sq-hint')).toBeVisible();
   expect(await page.evaluate(() => sqTicket)).toBeNull();
 });
 
-test('flag on: a refusal offers Try again and Take photos anyway', async ({ page }) => {
-  await fakeQrPayload(page, 'SQ1.old-code');
+test('flag on: a refusal shows a toast, is not retried, and photos still work', async ({
+  page,
+}) => {
+  await fakeQr(page, 'SQ1.old-code');
   const calls = await setupMocks(page, {
-    eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON },
+    eventConfig: SQ_EVENT,
     start: jsonReply({ ok: false, code: 'CODE_EXPIRED' }),
   });
-  await tapStart(page);
+  await openBooth(page);
 
-  await expect(page.locator('#sq-scan-msg')).toHaveText('That code expired. Show it again.');
-  await expect(page.locator('#sq-retry-btn')).toBeVisible();
-  await expect(page.locator('#sq-skip-btn')).toHaveText('Take photos anyway');
-
-  await page.click('#sq-skip-btn');
-  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
+  await expect.poll(() => calls.start.length).toBe(1);
+  await expect(page.locator('#sq-toast')).toHaveText('That code expired. Show it again.');
+  await expect(page.locator('#sq-badge')).toBeHidden();
+  await expect(page.locator('#sq-hint')).toBeVisible();
+  await expect(page.locator('#sq-toast')).toBeHidden({ timeout: 6000 });
   expect(calls.start).toHaveLength(1);
+
+  await page.click('#idle-screen');
+  await waitForCountdown(page);
+  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
   await expect.poll(() => calls.save.length).toBeGreaterThan(0);
   expect(calls.save[0]).not.toContain('name="sidequestTicket"');
 });
 
-test('flag on: BAD_KIOSK_KEY reads as offline and logs only the code', async ({ page }) => {
-  await fakeQrPayload(page, 'SQ1.secret-payload');
+test('flag on: other QR codes are ignored silently', async ({ page }) => {
+  await fakeQr(page, 'https://example.com/menu');
+  const calls = await setupMocks(page, { eventConfig: SQ_EVENT });
+  await openBooth(page);
+
+  await expect.poll(() => page.evaluate(() => window.__qrCalls)).toBeGreaterThan(3);
+  expect(calls.start).toHaveLength(0);
+  await expect(page.locator('#sq-toast')).toBeHidden();
+  await expect(page.locator('#sq-hint')).toBeVisible();
+});
+
+test('flag on: offline retries the same code after a cooldown; BAD_KIOSK_KEY logs only the code', async ({
+  page,
+}) => {
+  await fakeQr(page, 'SQ1.secret-payload');
   const warnings = [];
   page.on('console', (m) => m.type() === 'warning' && warnings.push(m.text()));
-  await setupMocks(page, {
-    eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON },
-    start: (route) =>
-      route.fulfill({
-        status: 401,
-        contentType: 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ ok: false, code: 'BAD_KIOSK_KEY' }),
-      }),
-  });
-  await tapStart(page);
+  let reply = (route) => route.abort();
+  const calls = await setupMocks(page, { eventConfig: SQ_EVENT, start: (route) => reply(route) });
+  await openBooth(page);
 
-  await expect(page.locator('#sq-scan-msg')).toHaveText(
+  await expect.poll(() => calls.start.length).toBe(1);
+  await expect(page.locator('#sq-toast')).toHaveText(
     'Points are offline. You can still take photos!'
   );
-  expect(warnings).toContain('sidequest start refused: BAD_KIOSK_KEY');
+  // Not hammered while the code stays in view
+  await page.waitForTimeout(1500);
+  expect(calls.start).toHaveLength(1);
+
+  reply = (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ ok: false, code: 'BAD_KIOSK_KEY' }),
+    });
+  await expect.poll(() => calls.start.length, { timeout: 8000 }).toBe(2);
+  await expect.poll(() => warnings).toContain('sidequest start refused: BAD_KIOSK_KEY');
+  await expect(page.locator('#sq-toast')).toHaveText(
+    'Points are offline. You can still take photos!'
+  );
   expect(warnings.join(' ')).not.toContain('secret-payload');
 });
 
-test('flag on: an unreachable Side Quest reads as offline; LIMIT_REACHED has no retry', async ({
-  page,
-}) => {
-  await fakeQrPayload(page, 'SQ1.any');
-  let reply = (route) => route.abort();
-  await setupMocks(page, {
-    eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON },
-    start: (route) => reply(route),
+test('flag on: a ticket that lands mid-countdown still rides with the upload', async ({ page }) => {
+  await fakeQr(page);
+  let release;
+  const held = new Promise((r) => (release = r));
+  const calls = await setupMocks(page, {
+    eventConfig: SQ_EVENT,
+    start: async (route) => {
+      await held;
+      return jsonReply({ ok: true, ticket: 'late-ticket', expires_in: 600 })(route);
+    },
   });
-  await tapStart(page);
+  await openBooth(page);
 
-  await expect(page.locator('#sq-scan-msg')).toHaveText(
-    'Points are offline. You can still take photos!'
-  );
-  await expect(page.locator('#sq-retry-btn')).toBeVisible();
+  await page.evaluate(() => (window.__qr = 'SQ1.slow'));
+  await expect.poll(() => calls.start.length).toBe(1);
+  await page.click('#idle-screen');
+  await waitForCountdown(page);
+  release();
 
-  reply = jsonReply({ ok: false, code: 'LIMIT_REACHED' });
-  await page.click('#sq-retry-btn');
-  await expect(page.locator('#sq-scan-msg')).toHaveText(
-    "That's all the photobooth points for today. You can still take photos!"
-  );
-  await expect(page.locator('#sq-retry-btn')).toBeHidden();
-  await expect(page.locator('#sq-skip-btn')).toHaveText('Take photos anyway');
+  await expect(page.locator('#sq-badge')).toBeVisible();
+  await expect(page.locator('#result-screen')).toHaveClass(/\bactive\b/, { timeout: 10000 });
+  await expect.poll(() => calls.save.length).toBeGreaterThan(0);
+  expect(calls.save[0]).toContain('late-ticket');
 });
 
-test('flag on: an idle scan step returns to the start screen', async ({ page }) => {
-  await setupMocks(page, { eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON } });
-  // Later routes win: a 1 s auto-reset for this test
-  await page.route('**/config.json', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ serverUrl: FAKE_SERVER, autoResetSeconds: 1 }),
-    })
-  );
-  await tapStart(page);
+test('flag on: reset abandons a start call in flight', async ({ page }) => {
+  await fakeQr(page);
+  let release;
+  const held = new Promise((r) => (release = r));
+  const calls = await setupMocks(page, {
+    eventConfig: SQ_EVENT,
+    start: async (route) => {
+      await held;
+      return jsonReply({ ok: true, ticket: 'stale-ticket', expires_in: 600 })(route).catch(
+        () => {}
+      );
+    },
+  });
+  await openBooth(page);
 
-  await expect(page.locator('#sq-scan')).toBeVisible();
-  await expect(page.locator('#sq-scan')).toBeHidden({ timeout: 4000 });
-  await expect(page.locator('#instruction-overlay')).toHaveClass(/\bvisible\b/);
-  await expect(page.locator('#countdown-overlay')).not.toHaveClass(/\bshow\b/);
+  await page.evaluate(() => (window.__qr = 'SQ1.slow'));
+  await expect.poll(() => calls.start.length).toBe(1);
+  // Start over's handler, the same one the result screen's auto-reset uses
+  await page.evaluate(() => {
+    window.__qr = null;
+    document.querySelector('#back-btn').click();
+  });
+  release();
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => sqTicket)).toBeNull();
+  await expect(page.locator('#sq-badge')).toBeHidden();
+  await expect(page.locator('#sq-hint')).toBeVisible();
 });
