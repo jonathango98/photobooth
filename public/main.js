@@ -1821,7 +1821,12 @@ async function requestSidequestTicket(code) {
     return;
   }
 
-  const reason = SQ_MESSAGES[result?.code] ? result.code : 'SIDEQUEST_OFFLINE';
+  let reason = SQ_MESSAGES[result?.code] ? result.code : 'SIDEQUEST_OFFLINE';
+  // Booth-server refusals that guests can't fix: show the offline message, log the code for ops
+  if (result?.code === 'BAD_KIOSK_KEY' || result?.code === 'NOT_ENABLED') {
+    console.warn(`sidequest start refused: ${result.code}`);
+    reason = 'SIDEQUEST_OFFLINE';
+  }
   // Scanning the same expired or foreign code again can't succeed
   if (reason === 'CODE_EXPIRED' || reason === 'NOT_A_CODE') sqIgnorePayload = code;
   showSidequestRefusal(reason);

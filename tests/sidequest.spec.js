@@ -190,6 +190,29 @@ test('flag on: a refusal offers Try again and Take photos anyway', async ({ page
   expect(calls.save[0]).not.toContain('name="sidequestTicket"');
 });
 
+test('flag on: BAD_KIOSK_KEY reads as offline and logs only the code', async ({ page }) => {
+  await fakeQrPayload(page, 'SQ1.secret-payload');
+  const warnings = [];
+  page.on('console', (m) => m.type() === 'warning' && warnings.push(m.text()));
+  await setupMocks(page, {
+    eventConfig: { ...BASE_EVENT_CONFIG, ...SIDEQUEST_ON },
+    start: (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ ok: false, code: 'BAD_KIOSK_KEY' }),
+      }),
+  });
+  await tapStart(page);
+
+  await expect(page.locator('#sq-scan-msg')).toHaveText(
+    'Points are offline. You can still take photos!'
+  );
+  expect(warnings).toContain('sidequest start refused: BAD_KIOSK_KEY');
+  expect(warnings.join(' ')).not.toContain('secret-payload');
+});
+
 test('flag on: an unreachable Side Quest reads as offline; LIMIT_REACHED has no retry', async ({
   page,
 }) => {
